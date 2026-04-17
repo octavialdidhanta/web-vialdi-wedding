@@ -139,32 +139,32 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Layanan Kami (gradient ungu) */}
-      <section className="text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+      {/* Layanan Kami */}
+      <section className="bg-secondary">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-2">
           <div>
-            <h2 className="text-3xl font-bold md:text-4xl">Layanan Kami:</h2>
-            <p className="mt-6 max-w-md text-base leading-relaxed text-primary-foreground/85">
+            <h2 className="text-3xl font-bold text-navy md:text-4xl">Layanan Kami</h2>
+            <div className="mt-3 h-1 w-16 rounded-full bg-accent-orange" />
+            <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
               vialdi.id hadir untuk membantu perusahaan Anda dalam memaksimalkan project
               management, akuisisi lead dan prospek dalam mendorong peningkatan penjualan Anda!
             </p>
           </div>
-          <ul className="space-y-4">
+          <ul className="space-y-3">
             {services.map((s) => (
               <li
                 key={s.tag}
-                className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3 backdrop-blur-sm"
+                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 shadow-sm"
               >
-                <span className="rounded-md bg-accent-orange px-3 py-1 text-sm font-semibold text-navy">
+                <span className="rounded-md bg-accent-orange/15 px-3 py-1 text-sm font-semibold text-accent-orange">
                   {s.tag}
                 </span>
-                <span className="text-sm font-medium">✓ Yes</span>
+                <span className="text-sm font-medium text-navy">✓ Yes</span>
               </li>
             ))}
           </ul>
         </div>
-        {/* Two columns inside same gradient */}
-        <div className="border-t border-white/10">
+        <div className="border-t border-border">
           <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-2">
             {[
               {
@@ -177,8 +177,8 @@ function HomePage() {
               },
             ].map((c) => (
               <div key={c.title} className="text-center">
-                <h3 className="text-xl font-bold">{c.title}</h3>
-                <p className="mt-4 text-sm leading-relaxed text-primary-foreground/85">{c.desc}</p>
+                <h3 className="text-xl font-bold text-navy">{c.title}</h3>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
               </div>
             ))}
           </div>
