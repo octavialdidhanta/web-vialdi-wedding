@@ -13,7 +13,7 @@ export function SectionTitle({
         {title}
       </h2>
       <div
-        className={`mt-4 h-3 w-full bg-[repeating-linear-gradient(135deg,var(--navy)_0_2px,transparent_2px_10px)] opacity-30 ${
+        className={`mt-3 h-1 w-16 rounded-full bg-accent-orange ${
           align === "center" ? "mx-auto" : ""
         }`}
       />
