@@ -12,6 +12,7 @@ import mobileapp from "@/assets/mobileapp.jpg";
 import newfemme from "@/assets/newfemme.jpg";
 import retail from "@/assets/retail.jpg";
 import founder from "@/assets/founder.jpg";
+import hero from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -114,27 +115,101 @@ function HomePage() {
       <Header />
 
       {/* Hero */}
-      <section className="border-b border-border/40 bg-background">
-        <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-          <div className="mb-8 h-1 w-16 rounded-full bg-accent-orange" />
-          <h1 className="max-w-4xl text-4xl font-bold leading-tight tracking-tight text-navy md:text-5xl lg:text-6xl">
-            Tingkatkan penjualan Anda dengan{" "}
-            <span className="text-primary">project management</span> kami yang baik, optimalisasi
-            prospek dan lead digital
-          </h1>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Link
-              to="/contact"
-              className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
-            >
-              Saya Ingin Konsultasi
-            </Link>
-            <Link
-              to="/service"
-              className="rounded-full border border-border bg-background px-8 py-3 text-sm font-semibold text-navy transition-colors hover:bg-secondary"
-            >
-              Lihat Layanan
-            </Link>
+      <section className="relative overflow-hidden border-b border-border/40 bg-background">
+        {/* Decorative background blobs */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full opacity-20 blur-3xl"
+          style={{ background: "var(--gradient-primary)" }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-accent-orange/15 blur-3xl"
+        />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 md:py-24 lg:grid-cols-[1.1fr_1fr]">
+          {/* Left: copy */}
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-accent-orange" />
+              Digital Growth Partner
+            </span>
+            <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-navy md:text-5xl lg:text-6xl">
+              Tingkatkan penjualan Anda dengan{" "}
+              <span className="relative inline-block">
+                <span className="relative z-10 text-accent-orange">project management</span>
+                <span className="absolute bottom-1 left-0 -z-0 h-3 w-full rounded-sm bg-accent-orange/20" />
+              </span>{" "}
+              yang baik & optimalisasi lead digital
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
+              Solusi end-to-end untuk akuisisi lead, aktivasi prospek, dan optimasi penjualan
+              digital — terbukti membantu puluhan brand bertumbuh.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                to="/contact"
+                className="rounded-full bg-navy px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:bg-accent-orange hover:shadow-lg"
+              >
+                Saya Ingin Konsultasi
+              </Link>
+              <Link
+                to="/service"
+                className="rounded-full border border-border bg-card px-8 py-3.5 text-sm font-semibold text-navy transition-colors hover:border-accent-orange hover:text-accent-orange"
+              >
+                Lihat Layanan →
+              </Link>
+            </div>
+            {/* Stats */}
+            <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-border pt-8">
+              {[
+                { value: "70%", label: "Peningkatan penjualan" },
+                { value: "10M+", label: "App installs" },
+                { value: "50+", label: "Brand partner" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div className="text-2xl font-bold text-navy md:text-3xl">{s.value}</div>
+                  <div className="mt-1 text-xs leading-tight text-muted-foreground">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: visual */}
+          <div className="relative">
+            <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
+              <img
+                src={hero}
+                alt="Tim digital marketing menganalisis dashboard"
+                width={1024}
+                height={1024}
+                className="aspect-square w-full object-cover"
+              />
+            </div>
+            {/* Floating card top-left */}
+            <div className="absolute -left-4 top-8 hidden rounded-2xl border border-border bg-card p-4 shadow-lg md:block">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-orange/15 text-lg">
+                  📈
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Lead Growth</div>
+                  <div className="text-sm font-bold text-navy">+248%</div>
+                </div>
+              </div>
+            </div>
+            {/* Floating card bottom-right */}
+            <div className="absolute -right-4 bottom-8 hidden rounded-2xl border border-border bg-card p-4 shadow-lg md:block">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-navy text-primary-foreground">
+                  ✓
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Conversion Rate</div>
+                  <div className="text-sm font-bold text-navy">Optimized</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
