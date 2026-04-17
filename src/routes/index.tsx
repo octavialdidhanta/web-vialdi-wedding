@@ -116,7 +116,7 @@ function HomePage() {
       {/* Hero */}
       <section className="border-b border-border/40 bg-background">
         <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-          <div className="mb-8 h-3 w-full bg-[repeating-linear-gradient(135deg,var(--navy)_0_2px,transparent_2px_10px)] opacity-30" />
+          <div className="mb-8 h-1 w-16 rounded-full bg-accent-orange" />
           <h1 className="max-w-4xl text-4xl font-bold leading-tight tracking-tight text-navy md:text-5xl lg:text-6xl">
             Tingkatkan penjualan Anda dengan{" "}
             <span className="text-primary">project management</span> kami yang baik, optimalisasi
