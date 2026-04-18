@@ -74,7 +74,7 @@ export async function sendAnalyticsBatch(
   const anon = getAnonKey();
   const body = JSON.stringify({ session_id, auth_user_id, events });
 
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,6 +84,14 @@ export async function sendAnalyticsBatch(
     body,
     keepalive: Boolean(options?.useBeacon),
   });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.warn(
+      `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
+      detail.slice(0, 200),
+    );
+  }
 }
 
 export function buildSessionTouchEvent(): IngestEvent {

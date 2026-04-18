@@ -137,6 +137,29 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
   };
 }
 
+/** yyyy-mm-dd untuk hari kalender saat ini di Asia/Jakarta (sama dengan bucket RPC). */
+export function jakartaTodayYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** `daysAgo` hari kalender sebelum hari ini di Jakarta (0 = hari ini). */
+export function jakartaDaysAgoYmd(daysAgo: number): string {
+  const today = jakartaTodayYmd();
+  const ref = new Date(`${today}T12:00:00+07:00`);
+  ref.setTime(ref.getTime() - daysAgo * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(ref);
+}
+
 /** Rentang inklusif [fromYmd, toYmd] diinterpretasikan sebagai hari kalender Asia/Jakarta. */
 export function jakartaDayRangeToIso(
   fromYmd: string,

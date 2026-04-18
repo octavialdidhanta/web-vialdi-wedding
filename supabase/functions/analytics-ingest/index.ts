@@ -53,11 +53,26 @@ function json(data: unknown, init: ResponseInit = {}) {
 function corsHeaders(origin: string | null): HeadersInit {
   const allowed = Deno.env.get("ALLOWED_ORIGINS") ?? "";
   const list = allowed.split(",").map((s) => s.trim()).filter(Boolean);
-  const allow = origin && list.length && list.includes(origin) ? origin : (list[0] ?? "*");
-  return {
-    "access-control-allow-origin": allow,
-    "access-control-allow-credentials": "true",
-  };
+  const o = origin?.trim() ?? "";
+
+  // Browsers reject ACAO "*" together with Access-Control-Allow-Credentials: true.
+  // Our client uses the anon Authorization header on a cross-origin request to Supabase.
+  if (list.length === 0) {
+    return { "access-control-allow-origin": "*" };
+  }
+
+  if (o && list.includes(o)) {
+    return {
+      "access-control-allow-origin": o,
+      "access-control-allow-credentials": "true",
+      Vary: "Origin",
+    };
+  }
+
+  // ALLOWED_ORIGINS is set but this Origin is not listed (typo, http vs https, www vs apex).
+  // Omit ACAO so the browser blocks; fix secrets to include exact origins, e.g.
+  // https://vialdi.id,https://www.vialdi.id,http://localhost:8080
+  return {};
 }
 
 function badRequest(message: string, origin: string | null) {

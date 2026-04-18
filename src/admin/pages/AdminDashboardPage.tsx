@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { format, subDays } from "date-fns";
 import {
   CartesianGrid,
   Legend,
@@ -16,6 +15,8 @@ import { adminFetchPosts } from "@/blog/supabaseBlog";
 import {
   adminFetchAnalyticsSummary,
   jakartaDayRangeToIso,
+  jakartaDaysAgoYmd,
+  jakartaTodayYmd,
   type AdminAnalyticsSummary,
 } from "@/admin/lib/analyticsAdmin";
 import { Button } from "@/share/ui/button";
@@ -63,8 +64,8 @@ function heatColor(avgMs: number, maxMs: number): string {
 }
 
 export function AdminDashboardPage() {
-  const defaultTo = format(new Date(), "yyyy-MM-dd");
-  const defaultFrom = format(subDays(new Date(), 6), "yyyy-MM-dd");
+  const defaultTo = jakartaTodayYmd();
+  const defaultFrom = jakartaDaysAgoYmd(6);
   const [fromYmd, setFromYmd] = useState(defaultFrom);
   const [toYmd, setToYmd] = useState(defaultTo);
 
