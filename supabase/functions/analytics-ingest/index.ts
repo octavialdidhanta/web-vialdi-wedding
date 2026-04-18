@@ -9,12 +9,25 @@ const MAX_PATH_LEN = 512;
 const MAX_LABEL_LEN = 200;
 const MAX_URL_LEN = 2000;
 const MAX_TRACK_KEY_LEN = 80;
+const MAX_LANDING_URL_LEN = 1000;
+const MAX_UTM_LEN = 200;
 
 type SessionTouch = {
   type: "session_touch";
   referrer?: string;
   ua_hash?: string;
   auth_user_id?: string | null;
+  landing_url?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  has_gclid?: boolean;
+  has_fbclid?: boolean;
+  has_msclkid?: boolean;
+  has_gbraid?: boolean;
+  has_wbraid?: boolean;
 };
 
 type PageView = { type: "page_view"; path: string };
@@ -137,6 +150,13 @@ function validPath(p: string): boolean {
   return true;
 }
 
+function clipText(raw: unknown, max: number): string {
+  if (typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (s.length === 0) return "";
+  return s.length <= max ? s : s.slice(0, max);
+}
+
 async function closeOpenPageViews(
   supabase: ReturnType<typeof createClient>,
   sessionId: string,
@@ -217,6 +237,17 @@ Deno.serve(async (req) => {
   let mergedRef: string | null = null;
   let mergedUa: string | null = null;
   let mergedAuth: string | null = body.auth_user_id && isUuid(body.auth_user_id) ? body.auth_user_id : null;
+  let mergedLanding = "";
+  let mergedUtmSource = "";
+  let mergedUtmMedium = "";
+  let mergedUtmCampaign = "";
+  let mergedUtmContent = "";
+  let mergedUtmTerm = "";
+  let mergedHasGclid = false;
+  let mergedHasFbclid = false;
+  let mergedHasMsclkid = false;
+  let mergedHasGbraid = false;
+  let mergedHasWbraid = false;
 
   for (const ev of body.events) {
     if (ev?.type === "session_touch") {
@@ -224,6 +255,23 @@ Deno.serve(async (req) => {
       if (st.referrer) mergedRef = st.referrer.slice(0, 500);
       if (st.ua_hash) mergedUa = st.ua_hash.slice(0, 64);
       if (st.auth_user_id && isUuid(st.auth_user_id)) mergedAuth = st.auth_user_id;
+      const lu = clipText(st.landing_url, MAX_LANDING_URL_LEN);
+      if (lu && !mergedLanding) mergedLanding = lu;
+      const us = clipText(st.utm_source, MAX_UTM_LEN);
+      if (us && !mergedUtmSource) mergedUtmSource = us;
+      const um = clipText(st.utm_medium, MAX_UTM_LEN);
+      if (um && !mergedUtmMedium) mergedUtmMedium = um;
+      const uc = clipText(st.utm_campaign, MAX_UTM_LEN);
+      if (uc && !mergedUtmCampaign) mergedUtmCampaign = uc;
+      const uco = clipText(st.utm_content, MAX_UTM_LEN);
+      if (uco && !mergedUtmContent) mergedUtmContent = uco;
+      const ut = clipText(st.utm_term, MAX_UTM_LEN);
+      if (ut && !mergedUtmTerm) mergedUtmTerm = ut;
+      mergedHasGclid = mergedHasGclid || Boolean(st.has_gclid);
+      mergedHasFbclid = mergedHasFbclid || Boolean(st.has_fbclid);
+      mergedHasMsclkid = mergedHasMsclkid || Boolean(st.has_msclkid);
+      mergedHasGbraid = mergedHasGbraid || Boolean(st.has_gbraid);
+      mergedHasWbraid = mergedHasWbraid || Boolean(st.has_wbraid);
     }
   }
 
@@ -233,6 +281,17 @@ Deno.serve(async (req) => {
     p_referrer: mergedRef ?? "",
     p_ua_hash: mergedUa ?? "",
     p_auth: mergedAuth,
+    p_landing_url: mergedLanding,
+    p_utm_source: mergedUtmSource,
+    p_utm_medium: mergedUtmMedium,
+    p_utm_campaign: mergedUtmCampaign,
+    p_utm_content: mergedUtmContent,
+    p_utm_term: mergedUtmTerm,
+    p_has_gclid: mergedHasGclid,
+    p_has_fbclid: mergedHasFbclid,
+    p_has_msclkid: mergedHasMsclkid,
+    p_has_gbraid: mergedHasGbraid,
+    p_has_wbraid: mergedHasWbraid,
   });
   if (touchErr) {
     console.error("analytics_session_touch", touchErr);

@@ -93,9 +93,6 @@ security invoker
 set search_path = public
 as $$
 declare
-  v_totals_impressions bigint;
-  v_totals_clicks bigint;
-  v_totals_sessions bigint;
   v_daily jsonb;
   v_top_paths jsonb;
   v_top_keys jsonb;
@@ -103,6 +100,8 @@ declare
   v_duration jsonb;
   v_heatmap jsonb;
   v_service jsonb;
+  v_totals_part jsonb;
+  v_summary jsonb;
 begin
   if not exists (select 1 from public.cms_admins c where c.user_id = auth.uid()) then
     raise exception 'not allowed' using errcode = '42501';
@@ -111,18 +110,6 @@ begin
   if p_to < p_from then
     raise exception 'invalid range' using errcode = '22023';
   end if;
-
-  select count(*)::bigint into v_totals_impressions
-  from public.analytics_page_views pv
-  where pv.started_at >= p_from and pv.started_at < p_to;
-
-  select count(*)::bigint into v_totals_clicks
-  from public.analytics_click_events ce
-  where ce.created_at >= p_from and ce.created_at < p_to;
-
-  select count(distinct pv.session_id)::bigint into v_totals_sessions
-  from public.analytics_page_views pv
-  where pv.started_at >= p_from and pv.started_at < p_to;
 
   select coalesce(
     jsonb_agg(to_jsonb(d) order by d.day),
@@ -175,19 +162,32 @@ begin
   select coalesce(jsonb_agg(to_jsonb(k)), '[]'::jsonb)
   into v_top_keys
   from (
+    with
+      impressions_total as (
+        select count(*)::bigint as n
+        from public.analytics_page_views
+        where started_at >= p_from and started_at < p_to
+      ),
+      key_counts as (
+        select
+          track_key,
+          count(*)::bigint as clicks
+        from public.analytics_click_events
+        where created_at >= p_from and created_at < p_to
+          and track_key is not null
+        group by track_key
+        order by count(*) desc
+        limit 5
+      )
     select
-      track_key,
-      count(*)::bigint as clicks,
+      kc.track_key,
+      kc.clicks,
       case
-        when v_totals_impressions > 0 then round((count(*)::numeric / v_totals_impressions::numeric), 6)
+        when it.n > 0 then round((kc.clicks::numeric / it.n::numeric), 6)
         else 0::numeric
       end as ctr
-    from public.analytics_click_events
-    where created_at >= p_from and created_at < p_to
-      and track_key is not null
-    group by track_key
-    order by clicks desc
-    limit 5
+    from key_counts kc
+    cross join impressions_total it
   ) k;
 
   select coalesce(jsonb_agg(to_jsonb(b)), '[]'::jsonb)
@@ -265,20 +265,45 @@ begin
     end
   ) into v_service;
 
-  return jsonb_build_object(
-    'totals', jsonb_build_object(
-      'impressions', v_totals_impressions,
-      'clicks', v_totals_clicks,
-      'unique_sessions', v_totals_sessions
-    ),
-    'daily', v_daily,
-    'top_paths', v_top_paths,
-    'top_track_keys', v_top_keys,
-    'top_blog', v_top_blog,
-    'duration_by_path', v_duration,
-    'heatmap', v_heatmap,
-    'service', v_service
+  v_totals_part := jsonb_build_object(
+    'impressions',
+    (select count(*)::bigint
+     from public.analytics_page_views pv_tot
+     where pv_tot.started_at >= p_from and pv_tot.started_at < p_to),
+    'clicks',
+    (select count(*)::bigint
+     from public.analytics_click_events ce_tot
+     where ce_tot.created_at >= p_from and ce_tot.created_at < p_to),
+    'unique_sessions',
+    (select count(distinct pv_tot2.session_id)::bigint
+     from public.analytics_page_views pv_tot2
+     where pv_tot2.started_at >= p_from and pv_tot2.started_at < p_to)
   );
+
+  execute $summ$
+    select jsonb_build_object(
+      'totals', $1::jsonb,
+      'daily', $2::jsonb,
+      'top_paths', $3::jsonb,
+      'top_track_keys', $4::jsonb,
+      'top_blog', $5::jsonb,
+      'duration_by_path', $6::jsonb,
+      'heatmap', $7::jsonb,
+      'service', $8::jsonb
+    )
+  $summ$
+  into v_summary
+  using
+    v_totals_part,
+    v_daily,
+    v_top_paths,
+    v_top_keys,
+    v_top_blog,
+    v_duration,
+    v_heatmap,
+    v_service;
+
+  return v_summary;
 end;
 $$;
 

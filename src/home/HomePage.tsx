@@ -1,8 +1,9 @@
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
-import { TimelineCarousel } from "@/home/TimelineCarousel";
+import { DeferUntilVisible } from "@/share/DeferUntilVisible";
 import { SectionTitle } from "@/home/SectionTitle";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
 import leadAcq from "@/home/assets/lead-acquisition.jpg";
@@ -16,6 +17,19 @@ import newfemme from "@/home/assets/newfemme.jpg";
 import retail from "@/home/assets/retail.jpg";
 import founder from "@/home/assets/founder.jpg";
 import hero from "@/home/assets/hero.jpg";
+
+const TimelineCarousel = lazy(() =>
+  import("@/home/TimelineCarousel").then((m) => ({ default: m.TimelineCarousel })),
+);
+
+function CarouselFallback() {
+  return (
+    <div
+      className="min-h-[22rem] rounded-2xl border border-border/60 bg-muted/20"
+      aria-hidden
+    />
+  );
+}
 
 const services = [
   { tag: "Lead Acquisition" },
@@ -164,6 +178,7 @@ export function HomePage() {
                 alt="Tim digital marketing menganalisis dashboard"
                 width={1024}
                 height={1024}
+                sizes="(max-width: 1024px) 100vw, min(560px, 46vw)"
                 fetchPriority="high"
                 decoding="async"
                 className="aspect-square w-full object-cover"
@@ -259,7 +274,11 @@ export function HomePage() {
             subtitle="Banyak perusahaan yang menemukan berbagai masalah dalam proses penjualannya, misalnya saja:"
           />
           <div className="mt-12">
-            <TimelineCarousel items={problems} />
+            <DeferUntilVisible>
+              <Suspense fallback={<CarouselFallback />}>
+                <TimelineCarousel items={problems} />
+              </Suspense>
+            </DeferUntilVisible>
           </div>
         </div>
       </section>
@@ -294,7 +313,11 @@ export function HomePage() {
         <div className="mx-auto max-w-[90rem] px-6 py-20">
           <SectionTitle title="Kami memiliki pengalaman dalam membantu berbagai industri" />
           <div className="mt-12">
-            <TimelineCarousel items={industries} />
+            <DeferUntilVisible>
+              <Suspense fallback={<CarouselFallback />}>
+                <TimelineCarousel items={industries} />
+              </Suspense>
+            </DeferUntilVisible>
           </div>
         </div>
       </section>

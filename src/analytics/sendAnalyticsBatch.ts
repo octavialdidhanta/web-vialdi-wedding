@@ -24,8 +24,109 @@ function sessionStorageKey(): string {
   return `${SESSION_KEY_PREFIX}_${getRequiredWebId()}`;
 }
 
+const LANDING_SNAPSHOT_PREFIX = "vialdi_analytics_landing_v1";
+
+function landingSnapshotKey(): string {
+  return `${LANDING_SNAPSHOT_PREFIX}_${getRequiredWebId()}`;
+}
+
+const MAX_LANDING_URL = 1000;
+const MAX_UTM_FIELD = 200;
+
+function clip(s: string, max: number): string {
+  if (s.length <= max) {
+    return s;
+  }
+  return s.slice(0, max);
+}
+
+/** Parsed once per browser tab (sessionStorage) so UTM survives SPA navigasi. */
+export type LandingAttributionSnapshot = {
+  landing_url?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  has_gclid?: boolean;
+  has_fbclid?: boolean;
+  has_msclkid?: boolean;
+  has_gbraid?: boolean;
+  has_wbraid?: boolean;
+};
+
+/** Panggil di mount layout publik agar UTM tidak hilang sebelum `startPage` (idle). */
+export function ensureLandingAttributionCaptured(): void {
+  readLandingAttributionOnce();
+}
+
+function readLandingAttributionOnce(): LandingAttributionSnapshot {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  const key = landingSnapshotKey();
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (raw) {
+      const o = JSON.parse(raw) as unknown;
+      if (o && typeof o === "object") {
+        return o as LandingAttributionSnapshot;
+      }
+    }
+  } catch {
+    // ignore corrupt snapshot
+  }
+
+  let snap: LandingAttributionSnapshot = {};
+  try {
+    const url = new URL(window.location.href);
+    const sp = url.searchParams;
+    const q = (name: string) => {
+      const v = sp.get(name);
+      return v != null && v.trim() !== "" ? clip(v.trim(), MAX_UTM_FIELD) : undefined;
+    };
+    const hasNonEmptyParam = (name: string) => {
+      const v = sp.get(name);
+      return v != null && v.trim() !== "";
+    };
+    snap = {
+      landing_url: clip(`${url.pathname}${url.search}`, MAX_LANDING_URL),
+      utm_source: q("utm_source"),
+      utm_medium: q("utm_medium"),
+      utm_campaign: q("utm_campaign"),
+      utm_content: q("utm_content"),
+      utm_term: q("utm_term"),
+      has_gclid: hasNonEmptyParam("gclid"),
+      has_fbclid: hasNonEmptyParam("fbclid"),
+      has_msclkid: hasNonEmptyParam("msclkid"),
+      has_gbraid: hasNonEmptyParam("gbraid"),
+      has_wbraid: hasNonEmptyParam("wbraid"),
+    };
+    sessionStorage.setItem(key, JSON.stringify(snap));
+  } catch {
+    snap = {};
+  }
+  return snap;
+}
+
 export type IngestEvent =
-  | { type: "session_touch"; referrer?: string; ua_hash?: string; auth_user_id?: string | null }
+  | {
+      type: "session_touch";
+      referrer?: string;
+      ua_hash?: string;
+      auth_user_id?: string | null;
+      landing_url?: string;
+      utm_source?: string;
+      utm_medium?: string;
+      utm_campaign?: string;
+      utm_content?: string;
+      utm_term?: string;
+      has_gclid?: boolean;
+      has_fbclid?: boolean;
+      has_msclkid?: boolean;
+      has_gbraid?: boolean;
+      has_wbraid?: boolean;
+    }
   | { type: "page_view"; path: string }
   | { type: "active_ping"; path: string; delta_ms: number }
   | { type: "page_end"; path: string }
@@ -49,6 +150,40 @@ function getAnonKey(): string {
   const k = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
   if (!k) throw new Error("VITE_SUPABASE_ANON_KEY");
   return k;
+}
+
+/**
+ * Menjadwalkan POST ingest agar tidak menggantung critical path Lighthouse:
+ * hindari `queueMicrotask` langsung dari idle callback (tetap tercatat sebagai rantai panjang).
+ */
+function scheduleDeferredIngest(run: () => void) {
+  if (typeof window === "undefined") {
+    queueMicrotask(run);
+    return;
+  }
+
+  const afterPaint = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof requestIdleCallback === "function") {
+          requestIdleCallback(
+            () => {
+              void run();
+            },
+            { timeout: 12_000 },
+          );
+        } else {
+          setTimeout(() => void run(), 400);
+        }
+      });
+    });
+  };
+
+  if (document.readyState === "complete") {
+    afterPaint();
+  } else {
+    window.addEventListener("load", afterPaint, { once: true });
+  }
 }
 
 export function getOrCreateSessionId(): string {
@@ -132,7 +267,7 @@ export async function sendAnalyticsBatch(
   };
 
   if (options?.deferNetwork) {
-    queueMicrotask(() => {
+    scheduleDeferredIngest(() => {
       void runFetch();
     });
     return;
@@ -143,9 +278,21 @@ export async function sendAnalyticsBatch(
 
 export function buildSessionTouchEvent(): IngestEvent {
   const referrer = typeof document !== "undefined" ? document.referrer || undefined : undefined;
+  const land = readLandingAttributionOnce();
   return {
     type: "session_touch",
     referrer: referrer?.slice(0, 500),
     ua_hash: simpleUaHash(),
+    landing_url: land.landing_url,
+    utm_source: land.utm_source,
+    utm_medium: land.utm_medium,
+    utm_campaign: land.utm_campaign,
+    utm_content: land.utm_content,
+    utm_term: land.utm_term,
+    has_gclid: land.has_gclid,
+    has_fbclid: land.has_fbclid,
+    has_msclkid: land.has_msclkid,
+    has_gbraid: land.has_gbraid,
+    has_wbraid: land.has_wbraid,
   };
 }

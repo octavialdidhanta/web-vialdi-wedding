@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import {
   buildSessionTouchEvent,
+  ensureLandingAttributionCaptured,
   getOrCreateSessionId,
   sendAnalyticsBatch,
   type IngestEvent,
@@ -102,6 +103,7 @@ export function AnalyticsProvider() {
     if (delta > 0 && delta < 120_000) {
       void sendAnalyticsBatch([{ type: "active_ping", path, delta_ms: delta }], {
         useBeacon: opts?.useBeacon,
+        deferNetwork: !opts?.useBeacon,
       });
     }
   }, []);
@@ -112,7 +114,10 @@ export function AnalyticsProvider() {
         return;
       }
       flushDuration(path, opts);
-      void sendAnalyticsBatch([{ type: "page_end", path }], { useBeacon: opts?.useBeacon });
+      void sendAnalyticsBatch([{ type: "page_end", path }], {
+        useBeacon: opts?.useBeacon,
+        deferNetwork: !opts?.useBeacon,
+      });
     },
     [flushDuration],
   );
@@ -140,6 +145,10 @@ export function AnalyticsProvider() {
   startPageRef.current = startPage;
 
   useLayoutEffect(() => {
+    if (typeof window !== "undefined" && !isAdminPath(readPathnameFromBrowser())) {
+      ensureLandingAttributionCaptured();
+    }
+
     const endPage = (path: string, opts?: { useBeacon?: boolean }) =>
       endPageRef.current(path, opts);
     const flushDuration = (path: string, opts?: { useBeacon?: boolean }) =>
@@ -353,7 +362,7 @@ export function AnalyticsProvider() {
         is_internal_link: isInternal,
       });
 
-      void sendAnalyticsBatch([evt]);
+      void sendAnalyticsBatch([evt], { deferNetwork: true });
     };
 
     document.addEventListener("click", onClick, true);

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAnalyticsDashboardRealtime } from "@/admin/hooks/useAnalyticsDashboardRealtime";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -318,6 +320,16 @@ function AnalyticsPanels({
 }) {
   const svc = analytics.service;
 
+  const acquisitionTotalSessions = useMemo(
+    () => analytics.acquisition_channels.reduce((acc, r) => acc + r.sessions, 0),
+    [analytics.acquisition_channels],
+  );
+
+  const acquisitionBarHeight = useMemo(() => {
+    const n = analytics.acquisition_channels.length;
+    return Math.max(100, Math.min(380, 20 * n + 48));
+  }, [analytics.acquisition_channels.length]);
+
   return (
     <div className="mt-6 space-y-10">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -372,154 +384,309 @@ function AnalyticsPanels({
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div>
-          <h3 className="text-sm font-semibold text-navy">Top 10 halaman</h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Sepuluh alamat yang paling sering dibuka di rentang tanggal di atas. Klik ikon{" "}
-            <Info className="inline size-3 align-text-bottom opacity-70" aria-hidden /> di judul kolom untuk
-            penjelasan singkat tiap angka.
-          </p>
-          <TooltipProvider delayDuration={200}>
+      <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+        <div className="min-w-0 space-y-8">
+          <div>
+            <h3 className="text-sm font-semibold text-navy">Top 10 halaman</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Sepuluh alamat yang paling sering dibuka di rentang tanggal di atas. Klik ikon{" "}
+              <Info className="inline size-3 align-text-bottom opacity-70" aria-hidden /> di judul kolom untuk
+              penjelasan singkat tiap angka.
+            </p>
+            <TooltipProvider delayDuration={200}>
+              <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <TableMetricHeader
+                        label="Path"
+                        help="Alamat halaman di situs Anda, contoh /contact atau /. Angka lain di baris ini merujuk ke alamat yang sama."
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="Impr."
+                        help={
+                          <>
+                            <strong>Impressions</strong> = berapa kali halaman ini tampil/dibuka. Satu orang bisa
+                            membuka halaman yang sama beberapa kali; tiap bukaan biasanya dihitung terpisah, jadi
+                            angka ini bisa lebih besar dari jumlah pengunjung.
+                          </>
+                        }
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="Sesi unik"
+                        help={
+                          <>
+                            Perkiraan <strong>berapa pengunjung berbeda</strong> (lewat ID sesi per peramban) yang
+                            pernah membuka halaman ini di rentang tanggal. Kalau orang yang sama membuka beberapa
+                            kali dalam sesi yang sama, tetap dihitung satu untuk kolom ini.
+                          </>
+                        }
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="Klik"
+                        help={
+                          <>
+                            Berapa kali ada <strong>klik</strong> (tombol, tautan, dll.) yang tercatat saat
+                            pengguna sedang berada di halaman dengan alamat ini. Ini jumlah klik, bukan persen.
+                          </>
+                        }
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="Median aktif"
+                        help={
+                          <>
+                            <strong>Median</strong> waktu aktif di layar: bayangkan semua kunjungan yang punya
+                            data durasi diurut dari terpendek ke terpanjang—median adalah nilai di tengah. Lebih
+                            “adil” daripada rata-rata kalau ada satu orang yang sangat lama di halaman. Hanya
+                            memakai kunjungan yang sama dengan kolom <strong>n</strong>. Ditampilkan dalam detik
+                            (dtk), dibulatkan.
+                          </>
+                        }
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="Rata-rata"
+                        help={
+                          <>
+                            <strong>Rata-rata</strong> waktu aktif dari kunjungan-kunjungan yang dipakai di kolom{" "}
+                            <strong>n</strong>. Kalau satu kunjungan sangat panjang, angka ini bisa jauh lebih besar
+                            dari median—bandingkan kedua kolom untuk melihat apakah ada “pencilan”.
+                          </>
+                        }
+                      />
+                      <TableMetricHeader
+                        className="whitespace-nowrap"
+                        label="n"
+                        help={
+                          <>
+                            Huruf <strong>n</strong> artinya <strong>berapa kunjungan</strong> yang dipakai untuk
+                            menghitung median dan rata-rata aktif. Hanya kunjungan yang sudah punya catatan durasi
+                            (misalnya tab ditutup atau waktu aktif sudah tercatat). Angkanya boleh lebih kecil dari
+                            Impr. kalau sebagian kunjungan belum sempat selesai terekam.
+                          </>
+                        }
+                      />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.top_paths.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                          —
+                        </td>
+                      </tr>
+                    ) : (
+                      analytics.top_paths.map((r) => (
+                        <tr key={r.path} className="border-t border-border/60">
+                          <td className="max-w-[160px] truncate px-3 py-2 font-mono text-[11px]">{r.path}</td>
+                          <td className="px-3 py-2 tabular-nums">{r.impressions}</td>
+                          <td className="px-3 py-2 tabular-nums">{r.unique_sessions}</td>
+                          <td className="px-3 py-2 tabular-nums">{r.path_clicks}</td>
+                          <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                            {r.median_active_ms != null ? formatMs(r.median_active_ms) : "—"}
+                          </td>
+                          <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                            {r.avg_active_ms != null ? formatMs(r.avg_active_ms) : "—"}
+                          </td>
+                          <td className="px-3 py-2 tabular-nums text-muted-foreground">{r.duration_n}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </TooltipProvider>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-navy">Top 5 track key (CTR global)</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              CTR = klik key / total impressions situs.
+            </p>
             <div className="mt-2 overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <TableMetricHeader
-                      label="Path"
-                      help="Alamat halaman di situs Anda, contoh /contact atau /. Angka lain di baris ini merujuk ke alamat yang sama."
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="Impr."
-                      help={
-                        <>
-                          <strong>Impressions</strong> = berapa kali halaman ini tampil/dibuka. Satu orang bisa
-                          membuka halaman yang sama beberapa kali; tiap bukaan biasanya dihitung terpisah, jadi
-                          angka ini bisa lebih besar dari jumlah pengunjung.
-                        </>
-                      }
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="Sesi unik"
-                      help={
-                        <>
-                          Perkiraan <strong>berapa pengunjung berbeda</strong> (lewat ID sesi per peramban) yang
-                          pernah membuka halaman ini di rentang tanggal. Kalau orang yang sama membuka beberapa
-                          kali dalam sesi yang sama, tetap dihitung satu untuk kolom ini.
-                        </>
-                      }
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="Klik"
-                      help={
-                        <>
-                          Berapa kali ada <strong>klik</strong> (tombol, tautan, dll.) yang tercatat saat
-                          pengguna sedang berada di halaman dengan alamat ini. Ini jumlah klik, bukan persen.
-                        </>
-                      }
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="Median aktif"
-                      help={
-                        <>
-                          <strong>Median</strong> waktu aktif di layar: bayangkan semua kunjungan yang punya
-                          data durasi diurut dari terpendek ke terpanjang—median adalah nilai di tengah. Lebih
-                          “adil” daripada rata-rata kalau ada satu orang yang sangat lama di halaman. Hanya
-                          memakai kunjungan yang sama dengan kolom <strong>n</strong>. Ditampilkan dalam detik
-                          (dtk), dibulatkan.
-                        </>
-                      }
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="Rata-rata"
-                      help={
-                        <>
-                          <strong>Rata-rata</strong> waktu aktif dari kunjungan-kunjungan yang dipakai di kolom{" "}
-                          <strong>n</strong>. Kalau satu kunjungan sangat panjang, angka ini bisa jauh lebih besar
-                          dari median—bandingkan kedua kolom untuk melihat apakah ada “pencilan”.
-                        </>
-                      }
-                    />
-                    <TableMetricHeader
-                      className="whitespace-nowrap"
-                      label="n"
-                      help={
-                        <>
-                          Huruf <strong>n</strong> artinya <strong>berapa kunjungan</strong> yang dipakai untuk
-                          menghitung median dan rata-rata aktif. Hanya kunjungan yang sudah punya catatan durasi
-                          (misalnya tab ditutup atau waktu aktif sudah tercatat). Angkanya boleh lebih kecil dari
-                          Impr. kalau sebagian kunjungan belum sempat selesai terekam.
-                        </>
-                      }
-                    />
+                    <th className="px-3 py-2 font-medium">Key</th>
+                    <th className="px-3 py-2 font-medium">Klik</th>
+                    <th className="px-3 py-2 font-medium">CTR</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {analytics.top_paths.length === 0 ? (
+                  {analytics.top_track_keys.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                      <td colSpan={3} className="px-3 py-4 text-muted-foreground">
                         —
                       </td>
                     </tr>
                   ) : (
-                    analytics.top_paths.map((r) => (
-                      <tr key={r.path} className="border-t border-border/60">
-                        <td className="max-w-[160px] truncate px-3 py-2 font-mono text-[11px]">{r.path}</td>
-                        <td className="px-3 py-2 tabular-nums">{r.impressions}</td>
-                        <td className="px-3 py-2 tabular-nums">{r.unique_sessions}</td>
-                        <td className="px-3 py-2 tabular-nums">{r.path_clicks}</td>
-                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">
-                          {r.median_active_ms != null ? formatMs(r.median_active_ms) : "—"}
-                        </td>
-                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">
-                          {r.avg_active_ms != null ? formatMs(r.avg_active_ms) : "—"}
-                        </td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">{r.duration_n}</td>
+                    analytics.top_track_keys.map((r) => (
+                      <tr key={r.track_key} className="border-t border-border/60">
+                        <td className="px-3 py-2 font-mono">{r.track_key}</td>
+                        <td className="px-3 py-2">{r.clicks}</td>
+                        <td className="px-3 py-2">{(Number(r.ctr) * 100).toFixed(2)}%</td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
-          </TooltipProvider>
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-navy">Top 5 track key (CTR global)</h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            CTR = klik key / total impressions situs.
-          </p>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Key</th>
-                  <th className="px-3 py-2 font-medium">Klik</th>
-                  <th className="px-3 py-2 font-medium">CTR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analytics.top_track_keys.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="px-3 py-4 text-muted-foreground">
-                      —
-                    </td>
-                  </tr>
+
+        <div className="min-w-0">
+          <div className="rounded-lg border border-border bg-card/40 p-4 md:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-navy">Traffic acquisition</h3>
+                <p className="mt-0.5 max-w-2xl text-[11px] text-muted-foreground">
+                  Perkiraan sumber sesi (satu label per sesi yang punya aktivitas di rentang ini). UTM dan
+                  parameter iklan dibaca saat kunjungan pertama di tab; referrer memakai halaman asal di browser.
+                  Bukan replika GA4: pencarian organik vs iklan Google tidak terpisah tanpa UTM atau click id.
+                </p>
+              </div>
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Bantuan</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 rounded-full text-muted-foreground transition-colors hover:text-navy focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                        aria-label="Penjelasan traffic acquisition"
+                      >
+                        <Info className="size-3.5" strokeWidth={2} aria-hidden />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="left"
+                      className="max-w-[min(22rem,calc(100vw-2rem))] text-left text-xs font-normal leading-relaxed text-balance"
+                    >
+                      <strong>Direct</strong>: tidak ada referrer dan tidak ada UTM/click id di URL landing.{" "}
+                      <strong>Organic search</strong>: referrer dari domain mesin pencari umum.{" "}
+                      <strong>Paid</strong>: hadirnya <code className="text-[10px]">gclid</code> /{" "}
+                      <code className="text-[10px]">fbclid</code> / <code className="text-[10px]">msclkid</code>{" "}
+                      atau nilai <code className="text-[10px]">utm_medium</code> yang mengindikasikan iklan.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+            </div>
+
+            <div className="mt-6 flex min-w-0 flex-col gap-8">
+              <div className="min-w-0">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Sesi per channel
+                </h4>
+                {analytics.acquisition_channels.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">Belum ada data sesi di rentang ini.</p>
                 ) : (
-                  analytics.top_track_keys.map((r) => (
-                    <tr key={r.track_key} className="border-t border-border/60">
-                      <td className="px-3 py-2 font-mono">{r.track_key}</td>
-                      <td className="px-3 py-2">{r.clicks}</td>
-                      <td className="px-3 py-2">{(Number(r.ctr) * 100).toFixed(2)}%</td>
-                    </tr>
-                  ))
+                  <>
+                    <div className="mt-2 w-full min-w-0" style={{ height: acquisitionBarHeight }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          layout="vertical"
+                          data={analytics.acquisition_channels}
+                          margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                          <YAxis
+                            type="category"
+                            dataKey="channel"
+                            width={118}
+                            tick={{ fontSize: 11 }}
+                            interval={0}
+                          />
+                          <RechartsTooltip />
+                          <Bar
+                            dataKey="sessions"
+                            name="Sesi"
+                            fill="#64748b"
+                            fillOpacity={0.9}
+                            radius={[0, 4, 4, 0]}
+                            maxBarSize={20}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-muted/50 text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 font-medium">Channel</th>
+                            <th className="px-3 py-2 font-medium">Sesi</th>
+                            <th className="px-3 py-2 font-medium">% dari total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analytics.acquisition_channels.map((r) => (
+                            <tr key={r.channel} className="border-t border-border/60">
+                              <td className="px-3 py-2 text-navy">{r.channel}</td>
+                              <td className="px-3 py-2 tabular-nums">{r.sessions}</td>
+                              <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                                {acquisitionTotalSessions > 0
+                                  ? `${((100 * r.sessions) / acquisitionTotalSessions).toFixed(1)}%`
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="min-w-0 border-t border-border/60 pt-8">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Top kampanye UTM
+                </h4>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Hanya baris dengan <code className="text-[10px]">utm_campaign</code> terisi; diurutkan jumlah
+                  sesi unik.
+                </p>
+                <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">utm_campaign</th>
+                        <th className="px-3 py-2 font-medium">utm_source</th>
+                        <th className="px-3 py-2 font-medium">utm_medium</th>
+                        <th className="px-3 py-2 font-medium">Sesi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.acquisition_top_campaigns.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                            —
+                          </td>
+                        </tr>
+                      ) : (
+                        analytics.acquisition_top_campaigns.map((r, i) => (
+                          <tr key={`${r.utm_campaign}-${r.utm_source}-${r.utm_medium}-${i}`} className="border-t border-border/60">
+                            <td className="max-w-[140px] truncate px-3 py-2 font-medium text-navy" title={r.utm_campaign}>
+                              {r.utm_campaign || "—"}
+                            </td>
+                            <td className="max-w-[100px] truncate px-3 py-2" title={r.utm_source}>
+                              {r.utm_source || "—"}
+                            </td>
+                            <td className="max-w-[100px] truncate px-3 py-2" title={r.utm_medium}>
+                              {r.utm_medium || "—"}
+                            </td>
+                            <td className="px-3 py-2 tabular-nums">{r.sessions}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

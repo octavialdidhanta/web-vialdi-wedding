@@ -48,6 +48,19 @@ export type AnalyticsServiceSlice = {
   conversion: number;
 };
 
+/** Sesi dengan aktivitas di rentang, dikelompokkan ke satu channel (heuristik server). */
+export type AnalyticsAcquisitionChannelRow = {
+  channel: string;
+  sessions: number;
+};
+
+export type AnalyticsAcquisitionCampaignRow = {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  sessions: number;
+};
+
 export type AdminAnalyticsSummary = {
   totals: AnalyticsTotals;
   daily: AnalyticsDailyRow[];
@@ -57,6 +70,8 @@ export type AdminAnalyticsSummary = {
   duration_by_path: AnalyticsDurationRow[];
   heatmap: AnalyticsHeatmapRow[];
   service: AnalyticsServiceSlice;
+  acquisition_channels: AnalyticsAcquisitionChannelRow[];
+  acquisition_top_campaigns: AnalyticsAcquisitionCampaignRow[];
 };
 
 function asNumber(v: unknown, fallback = 0): number {
@@ -163,6 +178,26 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
       contact_clicks_on_service: asNumber(svc.contact_clicks_on_service),
       conversion: asNumber(svc.conversion),
     },
+    acquisition_channels: Array.isArray(o.acquisition_channels)
+      ? (o.acquisition_channels as unknown[]).map((row) => {
+          const x = mapRow(row);
+          return {
+            channel: String(x.channel ?? ""),
+            sessions: asNumber(x.sessions),
+          };
+        })
+      : [],
+    acquisition_top_campaigns: Array.isArray(o.acquisition_top_campaigns)
+      ? (o.acquisition_top_campaigns as unknown[]).map((row) => {
+          const x = mapRow(row);
+          return {
+            utm_source: String(x.utm_source ?? ""),
+            utm_medium: String(x.utm_medium ?? ""),
+            utm_campaign: String(x.utm_campaign ?? ""),
+            sessions: asNumber(x.sessions),
+          };
+        })
+      : [],
   };
 }
 
