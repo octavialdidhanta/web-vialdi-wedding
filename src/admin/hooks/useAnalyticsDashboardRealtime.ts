@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
 
 const ANALYTICS_TABLES = [
@@ -20,12 +21,18 @@ export function useAnalyticsDashboardRealtime(enabled: boolean) {
       return;
     }
 
-    const channel = supabase.channel("cms-analytics-dashboard");
+    const webId = getRequiredWebId();
+    const channel = supabase.channel(`cms-analytics-dashboard-${webId}`);
 
     for (const table of ANALYTICS_TABLES) {
       channel.on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table },
+        {
+          event: "INSERT",
+          schema: "public",
+          table,
+          filter: `web_id=eq.${webId}`,
+        },
         () => {
           void queryClient.invalidateQueries({ queryKey: ["admin", "analytics"] });
         },

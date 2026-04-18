@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAnalyticsDashboardRealtime } from "@/admin/hooks/useAnalyticsDashboardRealtime";
@@ -8,10 +8,11 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { adminFetchPosts } from "@/blog/supabaseBlog";
 import {
   adminFetchAnalyticsSummary,
@@ -23,7 +24,9 @@ import {
 import { Button } from "@/share/ui/button";
 import { Input } from "@/share/ui/input";
 import { Label } from "@/share/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/share/ui/tooltip";
 import { cn } from "@/share/lib/utils";
+import { Info } from "lucide-react";
 
 const HEAT_BUCKETS = ["home", "service", "blog_index", "blog_post", "other"] as const;
 
@@ -43,8 +46,11 @@ function formatDayKey(day: unknown): string {
 }
 
 function formatMs(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) {
+  if (!Number.isFinite(ms) || ms < 0) {
     return "—";
+  }
+  if (ms === 0) {
+    return "0 dtk";
   }
   const s = Math.round(ms / 1000);
   if (s < 60) {
@@ -53,6 +59,42 @@ function formatMs(ms: number): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m} m ${r} dtk`;
+}
+
+/** Judul kolom tabel + ikon info (tooltip bahasa awam). */
+function TableMetricHeader({
+  label,
+  help,
+  className,
+}: {
+  label: string;
+  help: ReactNode;
+  className?: string;
+}) {
+  return (
+    <th className={cn("px-3 py-2 font-medium", className)}>
+      <div className="inline-flex max-w-full items-center gap-1">
+        <span>{label}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex shrink-0 rounded-full text-muted-foreground transition-colors hover:text-navy focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Penjelasan kolom ${label}`}
+            >
+              <Info className="size-3.5" strokeWidth={2} aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="max-w-[min(20rem,calc(100vw-2rem))] text-left text-xs font-normal leading-relaxed text-balance"
+          >
+            {help}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </th>
+  );
 }
 
 function heatColor(avgMs: number, maxMs: number): string {
@@ -71,6 +113,7 @@ export function AdminDashboardPage() {
   const [toYmd, setToYmd] = useState(defaultTo);
 
   const rangeIso = useMemo(() => jakartaDayRangeToIso(fromYmd, toYmd), [fromYmd, toYmd]);
+  const webId = useMemo(() => getRequiredWebId(), []);
 
   useAnalyticsDashboardRealtime(true);
 
@@ -88,7 +131,7 @@ export function AdminDashboardPage() {
     isLoading: analyticsLoading,
     error: analyticsError,
   } = useQuery({
-    queryKey: ["admin", "analytics", rangeIso.p_from, rangeIso.p_to],
+    queryKey: ["admin", "analytics", webId, rangeIso.p_from, rangeIso.p_to],
     queryFn: () => adminFetchAnalyticsSummary(rangeIso.p_from, rangeIso.p_to),
     staleTime: 0,
     refetchInterval: 20_000,
@@ -274,6 +317,7 @@ function AnalyticsPanels({
   heatMax: number;
 }) {
   const svc = analytics.service;
+
   return (
     <div className="mt-6 space-y-10">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -302,7 +346,7 @@ function AnalyticsPanels({
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="dayLabel" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip />
+                <RechartsTooltip />
                 <Legend />
                 <Line
                   type="monotone"
@@ -330,35 +374,119 @@ function AnalyticsPanels({
 
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
-          <h3 className="text-sm font-semibold text-navy">Top 10 halaman (impressions)</h3>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Path</th>
-                  <th className="px-3 py-2 font-medium">Impressions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analytics.top_paths.length === 0 ? (
+          <h3 className="text-sm font-semibold text-navy">Top 10 halaman</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Sepuluh alamat yang paling sering dibuka di rentang tanggal di atas. Klik ikon{" "}
+            <Info className="inline size-3 align-text-bottom opacity-70" aria-hidden /> di judul kolom untuk
+            penjelasan singkat tiap angka.
+          </p>
+          <TooltipProvider delayDuration={200}>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <td colSpan={2} className="px-3 py-4 text-muted-foreground">
-                      —
-                    </td>
+                    <TableMetricHeader
+                      label="Path"
+                      help="Alamat halaman di situs Anda, contoh /contact atau /. Angka lain di baris ini merujuk ke alamat yang sama."
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="Impr."
+                      help={
+                        <>
+                          <strong>Impressions</strong> = berapa kali halaman ini tampil/dibuka. Satu orang bisa
+                          membuka halaman yang sama beberapa kali; tiap bukaan biasanya dihitung terpisah, jadi
+                          angka ini bisa lebih besar dari jumlah pengunjung.
+                        </>
+                      }
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="Sesi unik"
+                      help={
+                        <>
+                          Perkiraan <strong>berapa pengunjung berbeda</strong> (lewat ID sesi per peramban) yang
+                          pernah membuka halaman ini di rentang tanggal. Kalau orang yang sama membuka beberapa
+                          kali dalam sesi yang sama, tetap dihitung satu untuk kolom ini.
+                        </>
+                      }
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="Klik"
+                      help={
+                        <>
+                          Berapa kali ada <strong>klik</strong> (tombol, tautan, dll.) yang tercatat saat
+                          pengguna sedang berada di halaman dengan alamat ini. Ini jumlah klik, bukan persen.
+                        </>
+                      }
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="Median aktif"
+                      help={
+                        <>
+                          <strong>Median</strong> waktu aktif di layar: bayangkan semua kunjungan yang punya
+                          data durasi diurut dari terpendek ke terpanjang—median adalah nilai di tengah. Lebih
+                          “adil” daripada rata-rata kalau ada satu orang yang sangat lama di halaman. Hanya
+                          memakai kunjungan yang sama dengan kolom <strong>n</strong>. Ditampilkan dalam detik
+                          (dtk), dibulatkan.
+                        </>
+                      }
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="Rata-rata"
+                      help={
+                        <>
+                          <strong>Rata-rata</strong> waktu aktif dari kunjungan-kunjungan yang dipakai di kolom{" "}
+                          <strong>n</strong>. Kalau satu kunjungan sangat panjang, angka ini bisa jauh lebih besar
+                          dari median—bandingkan kedua kolom untuk melihat apakah ada “pencilan”.
+                        </>
+                      }
+                    />
+                    <TableMetricHeader
+                      className="whitespace-nowrap"
+                      label="n"
+                      help={
+                        <>
+                          Huruf <strong>n</strong> artinya <strong>berapa kunjungan</strong> yang dipakai untuk
+                          menghitung median dan rata-rata aktif. Hanya kunjungan yang sudah punya catatan durasi
+                          (misalnya tab ditutup atau waktu aktif sudah tercatat). Angkanya boleh lebih kecil dari
+                          Impr. kalau sebagian kunjungan belum sempat selesai terekam.
+                        </>
+                      }
+                    />
                   </tr>
-                ) : (
-                  analytics.top_paths.map((r) => (
-                    <tr key={r.path} className="border-t border-border/60">
-                      <td className="max-w-[200px] truncate px-3 py-2 font-mono text-[11px]">
-                        {r.path}
+                </thead>
+                <tbody>
+                  {analytics.top_paths.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                        —
                       </td>
-                      <td className="px-3 py-2">{r.impressions}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    analytics.top_paths.map((r) => (
+                      <tr key={r.path} className="border-t border-border/60">
+                        <td className="max-w-[160px] truncate px-3 py-2 font-mono text-[11px]">{r.path}</td>
+                        <td className="px-3 py-2 tabular-nums">{r.impressions}</td>
+                        <td className="px-3 py-2 tabular-nums">{r.unique_sessions}</td>
+                        <td className="px-3 py-2 tabular-nums">{r.path_clicks}</td>
+                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                          {r.median_active_ms != null ? formatMs(r.median_active_ms) : "—"}
+                        </td>
+                        <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                          {r.avg_active_ms != null ? formatMs(r.avg_active_ms) : "—"}
+                        </td>
+                        <td className="px-3 py-2 tabular-nums text-muted-foreground">{r.duration_n}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TooltipProvider>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-navy">Top 5 track key (CTR global)</h3>
@@ -451,38 +579,6 @@ function AnalyticsPanels({
               </dd>
             </div>
           </dl>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-navy">Rata-rata durasi aktif per path</h3>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Path</th>
-                <th className="px-3 py-2 font-medium">Rata-rata</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.duration_by_path.length === 0 ? (
-                <tr>
-                  <td colSpan={2} className="px-3 py-4 text-muted-foreground">
-                    —
-                  </td>
-                </tr>
-              ) : (
-                analytics.duration_by_path.map((r) => (
-                  <tr key={r.path} className="border-t border-border/60">
-                    <td className="max-w-[240px] truncate px-3 py-2 font-mono text-[11px]">
-                      {r.path}
-                    </td>
-                    <td className="px-3 py-2">{formatMs(r.avg_ms)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 

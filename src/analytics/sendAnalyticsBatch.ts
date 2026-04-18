@@ -1,6 +1,30 @@
 import { supabase } from "@/share/supabaseClient";
 
-const SESSION_STORAGE_KEY = "vialdi_analytics_session_v1";
+const SESSION_KEY_PREFIX = "vialdi_analytics_session_v1";
+
+/** Nilai yang sama dengan CHECK di DB + validasi Edge. */
+const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+export type AnalyticsWebId = (typeof ALLOWED_WEB_IDS)[number];
+
+/**
+ * Mapping konseptual (domain dipilih di deploy / Vercel env, bukan di runtime):
+ * - vialdi → vialdi.id
+ * - vialdi-wedding → jasafotowedding.com
+ * - synckerja → synckerja.com
+ */
+export function getRequiredWebId(): AnalyticsWebId {
+  const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
+  if (!raw || !(ALLOWED_WEB_IDS as readonly string[]).includes(raw)) {
+    throw new Error(
+      `VITE_WEB_ID harus diset ke salah satu: ${ALLOWED_WEB_IDS.join(", ")}`,
+    );
+  }
+  return raw as AnalyticsWebId;
+}
+
+function sessionStorageKey(): string {
+  return `${SESSION_KEY_PREFIX}_${getRequiredWebId()}`;
+}
 
 export type IngestEvent =
   | { type: "session_touch"; referrer?: string; ua_hash?: string; auth_user_id?: string | null }
@@ -30,13 +54,14 @@ function getAnonKey(): string {
 }
 
 export function getOrCreateSessionId(): string {
+  const key = sessionStorageKey();
   try {
-    const existing = localStorage.getItem(SESSION_STORAGE_KEY);
+    const existing = localStorage.getItem(key);
     if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
       return existing;
     }
     const id = crypto.randomUUID();
-    localStorage.setItem(SESSION_STORAGE_KEY, id);
+    localStorage.setItem(key, id);
     return id;
   } catch {
     return crypto.randomUUID();
@@ -69,10 +94,11 @@ export async function sendAnalyticsBatch(
     return;
   }
   const session_id = getOrCreateSessionId();
+  const web_id = getRequiredWebId();
   const auth_user_id = options?.authUserId ?? (await getOptionalAuthUserId());
   const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
   const anon = getAnonKey();
-  const body = JSON.stringify({ session_id, auth_user_id, events });
+  const body = JSON.stringify({ session_id, web_id, auth_user_id, events });
 
   const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
 

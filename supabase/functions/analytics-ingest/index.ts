@@ -34,9 +34,21 @@ type IngestEvent = SessionTouch | PageView | ActivePing | PageEnd | Click;
 
 type Body = {
   session_id: string;
+  /** Harus salah satu: vialdi | vialdi-wedding | synckerja (sama dengan CHECK di DB). */
+  web_id: string;
   auth_user_id?: string | null;
   events: IngestEvent[];
 };
+
+const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+
+function normalizeWebId(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (s.length === 0 || s.length > 32) return null;
+  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(s)) return null;
+  return s;
+}
 
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
@@ -128,11 +140,13 @@ function validPath(p: string): boolean {
 async function closeOpenPageViews(
   supabase: ReturnType<typeof createClient>,
   sessionId: string,
+  webId: string,
 ) {
   await supabase
     .from("analytics_page_views")
     .update({ ended_at: new Date().toISOString() })
     .eq("session_id", sessionId)
+    .eq("web_id", webId)
     .is("ended_at", null);
 }
 
@@ -141,12 +155,14 @@ async function applyActivePing(
   sessionId: string,
   path: string,
   delta: number,
+  webId: string,
 ) {
   if (delta <= 0 || delta > 120_000) return;
   const { data: row } = await supabase
     .from("analytics_page_views")
     .select("id, active_ms, path")
     .eq("session_id", sessionId)
+    .eq("web_id", webId)
     .is("ended_at", null)
     .order("started_at", { ascending: false })
     .limit(1)
@@ -185,6 +201,11 @@ Deno.serve(async (req) => {
     return badRequest("Invalid session_id", origin);
   }
 
+  const webId = normalizeWebId(body.web_id);
+  if (!webId) {
+    return badRequest("Invalid or missing web_id", origin);
+  }
+
   if (!Array.isArray(body.events) || body.events.length === 0 || body.events.length > MAX_EVENTS) {
     return badRequest("Invalid events", origin);
   }
@@ -208,6 +229,7 @@ Deno.serve(async (req) => {
 
   const { error: touchErr } = await supabase.rpc("analytics_session_touch", {
     p_session: body.session_id,
+    p_web_id: webId,
     p_referrer: mergedRef ?? "",
     p_ua_hash: mergedUa ?? "",
     p_auth: mergedAuth,
@@ -227,9 +249,10 @@ Deno.serve(async (req) => {
         break;
       case "page_view": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
-        await closeOpenPageViews(supabase, body.session_id);
+        await closeOpenPageViews(supabase, body.session_id, webId);
         const { error } = await supabase.from("analytics_page_views").insert({
           session_id: body.session_id,
+          web_id: webId,
           path: ev.path,
           started_at: new Date().toISOString(),
           active_ms: 0,
@@ -240,7 +263,7 @@ Deno.serve(async (req) => {
       case "active_ping": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
         const d = Math.floor(Number(ev.delta_ms));
-        await applyActivePing(supabase, body.session_id, ev.path, d);
+        await applyActivePing(supabase, body.session_id, ev.path, d, webId);
         break;
       }
       case "page_end": {
@@ -249,6 +272,7 @@ Deno.serve(async (req) => {
           .from("analytics_page_views")
           .select("id")
           .eq("session_id", body.session_id)
+          .eq("web_id", webId)
           .eq("path", ev.path)
           .is("ended_at", null)
           .order("started_at", { ascending: false })
@@ -270,6 +294,7 @@ Deno.serve(async (req) => {
         const tu = ev.target_url ? String(ev.target_url).slice(0, MAX_URL_LEN) : null;
         const { error } = await supabase.from("analytics_click_events").insert({
           session_id: body.session_id,
+          web_id: webId,
           path: ev.path,
           track_key: tk,
           element_type: et,

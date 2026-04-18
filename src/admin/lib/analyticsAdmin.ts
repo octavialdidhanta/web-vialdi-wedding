@@ -1,3 +1,4 @@
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
 
 export type AnalyticsTotals = {
@@ -12,7 +13,20 @@ export type AnalyticsDailyRow = {
   clicks: number;
 };
 
-export type AnalyticsPathRow = { path: string; impressions: number };
+export type AnalyticsPathRow = {
+  path: string;
+  impressions: number;
+  /** Distinct session_id pada page_views path ini (rentang started_at). */
+  unique_sessions: number;
+  /** Jumlah analytics_click_events dengan path yang sama (rentang created_at). */
+  path_clicks: number;
+  /** Median active_ms; hanya bermakna jika duration_n > 0 (filter sama duration_by_path). */
+  median_active_ms: number | null;
+  /** Rata-rata active_ms pada subset yang sama dengan median. */
+  avg_active_ms: number | null;
+  /** Jumlah baris page_views yang masuk agregat durasi (ended_at not null OR active_ms > 0). */
+  duration_n: number;
+};
 export type AnalyticsTrackKeyRow = { track_key: string; clicks: number; ctr: number };
 export type AnalyticsBlogRow = {
   path: string;
@@ -89,7 +103,22 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
     top_paths: Array.isArray(o.top_paths)
       ? (o.top_paths as unknown[]).map((row) => {
           const x = mapRow(row);
-          return { path: String(x.path ?? ""), impressions: asNumber(x.impressions) };
+          const durationN = asNumber(x.duration_n);
+          const medianRaw = x.median_active_ms;
+          const avgRaw = x.avg_active_ms;
+          return {
+            path: String(x.path ?? ""),
+            impressions: asNumber(x.impressions),
+            unique_sessions: asNumber(x.unique_sessions),
+            path_clicks: asNumber(x.path_clicks),
+            median_active_ms:
+              durationN > 0 && medianRaw != null && medianRaw !== ""
+                ? asNumber(medianRaw)
+                : null,
+            avg_active_ms:
+              durationN > 0 && avgRaw != null && avgRaw !== "" ? asNumber(avgRaw) : null,
+            duration_n: durationN,
+          };
         })
       : [],
     top_track_keys: Array.isArray(o.top_track_keys)
@@ -174,9 +203,11 @@ export async function adminFetchAnalyticsSummary(
   p_from: string,
   p_to: string,
 ): Promise<AdminAnalyticsSummary> {
+  const p_web_id = getRequiredWebId();
   const { data, error } = await supabase.rpc("admin_analytics_summary", {
     p_from,
     p_to,
+    p_web_id,
   });
   if (error) {
     throw error;
