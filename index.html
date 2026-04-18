@@ -1,20 +1,43 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Google Tag Manager -->
+    <meta
+      name="description"
+      content="vialdi.id — Digital Growth Partner: akuisisi lead, aktivasi prospek, digital presence, dan optimasi penjualan untuk bisnis Anda."
+    />
+    <meta property="og:title" content="vialdi.id — Digital Growth Partner" />
+    <meta
+      property="og:description"
+      content="Solusi end-to-end untuk akuisisi lead, aktivasi prospek, dan optimasi penjualan digital."
+    />
+    <meta property="og:type" content="website" />
+    <!-- Google Tag Manager: dimuat setelah idle agar tidak memblokir LCP/FCP (dataLayer tetap tersedia) -->
     <script>
-      (function (w, d, s, l, i) {
-        w[l] = w[l] || [];
-        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-        var f = d.getElementsByTagName(s)[0],
-          j = d.createElement(s),
-          dl = l != "dataLayer" ? "&l=" + l : "";
-        j.async = true;
-        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
-        f.parentNode.insertBefore(j, f);
-      })(window, document, "script", "dataLayer", "GTM-NPJBZX8");
+      window.dataLayer = window.dataLayer || [];
+      function loadGtm() {
+        (function (w, d, s, l, i) {
+          w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+          var f = d.getElementsByTagName(s)[0],
+            j = d.createElement(s),
+            dl = l != "dataLayer" ? "&l=" + l : "";
+          j.async = true;
+          j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+          f.parentNode.insertBefore(j, f);
+        })(window, document, "script", "dataLayer", "GTM-NPJBZX8");
+      }
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(loadGtm, { timeout: 3500 });
+      } else {
+        window.addEventListener(
+          "load",
+          function () {
+            setTimeout(loadGtm, 0);
+          },
+          { once: true },
+        );
+      }
     </script>
     <!-- End Google Tag Manager -->
     <title>vialdi.id</title>
@@ -31,8 +54,9 @@
       ></iframe>
     </noscript>
     <!-- End Google Tag Manager (noscript) -->
-    <div id="root"></div>
+    <main id="main-content">
+      <div id="root"></div>
+    </main>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

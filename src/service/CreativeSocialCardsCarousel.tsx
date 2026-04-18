@@ -35,10 +35,23 @@ export function CreativeSocialCardsCarousel({ items }: Props) {
     if (!api) {
       return;
     }
-    const onSelect = () => setSelected(api.selectedScrollSnap());
-    onSelect();
+    let cancelled = false;
+    const onSelect = () => {
+      requestAnimationFrame(() => {
+        if (!cancelled) {
+          setSelected(api.selectedScrollSnap());
+        }
+      });
+    };
+    const id = requestAnimationFrame(() => {
+      if (!cancelled) {
+        setSelected(api.selectedScrollSnap());
+      }
+    });
     api.on("select", onSelect);
     return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
       api.off("select", onSelect);
     };
   }, [api]);

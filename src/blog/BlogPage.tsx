@@ -10,6 +10,7 @@ import { useBlogMeta } from "@/blog/useBlogMeta";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
 import { Input } from "@/share/ui/input";
+import { Skeleton } from "@/share/ui/skeleton";
 import { cn } from "@/share/lib/utils";
 
 export function BlogPage() {
@@ -152,12 +153,28 @@ export function BlogPage() {
 
       <section className="bg-secondary/25">
         <div className="mx-auto max-w-[90rem] space-y-8 px-6 py-8 md:space-y-10 md:py-10">
-          {featured &&
-          (!activeTag || featured.tags.includes(activeTag)) &&
-          (!query.trim() ||
-            `${featured.title} ${featured.excerpt}`
-              .toLowerCase()
-              .includes(query.trim().toLowerCase())) ? (
+          {isLoading ? (
+            <div id="pilihan-editor" aria-busy="true" aria-label="Memuat pilihan editor">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-5 w-24 rounded-full" />
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <Skeleton className="aspect-[16/9] w-full rounded-none sm:aspect-[5/2]" />
+                <div className="space-y-2 p-4 sm:p-4">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-5 w-full max-w-lg" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                </div>
+              </div>
+            </div>
+          ) : featured &&
+            (!activeTag || featured.tags.includes(activeTag)) &&
+            (!query.trim() ||
+              `${featured.title} ${featured.excerpt}`
+                .toLowerCase()
+                .includes(query.trim().toLowerCase())) ? (
             <div id="pilihan-editor">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h2 className="text-[11px] font-bold uppercase tracking-wider text-navy">
@@ -167,16 +184,40 @@ export function BlogPage() {
                   Mulai dari sini
                 </span>
               </div>
-              <PostCard post={featured} />
+              <PostCard post={featured} priority />
             </div>
           ) : null}
 
-          <div id="daftar-artikel">
+          <div
+            id="daftar-artikel"
+            className="min-h-[min(48vh,400px)] scroll-mt-20 md:min-h-[440px]"
+          >
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-navy">
               Semua artikel
             </h2>
-            {listPosts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-10 text-center">
+            {isLoading ? (
+              <div
+                className="grid gap-5 md:grid-cols-2 md:gap-6"
+                aria-busy="true"
+                aria-label="Memuat daftar artikel"
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                  >
+                    <Skeleton className="aspect-[16/9] w-full rounded-none sm:aspect-[5/2]" />
+                    <div className="space-y-2 p-4">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-5 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-[83%]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : listPosts.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-10 text-center md:py-14">
                 <p className="text-sm font-medium text-navy">Belum ada artikel yang cocok.</p>
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   Coba hapus filter atau kata kunci lain.

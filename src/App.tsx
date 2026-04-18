@@ -1,14 +1,30 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AnalyticsProvider } from "@/analytics/AnalyticsProvider";
-import { AboutUsPage } from "@/about-us/AboutUsPage";
-import { AdminRoutes } from "@/admin/AdminRoutes";
-import { ContactPage } from "@/contact/ContactPage";
-import { ThankYouPage } from "@/contact/ThankYouPage";
 import { HomePage } from "@/home/HomePage";
-import { OurServicesPage } from "@/service/OurServicesPage";
-import { BlogPage } from "@/blog/BlogPage";
-import { BlogPostPage } from "@/blog/BlogPostPage";
-import { TermsPage } from "@/term&condition/TermsPage";
+
+const AboutUsPage = lazy(() =>
+  import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
+);
+const AdminRoutes = lazy(() =>
+  import("@/admin/AdminRoutes").then((m) => ({ default: m.AdminRoutes })),
+);
+const ContactPage = lazy(() =>
+  import("@/contact/ContactPage").then((m) => ({ default: m.ContactPage })),
+);
+const ThankYouPage = lazy(() =>
+  import("@/contact/ThankYouPage").then((m) => ({ default: m.ThankYouPage })),
+);
+const OurServicesPage = lazy(() =>
+  import("@/service/OurServicesPage").then((m) => ({ default: m.OurServicesPage })),
+);
+const BlogPage = lazy(() => import("@/blog/BlogPage").then((m) => ({ default: m.BlogPage })));
+const BlogPostPage = lazy(() =>
+  import("@/blog/BlogPostPage").then((m) => ({ default: m.BlogPostPage })),
+);
+const TermsPage = lazy(() =>
+  import("@/term&condition/TermsPage").then((m) => ({ default: m.TermsPage })),
+);
 
 function NotFound() {
   return (
@@ -35,20 +51,22 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AnalyticsProvider />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/service" element={<OurServicesPage />} />
-          <Route path="/blog" element={<BlogPage />} />
-          <Route path="/blog/:slug" element={<BlogPostPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/about-us" element={<AboutUsPage />} />
-          <Route path="/terms-and-conditions" element={<TermsPage />} />
-          <Route path="/thank-you-page" element={<ThankYouPage />} />
-          <Route path="/admin/*" element={<AdminRoutes />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route element={<AnalyticsProvider />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/service" element={<OurServicesPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/about-us" element={<AboutUsPage />} />
+            <Route path="/terms-and-conditions" element={<TermsPage />} />
+            <Route path="/thank-you-page" element={<ThankYouPage />} />
+            <Route path="/admin/*" element={<AdminRoutes />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

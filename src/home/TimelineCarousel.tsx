@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { cn } from "@/share/lib/utils";
 
 export type TimelineItem = {
   title: string;
@@ -29,10 +30,20 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
 
   useEffect(() => {
     if (!emblaApi) return;
-    setScrollSnaps(emblaApi.scrollSnapList());
-    onSelect();
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      if (cancelled) return;
+      setScrollSnaps(emblaApi.scrollSnapList());
+      onSelect();
+    });
     emblaApi.on("select", onSelect);
     emblaApi.on("reInit", onSelect);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+      emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
+    };
   }, [emblaApi, onSelect]);
 
   return (
@@ -96,7 +107,9 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
                       {item.subtitle}
                     </p>
                   )}
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{item.caption}</p>
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    {item.caption}
+                  </p>
                   <div className="mt-6 h-1 w-12 rounded-full bg-accent-orange/40 transition-all duration-300 group-hover:w-20 group-hover:bg-accent-orange" />
                 </div>
               </article>
@@ -105,20 +118,26 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
         </div>
       </div>
 
-      <div className="mt-8 flex items-center justify-center gap-2">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-1 sm:gap-2">
         {scrollSnaps.map((_, idx) => (
           <button
             key={idx}
             type="button"
-            aria-label={`Go to slide ${idx + 1}`}
+            aria-label={`Lihat slide ${idx + 1}`}
+            aria-current={idx === selectedIndex ? "true" : undefined}
             onClick={() => emblaApi?.scrollTo(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              idx === selectedIndex ? "w-8 bg-navy" : "w-1.5 bg-border hover:bg-muted-foreground"
-            }`}
-          />
+            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "block h-1.5 rounded-full transition-all duration-300",
+                idx === selectedIndex ? "w-8 bg-navy" : "w-1.5 bg-border hover:bg-muted-foreground",
+              )}
+            />
+          </button>
         ))}
       </div>
     </div>
   );
 }
-

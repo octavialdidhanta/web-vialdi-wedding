@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { CreativeSocialCardsCarousel } from "@/service/CreativeSocialCardsCarousel";
+import { serviceSections, servicesCtas, servicesHero } from "@/service/content";
+import { useServicesPageMeta } from "@/service/useServicesPageMeta";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
-import { serviceSections, servicesCtas, servicesHero } from "@/service/content";
 import { cn } from "@/share/lib/utils";
 
 export function OurServicesPage() {
+  useServicesPageMeta();
+
   return (
     <div className="min-h-screen bg-background" id="top">
       <Header />

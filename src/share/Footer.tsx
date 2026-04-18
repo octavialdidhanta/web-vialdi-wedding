@@ -6,14 +6,14 @@ export function Footer() {
     <footer className="bg-primary text-primary-foreground">
       <div className="mx-auto grid max-w-[90rem] gap-10 px-6 py-16 md:grid-cols-2">
         <div>
-          <h4 className="text-lg font-bold">PT. Integrasi Visual Digital Indonesia</h4>
+          <h3 className="text-lg font-bold">PT. Integrasi Visual Digital Indonesia</h3>
           <p className="mt-4 text-sm leading-relaxed text-primary-foreground/85">
             Jl. Tawakal VI A No.104, RT.5/RW.9, Tomang, Kec. Grogol petamburan, Kota Jakarta Barat,
             DKI Jakarta 11440
           </p>
         </div>
         <div>
-          <h4 className="text-lg font-bold">Subscribe Now</h4>
+          <h3 className="text-lg font-bold">Subscribe Now</h3>
           <p className="mt-4 text-sm text-primary-foreground/85">
             Don't miss our future updates! Get Subscribed Today!
           </p>

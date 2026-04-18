@@ -95,12 +95,28 @@ const Carousel = React.forwardRef<
       return;
     }
 
-    onSelect(api);
-    api.on("reInit", onSelect);
-    api.on("select", onSelect);
+    let cancelled = false;
+    const runSelect = (a: CarouselApi) => {
+      requestAnimationFrame(() => {
+        if (!cancelled) {
+          onSelect(a);
+        }
+      });
+    };
+
+    const id = requestAnimationFrame(() => {
+      if (!cancelled) {
+        onSelect(api);
+      }
+    });
+    api.on("reInit", runSelect);
+    api.on("select", runSelect);
 
     return () => {
-      api?.off("select", onSelect);
+      cancelled = true;
+      cancelAnimationFrame(id);
+      api.off("reInit", runSelect);
+      api.off("select", runSelect);
     };
   }, [api, onSelect]);
 

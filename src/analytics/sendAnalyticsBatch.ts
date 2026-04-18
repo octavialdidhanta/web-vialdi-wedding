@@ -15,9 +15,7 @@ export type AnalyticsWebId = (typeof ALLOWED_WEB_IDS)[number];
 export function getRequiredWebId(): AnalyticsWebId {
   const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
   if (!raw || !(ALLOWED_WEB_IDS as readonly string[]).includes(raw)) {
-    throw new Error(
-      `VITE_WEB_ID harus diset ke salah satu: ${ALLOWED_WEB_IDS.join(", ")}`,
-    );
+    throw new Error(`VITE_WEB_ID harus diset ke salah satu: ${ALLOWED_WEB_IDS.join(", ")}`);
   }
   return raw as AnalyticsWebId;
 }
@@ -88,38 +86,59 @@ export async function getOptionalAuthUserId(): Promise<string | null> {
 
 export async function sendAnalyticsBatch(
   events: IngestEvent[],
-  options?: { useBeacon?: boolean; keepalive?: boolean; authUserId?: string | null },
+  options?: {
+    useBeacon?: boolean;
+    keepalive?: boolean;
+    authUserId?: string | null;
+    /** Lewati lookup Supabase Auth agar tidak memblokir critical path (mis. page_view awal). */
+    skipAuthLookup?: boolean;
+    /** Jangan tunggu respons fetch di task saat ini (memutus tautan kritis Lighthouse). */
+    deferNetwork?: boolean;
+  },
 ): Promise<void> {
   if (events.length === 0) {
     return;
   }
   const session_id = getOrCreateSessionId();
   const web_id = getRequiredWebId();
-  const auth_user_id = options?.authUserId ?? (await getOptionalAuthUserId());
+  const auth_user_id = options?.skipAuthLookup
+    ? (options.authUserId ?? null)
+    : (options?.authUserId ?? (await getOptionalAuthUserId()));
   const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
   const anon = getAnonKey();
   const body = JSON.stringify({ session_id, web_id, auth_user_id, events });
 
   const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${anon}`,
-      apikey: anon,
-    },
-    body,
-    keepalive: useKeepalive,
-  });
+  const runFetch = async () => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${anon}`,
+        apikey: anon,
+      },
+      body,
+      keepalive: useKeepalive,
+    });
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    console.warn(
-      `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
-      detail.slice(0, 200),
-    );
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.warn(
+        `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
+        detail.slice(0, 200),
+      );
+    }
+  };
+
+  if (options?.deferNetwork) {
+    queueMicrotask(() => {
+      void runFetch();
+    });
+    return;
   }
+
+  await runFetch();
 }
 
 export function buildSessionTouchEvent(): IngestEvent {

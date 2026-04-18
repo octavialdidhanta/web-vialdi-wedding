@@ -138,3 +138,9 @@ export const servicesCtas = {
   secondaryHref: "/service",
   secondaryLabel: "Diskusi Kebutuhan →",
 };
+
+export const servicesSeo = {
+  title: "Layanan Digital Marketing — vialdi.id",
+  description:
+    "Layanan digital marketing vialdi.id: end-to-end agency, creative & social media, marketplace, dan konsultasi pertumbuhan bisnis. Konsultasi gratis via halaman kontak.",
+};

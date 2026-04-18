@@ -251,12 +251,12 @@ export function BlogPostPage() {
             </aside>
 
             {/* Tengah: isi artikel */}
-            <main className="order-1 min-w-0 bg-white py-6 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
+            <div className="order-1 min-w-0 bg-white py-6 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
               <div
                 className="blog-post-html text-[15px] leading-[1.8] text-foreground/90 md:text-[17px] md:leading-[1.85]"
                 dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
               />
-            </main>
+            </div>
 
             {/* Kanan: informasi lainnya + daftar isi */}
             <aside className="order-3 min-w-0 w-full space-y-6 border-t border-border pt-6 xl:sticky xl:top-24 xl:border-t-0 xl:pt-0">

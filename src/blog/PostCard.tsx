@@ -7,9 +7,12 @@ import { cn } from "@/share/lib/utils";
 export function PostCard({
   post,
   layout = "default",
+  priority = false,
 }: {
   post: BlogPostPublic;
   layout?: "default" | "compact";
+  /** Untuk kartu LCP (mis. pilihan editor): muat gambar segera, hindari lazy. */
+  priority?: boolean;
 }) {
   const compact = layout === "compact";
 
@@ -38,10 +41,18 @@ export function PostCard({
         >
           <img
             src={post.coverImage}
-            alt=""
+            alt={post.title}
+            width={800}
+            height={450}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
             decoding="async"
+            fetchPriority={priority ? "high" : undefined}
+            sizes={
+              priority
+                ? "(max-width: 640px) 100vw, (max-width: 1536px) min(90rem, 100vw), 1440px"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
           <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">

@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import {
   buildSessionTouchEvent,
@@ -130,6 +130,8 @@ export function AnalyticsProvider() {
     getOrCreateSessionId();
     await sendAnalyticsBatch([buildSessionTouchEvent(), { type: "page_view", path }], {
       keepalive: true,
+      skipAuthLookup: true,
+      deferNetwork: true,
     });
   }, []);
 
@@ -138,7 +140,8 @@ export function AnalyticsProvider() {
   startPageRef.current = startPage;
 
   useLayoutEffect(() => {
-    const endPage = (path: string, opts?: { useBeacon?: boolean }) => endPageRef.current(path, opts);
+    const endPage = (path: string, opts?: { useBeacon?: boolean }) =>
+      endPageRef.current(path, opts);
     const flushDuration = (path: string, opts?: { useBeacon?: boolean }) =>
       flushDurationRef.current(path, opts);
     const startPage = (path: string) => void startPageRef.current(path);
@@ -193,6 +196,31 @@ export function AnalyticsProvider() {
 
     let detachDomListeners: (() => void) | undefined;
     let lastGtmPath: string | null = null;
+    let loadIdleHooked = false;
+
+    const scheduleDeferredStartPage = () => {
+      const run = () => {
+        const p = pathRef.current;
+        if (!p || isAdminPath(p)) {
+          return;
+        }
+        void startPageRef.current(p);
+      };
+      const runIdle = () => {
+        if (typeof requestIdleCallback !== "undefined") {
+          requestIdleCallback(run, { timeout: 6000 });
+        } else {
+          setTimeout(run, 0);
+        }
+      };
+      /** Satu listener load; isi path diambil dari pathRef saat idle (FCP/LCP tidak menggantung ingest). */
+      if (document.readyState === "complete") {
+        runIdle();
+      } else if (!loadIdleHooked) {
+        loadIdleHooked = true;
+        window.addEventListener("load", () => runIdle(), { once: true });
+      }
+    };
 
     const applyPath = () => {
       const path = readPathnameFromBrowser();
@@ -225,7 +253,7 @@ export function AnalyticsProvider() {
         lastGtmPath = path;
         pushGtmVirtualPageView(path);
       }
-      void startPage(path);
+      scheduleDeferredStartPage();
       visibleSinceRef.current = Date.now();
       detachDomListeners = attachListenersForPath();
     };
@@ -265,7 +293,7 @@ export function AnalyticsProvider() {
     };
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const onClick = (ev: MouseEvent) => {
       const path = pathRef.current;
       if (!path || isAdminPath(path)) {
@@ -332,7 +360,7 @@ export function AnalyticsProvider() {
     return () => document.removeEventListener("click", onClick, true);
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const onSubmit = (e: Event) => {
       const form = e.target;
       if (!(form instanceof HTMLFormElement)) {

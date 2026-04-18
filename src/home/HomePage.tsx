@@ -164,6 +164,8 @@ export function HomePage() {
                 alt="Tim digital marketing menganalisis dashboard"
                 width={1024}
                 height={1024}
+                fetchPriority="high"
+                decoding="async"
                 className="aspect-square w-full object-cover"
               />
             </div>
