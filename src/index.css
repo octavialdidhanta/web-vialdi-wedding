@@ -1,0 +1,387 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-orange: var(--accent-orange);
+  --color-navy: var(--navy);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.005 90);
+  --foreground: oklch(0.22 0.03 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 250);
+  --primary: oklch(0.28 0.04 250);
+  --primary-foreground: oklch(0.98 0.005 90);
+  --accent-orange: oklch(0.72 0.13 55);
+  --navy: oklch(0.22 0.03 250);
+  --gradient-primary: linear-gradient(135deg, oklch(0.28 0.04 250), oklch(0.35 0.04 245));
+  --shadow-elegant: 0 20px 60px -25px oklch(0.22 0.03 250 / 0.25);
+  --secondary: oklch(0.95 0.015 80);
+  --secondary-foreground: oklch(0.22 0.03 250);
+  --muted: oklch(0.95 0.015 80);
+  --muted-foreground: oklch(0.45 0.02 250);
+  --accent: oklch(0.93 0.02 75);
+  --accent-foreground: oklch(0.22 0.03 250);
+  --destructive: oklch(0.577 0.18 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0.01 80);
+  --input: oklch(0.9 0.01 80);
+  --ring: oklch(0.5 0.03 250);
+  --chart-1: oklch(0.646 0.15 41);
+  --chart-2: oklch(0.6 0.1 184);
+  --chart-3: oklch(0.398 0.07 227);
+  --chart-4: oklch(0.72 0.13 55);
+  --chart-5: oklch(0.5 0.05 250);
+  --sidebar: oklch(0.98 0.005 90);
+  --sidebar-foreground: oklch(0.22 0.03 250);
+  --sidebar-primary: oklch(0.28 0.04 250);
+  --sidebar-primary-foreground: oklch(0.98 0.005 90);
+  --sidebar-accent: oklch(0.95 0.015 80);
+  --sidebar-accent-foreground: oklch(0.22 0.03 250);
+  --sidebar-border: oklch(0.9 0.01 80);
+  --sidebar-ring: oklch(0.5 0.03 250);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide vertical page scrollbar (still scrollable) */
+html {
+  -ms-overflow-style: none; /* IE/Edge legacy */
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Konten artikel dari CMS (HTML) */
+.blog-post-html section {
+  margin-bottom: 2.5rem;
+  scroll-margin-top: 7rem;
+}
+
+.blog-post-html section:last-child {
+  margin-bottom: 0;
+}
+
+.blog-post-html h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-navy);
+}
+
+@media (min-width: 768px) {
+  .blog-post-html h2 {
+    font-size: 1.5rem;
+  }
+}
+
+.blog-post-html p {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.blog-post-html p:last-child {
+  margin-bottom: 0;
+}
+
+.blog-post-html ul,
+.blog-post-html ol {
+  margin: 0.5em 0 1rem;
+  padding-left: 1.5rem;
+  list-style-position: outside;
+}
+
+.blog-post-html ul {
+  list-style-type: disc;
+}
+
+.blog-post-html ol {
+  list-style-type: decimal;
+}
+
+.blog-post-html ul ul {
+  list-style-type: circle;
+}
+
+.blog-post-html ol ol {
+  list-style-type: lower-alpha;
+}
+
+.blog-post-html li {
+  display: list-item;
+}
+
+.blog-post-html li p {
+  margin: 0.2em 0;
+}
+
+.blog-post-html a.blog-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.25rem 0.35rem 0.25rem 0;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  padding: 0.45rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.blog-post-html a.blog-cta-btn:hover {
+  opacity: 0.92;
+}
+
+.blog-post-html mark {
+  border-radius: 0.2em;
+  background: color-mix(in oklch, var(--color-accent-orange) 35%, transparent);
+  padding: 0.05em 0.15em;
+}
+
+.blog-post-html kbd {
+  border-radius: 0.25rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  padding: 0.1em 0.35em;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.blog-post-html .blog-footnote-ref {
+  vertical-align: super;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+
+/*
+ * TipTap (ProseMirror): Tailwind Preflight mengatur h1–h6 ke font-size/font-weight inherit,
+ * sehingga H2/H3 tampak sama dengan paragraf. Tanpa @tailwindcss/typography, kelas prose
+ * tidak memberi skala heading — gunakan aturan eksplisit di sini.
+ */
+.tiptap-editor-root {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--color-foreground);
+}
+
+.tiptap-editor-root p {
+  margin: 0 0 0.75em;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.tiptap-editor-root p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor-root h2 {
+  margin: 1.1em 0 0.45em;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-navy);
+}
+
+.tiptap-editor-root h2:first-child {
+  margin-top: 0;
+}
+
+.tiptap-editor-root h3 {
+  margin: 0.95em 0 0.35em;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-navy);
+}
+
+.tiptap-editor-root h3:first-child {
+  margin-top: 0;
+}
+
+.tiptap-editor-root blockquote {
+  margin: 0.75em 0;
+  border-left: 3px solid var(--color-accent-orange);
+  padding-left: 1rem;
+  color: var(--color-muted-foreground);
+}
+
+/* Preflight Tailwind mematikan marker daftar — pulihkan untuk editor & artikel */
+.tiptap-editor-root ul,
+.tiptap-editor-root ol {
+  margin: 0.5em 0 0.75em;
+  padding-left: 1.5rem;
+  list-style-position: outside;
+}
+
+.tiptap-editor-root ul {
+  list-style-type: disc;
+}
+
+.tiptap-editor-root ol {
+  list-style-type: decimal;
+}
+
+.tiptap-editor-root ul ul {
+  list-style-type: circle;
+}
+
+.tiptap-editor-root ol ol {
+  list-style-type: lower-alpha;
+}
+
+.tiptap-editor-root li {
+  display: list-item;
+}
+
+.tiptap-editor-root li p {
+  margin: 0.15em 0;
+}
+
+.tiptap-editor-root hr {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.tiptap-editor-root pre {
+  margin: 0.75em 0;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: color-mix(in oklch, var(--color-muted) 75%, transparent);
+  padding: 0.75rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Pratinjau editor admin */
+.tiptap-editor-root p[data-public="false"] {
+  opacity: 0.45;
+  outline: 1px dashed var(--color-muted-foreground);
+}
+
+.tiptap-editor-root p[data-locked="true"] {
+  background: color-mix(in oklch, var(--color-muted) 60%, transparent);
+  outline: 1px dashed var(--color-border);
+}
+
+.tiptap-editor-root p[data-label]:not([data-label=""])::before {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted-foreground);
+  content: "Label: " attr(data-label);
+}
+
