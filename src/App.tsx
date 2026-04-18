@@ -9,7 +9,6 @@ import { OurServicesPage } from "@/service/OurServicesPage";
 import { BlogPage } from "@/blog/BlogPage";
 import { BlogPostPage } from "@/blog/BlogPostPage";
 import { TermsPage } from "@/term&condition/TermsPage";
-import { Toaster } from "@/share/ui/sonner";
 
 function NotFound() {
   return (
@@ -36,9 +35,8 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AnalyticsProvider>
-        <Toaster position="top-center" richColors />
-        <Routes>
+      <Routes>
+        <Route element={<AnalyticsProvider />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/service" element={<OurServicesPage />} />
           <Route path="/blog" element={<BlogPage />} />
@@ -49,8 +47,8 @@ export default function App() {
           <Route path="/thank-you-page" element={<ThankYouPage />} />
           <Route path="/admin/*" element={<AdminRoutes />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AnalyticsProvider>
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

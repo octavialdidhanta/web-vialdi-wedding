@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useLayoutEffect, useRef } from "react";
+import { Outlet } from "react-router-dom";
 import {
   buildSessionTouchEvent,
-  getOptionalAuthUserId,
   getOrCreateSessionId,
   sendAnalyticsBatch,
   type IngestEvent,
 } from "@/analytics/sendAnalyticsBatch";
+import {
+  pushGtmFormSubmit,
+  pushGtmUserInteraction,
+  pushGtmVirtualPageView,
+} from "@/analytics/gtmDataLayer";
+import { Toaster } from "@/share/ui/sonner";
 
 const HEARTBEAT_MS = 15_000;
 const DEDUPE_MS = 30_000;
@@ -15,9 +20,42 @@ function isAdminPath(pathname: string) {
   return pathname.startsWith("/admin");
 }
 
+function normalizePathname(pathname: string): string {
+  const p = pathname || "/";
+  if (p !== "/" && p.endsWith("/")) {
+    return p.replace(/\/+$/, "") || "/";
+  }
+  return p;
+}
+
+function readPathnameFromBrowser(): string {
+  if (typeof window === "undefined") {
+    return "/";
+  }
+  return normalizePathname(window.location.pathname || "/");
+}
+
 function labelFromElement(el: Element): string {
   const t = (el.textContent ?? "").replace(/\s+/g, " ").trim();
   return t.slice(0, 120) || el.tagName.toLowerCase();
+}
+
+function labelForGtm(el: Element): string {
+  const aria = el.getAttribute("aria-label");
+  if (aria?.trim()) {
+    return aria.trim().slice(0, 120);
+  }
+  const title = el.getAttribute("title");
+  if (title?.trim()) {
+    return title.trim().slice(0, 120);
+  }
+  if (el instanceof HTMLInputElement) {
+    const v = (el.value || el.placeholder || "").trim();
+    if (v) {
+      return v.slice(0, 120);
+    }
+  }
+  return labelFromElement(el);
 }
 
 function isInternalHref(href: string): boolean {
@@ -32,12 +70,20 @@ function isInternalHref(href: string): boolean {
   }
 }
 
-export function AnalyticsProvider({ children }: { children: ReactNode }) {
-  const location = useLocation();
+/**
+ * Layout route + pathname dari `window.location` + patch History API agar setiap
+ * navigasi SPA (Link/navigate/pushState) memicu page_view — tidak bergantung
+ * hanya pada timing `useLocation` di layout.
+ */
+export function AnalyticsProvider() {
   const pathRef = useRef<string>("");
   const lastPageViewAtRef = useRef<Map<string, number>>(new Map());
   const visibleSinceRef = useRef<number | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const endPageRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
+  const flushDurationRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
+  const startPageRef = useRef<(path: string) => Promise<void>>(async () => {});
 
   const flushDuration = useCallback((path: string, opts?: { useBeacon?: boolean }) => {
     if (!path || isAdminPath(path)) {
@@ -82,81 +128,144 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     }
     lastPageViewAtRef.current.set(path, now);
     getOrCreateSessionId();
-    const auth = await getOptionalAuthUserId();
     await sendAnalyticsBatch([buildSessionTouchEvent(), { type: "page_view", path }], {
-      authUserId: auth,
+      keepalive: true,
     });
   }, []);
 
-  useEffect(() => {
-    const path = location.pathname || "/";
+  endPageRef.current = endPage;
+  flushDurationRef.current = flushDuration;
+  startPageRef.current = startPage;
 
-    if (isAdminPath(path)) {
+  useLayoutEffect(() => {
+    const endPage = (path: string, opts?: { useBeacon?: boolean }) => endPageRef.current(path, opts);
+    const flushDuration = (path: string, opts?: { useBeacon?: boolean }) =>
+      flushDurationRef.current(path, opts);
+    const startPage = (path: string) => void startPageRef.current(path);
+
+    const clearHeartbeat = () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+    };
+
+    const attachListenersForPath = () => {
+      const onVis = () => {
+        const p = pathRef.current;
+        if (!p || isAdminPath(p)) {
+          return;
+        }
+        if (document.visibilityState === "visible") {
+          visibleSinceRef.current = Date.now();
+        } else {
+          flushDuration(p);
+        }
+      };
+
+      document.addEventListener("visibilitychange", onVis);
+
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+      }
+      heartbeatRef.current = setInterval(() => {
+        const p = pathRef.current;
+        if (!p || isAdminPath(p) || document.visibilityState !== "visible") {
+          return;
+        }
+        flushDuration(p);
+      }, HEARTBEAT_MS);
+
+      const onPageHide = () => {
+        const p = pathRef.current;
+        if (p && !isAdminPath(p)) {
+          endPage(p, { useBeacon: true });
+        }
+      };
+      window.addEventListener("pagehide", onPageHide);
+
+      return () => {
+        document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("pagehide", onPageHide);
+        clearHeartbeat();
+      };
+    };
+
+    let detachDomListeners: (() => void) | undefined;
+    let lastGtmPath: string | null = null;
+
+    const applyPath = () => {
+      const path = readPathnameFromBrowser();
+
+      if (isAdminPath(path)) {
+        lastGtmPath = null;
+        const prev = pathRef.current;
+        if (prev && !isAdminPath(prev)) {
+          endPage(prev);
+        }
+        pathRef.current = "";
+        if (detachDomListeners) {
+          detachDomListeners();
+          detachDomListeners = undefined;
+        }
+        clearHeartbeat();
+        visibleSinceRef.current = null;
+        return;
+      }
+
       const prev = pathRef.current;
-      if (prev && !isAdminPath(prev)) {
+      if (prev && prev !== path) {
         endPage(prev);
       }
-      pathRef.current = "";
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
+      if (detachDomListeners) {
+        detachDomListeners();
       }
-      visibleSinceRef.current = null;
-      return;
-    }
-
-    const prev = pathRef.current;
-    if (prev && prev !== path) {
-      endPage(prev);
-    }
-    pathRef.current = path;
-    void startPage(path);
-    visibleSinceRef.current = Date.now();
-
-    const onVis = () => {
-      const p = pathRef.current;
-      if (!p || isAdminPath(p)) {
-        return;
+      pathRef.current = path;
+      if (lastGtmPath !== path) {
+        lastGtmPath = path;
+        pushGtmVirtualPageView(path);
       }
-      if (document.visibilityState === "visible") {
-        visibleSinceRef.current = Date.now();
-      } else {
-        flushDuration(p);
-      }
+      void startPage(path);
+      visibleSinceRef.current = Date.now();
+      detachDomListeners = attachListenersForPath();
     };
 
-    document.addEventListener("visibilitychange", onVis);
+    const origPush = history.pushState.bind(history);
+    const origReplace = history.replaceState.bind(history);
 
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current);
-    }
-    heartbeatRef.current = setInterval(() => {
-      const p = pathRef.current;
-      if (!p || isAdminPath(p) || document.visibilityState !== "visible") {
-        return;
-      }
-      flushDuration(p);
-    }, HEARTBEAT_MS);
-
-    const onPageHide = () => {
-      const p = pathRef.current;
-      if (p && !isAdminPath(p)) {
-        endPage(p, { useBeacon: true });
-      }
+    const scheduleApply = () => {
+      queueMicrotask(() => {
+        applyPath();
+      });
     };
-    window.addEventListener("pagehide", onPageHide);
+
+    history.pushState = (data: unknown, unused: string, url?: string | URL | null) => {
+      const ret = origPush(data, unused, url);
+      scheduleApply();
+      return ret;
+    };
+    history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+      const ret = origReplace(data, unused, url);
+      scheduleApply();
+      return ret;
+    };
+
+    window.addEventListener("popstate", scheduleApply);
+
+    applyPath();
 
     return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pagehide", onPageHide);
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
+      window.removeEventListener("popstate", scheduleApply);
+      history.pushState = origPush;
+      history.replaceState = origReplace;
+      if (detachDomListeners) {
+        detachDomListeners();
       }
+      clearHeartbeat();
     };
-  }, [location.pathname, endPage, flushDuration, startPage]);
+  }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onClick = (ev: MouseEvent) => {
       const path = pathRef.current;
       if (!path || isAdminPath(path)) {
@@ -166,7 +275,9 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       if (!target) {
         return;
       }
-      const el = target.closest("a[href],button,[data-track],[data-track-click]");
+      const el = target.closest(
+        'a[href],button,input[type="submit"],input[type="button"],input[type="reset"],[role="button"],[data-track],[data-track-click],[data-gtm],[data-gtm-click]',
+      );
       if (!el) {
         return;
       }
@@ -174,7 +285,10 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const trackKey = el.getAttribute("data-track") || el.getAttribute("data-track-click");
+      const trackKey =
+        el.getAttribute("data-track") ||
+        el.getAttribute("data-track-click") ||
+        el.getAttribute("data-gtm-click");
       const tag = el.tagName.toLowerCase();
       let targetUrl: string | null = null;
       let isInternal = false;
@@ -202,6 +316,15 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
         is_internal: isInternal,
       };
 
+      pushGtmUserInteraction({
+        page_path: path,
+        element_tag: tag,
+        element_label: labelForGtm(el),
+        track_key: trackKey,
+        link_url: targetUrl,
+        is_internal_link: isInternal,
+      });
+
       void sendAnalyticsBatch([evt]);
     };
 
@@ -209,5 +332,33 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("click", onClick, true);
   }, []);
 
-  return <>{children}</>;
+  useLayoutEffect(() => {
+    const onSubmit = (e: Event) => {
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+      const path = readPathnameFromBrowser();
+      if (isAdminPath(path)) {
+        return;
+      }
+      if (form.closest("[data-analytics-ignore]")) {
+        return;
+      }
+      pushGtmFormSubmit({
+        page_path: path,
+        form_id: form.id || null,
+        action: form.getAttribute("action"),
+      });
+    };
+    document.addEventListener("submit", onSubmit, true);
+    return () => document.removeEventListener("submit", onSubmit, true);
+  }, []);
+
+  return (
+    <>
+      <Toaster position="top-center" richColors />
+      <Outlet />
+    </>
+  );
 }

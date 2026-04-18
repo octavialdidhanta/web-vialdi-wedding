@@ -63,7 +63,7 @@ export async function getOptionalAuthUserId(): Promise<string | null> {
 
 export async function sendAnalyticsBatch(
   events: IngestEvent[],
-  options?: { useBeacon?: boolean; authUserId?: string | null },
+  options?: { useBeacon?: boolean; keepalive?: boolean; authUserId?: string | null },
 ): Promise<void> {
   if (events.length === 0) {
     return;
@@ -74,6 +74,8 @@ export async function sendAnalyticsBatch(
   const anon = getAnonKey();
   const body = JSON.stringify({ session_id, auth_user_id, events });
 
+  const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -82,7 +84,7 @@ export async function sendAnalyticsBatch(
       apikey: anon,
     },
     body,
-    keepalive: Boolean(options?.useBeacon),
+    keepalive: useKeepalive,
   });
 
   if (!res.ok) {
