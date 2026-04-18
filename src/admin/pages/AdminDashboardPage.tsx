@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useAnalyticsDashboardRealtime } from "@/admin/hooks/useAnalyticsDashboardRealtime";
 import {
   CartesianGrid,
   Legend,
@@ -71,6 +72,8 @@ export function AdminDashboardPage() {
 
   const rangeIso = useMemo(() => jakartaDayRangeToIso(fromYmd, toYmd), [fromYmd, toYmd]);
 
+  useAnalyticsDashboardRealtime(true);
+
   const {
     data: posts = [],
     isLoading,
@@ -87,6 +90,10 @@ export function AdminDashboardPage() {
   } = useQuery({
     queryKey: ["admin", "analytics", rangeIso.p_from, rangeIso.p_to],
     queryFn: () => adminFetchAnalyticsSummary(rangeIso.p_from, rangeIso.p_to),
+    staleTime: 0,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const counts = useMemo(() => {

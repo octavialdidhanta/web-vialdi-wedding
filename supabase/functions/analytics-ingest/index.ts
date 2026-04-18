@@ -75,6 +75,22 @@ function corsHeaders(origin: string | null): HeadersInit {
   return {};
 }
 
+/** Preflight must repeat Allow-Headers / Allow-Methods; OPTIONS was only sending ACAO before. */
+function corsPreflightHeaders(origin: string | null): HeadersInit {
+  const h: Record<string, string> = {
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-max-age": "86400",
+  };
+  const extra = corsHeaders(origin) as Record<string, string>;
+  for (const [k, v] of Object.entries(extra)) {
+    if (v != null && v !== "") {
+      h[k] = v;
+    }
+  }
+  return h;
+}
+
 function badRequest(message: string, origin: string | null) {
   return json({ error: message }, { status: 400, headers: corsHeaders(origin) });
 }
@@ -146,7 +162,7 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    return new Response(null, { status: 204, headers: corsPreflightHeaders(origin) });
   }
 
   if (req.method !== "POST") {
