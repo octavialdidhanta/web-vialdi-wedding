@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Play } from "lucide-react";
 
 /** Privacy Enhanced embed — host `youtube-nocookie.com`. */
 function embedSrc(videoId: string) {
@@ -12,6 +13,10 @@ function embedSrc(videoId: string) {
   return `https://www.youtube-nocookie.com/embed/${videoId}?${q.toString()}`;
 }
 
+function posterSrc(videoId: string) {
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
 type SlotProps = {
   videoId: string;
   iframeTitle: string;
@@ -20,43 +25,50 @@ type SlotProps = {
 };
 
 /**
- * Satu embed YouTube: autoplay (muted) saat area video terlihat di viewport;
- * iframe dilepas saat keluar viewport agar pemutaran berhenti.
+ * Facade + ketuk-putar: iframe YouTube tidak dimuat sebelum gestur pengguna,
+ * sehingga kuki / isu lintas-situs di Chrome Issues (dan lab Lighthouse) tidak
+ * muncul hanya karena scroll. Setelah aktif, autoplay bisu seperti embed biasa.
  */
 function AutoplayYoutubeSlot({ videoId, iframeTitle, placeholder, className }: SlotProps) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [playing, setPlaying] = useState(false);
-
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        setPlaying(entry.isIntersecting);
-      },
-      { threshold: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 1], rootMargin: "0px" },
-    );
-
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+  const [active, setActive] = useState(false);
 
   return (
-    <div ref={wrapRef} className={`aspect-video w-full bg-black ${className ?? ""}`}>
-      {playing ? (
+    <div className={`aspect-video w-full overflow-hidden bg-black ${className ?? ""}`}>
+      {active ? (
         <iframe
           src={embedSrc(videoId)}
           title={iframeTitle}
           className="h-full w-full border-0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
-          loading="eager"
+          loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
+          credentialless=""
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-muted text-center text-xs text-muted-foreground">
-          {placeholder}
+        <div className="relative h-full w-full">
+          <img
+            src={posterSrc(videoId)}
+            alt=""
+            width={480}
+            height={360}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/45 px-4 text-center">
+            <button
+              type="button"
+              className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/95 text-navy shadow-lg ring-2 ring-white/40 transition hover:scale-105 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black/50 motion-reduce:transition-none"
+              aria-label={`Putar video: ${iframeTitle}`}
+              onClick={() => setActive(true)}
+            >
+              <Play className="ml-0.5 h-7 w-7 fill-current" aria-hidden />
+            </button>
+            <p className="max-w-sm text-xs font-medium leading-snug text-white/95 sm:text-sm">
+              {placeholder}
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -77,7 +89,7 @@ export function HeroAlbumKolaseVideo() {
           <AutoplayYoutubeSlot
             videoId="mAoEjRTJKC4"
             iframeTitle="Contoh album kolase untuk klien Vialdi Wedding"
-            placeholder="Gulir ke sini untuk melihat cuplikan album"
+            placeholder="Ketuk tombol putar untuk menonton cuplikan album (memuat pemutar YouTube)."
           />
         </div>
         <div className="min-w-0 flex-1">
@@ -87,7 +99,7 @@ export function HeroAlbumKolaseVideo() {
           <AutoplayYoutubeSlot
             videoId="K9anWRATqdo"
             iframeTitle="Cuplikan video album Vialdi Wedding"
-            placeholder="Gulir untuk melihat cuplikan berikutnya"
+            placeholder="Ketuk putar untuk cuplikan berikutnya (memuat pemutar YouTube)."
           />
         </div>
       </div>

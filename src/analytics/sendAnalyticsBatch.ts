@@ -170,7 +170,8 @@ function scheduleDeferredIngest(run: () => void, leadMs = 0) {
           if (typeof requestIdleCallback === "function") {
             requestIdleCallback(
               () => {
-                void run();
+                /** Memutus tautan idle → fetch di waterfall Lighthouse (task terpisah). */
+                setTimeout(() => void run(), 0);
               },
               { timeout: 12_000 },
             );

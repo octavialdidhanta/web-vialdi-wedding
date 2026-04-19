@@ -5,6 +5,26 @@ import { defineConfig, loadEnv } from "vite";
 import { imagetools } from "vite-imagetools";
 
 export default defineConfig(({ mode }) => {
+  /** Paket `react-router` mengarahkan `exports` ke `dist/development/*` (bukan mode dev Node). Untuk produksi pakai artefak `dist/production/*` agar lebih ramping dan sumber map tidak berlabel "development". */
+  const reactRouterProd = path.resolve(
+    __dirname,
+    "node_modules/react-router/dist/production",
+  );
+  /** Urutan penting: `react-router/dom` harus sebelum `react-router` agar tidak di-resolve ke `index.mjs/dom`. */
+  const reactRouterAliasEntries =
+    mode === "production"
+      ? [
+          {
+            find: "react-router/dom",
+            replacement: path.join(reactRouterProd, "dom-export.mjs"),
+          },
+          {
+            find: "react-router",
+            replacement: path.join(reactRouterProd, "index.mjs"),
+          },
+        ]
+      : [];
+
   const env = loadEnv(mode, process.cwd(), "");
   let supabaseOrigin = "";
   try {
@@ -17,8 +37,13 @@ export default defineConfig(({ mode }) => {
   }
 
   const originHints = [
-    /** dns-prefetch saja: preconnect ke Supabase sering dianggap "unused" di PSI jika request belum awal. */
-    supabaseOrigin ? `<link rel="dns-prefetch" href="${supabaseOrigin}">` : "",
+    /**
+     * preconnect: `analytics-ingest` dipanggil setelah idle (lihat sendAnalyticsBatch); koneksi awal
+     * memangkas rantai kritis ke Edge Function vs dns-prefetch saja.
+     */
+    supabaseOrigin
+      ? `<link rel="preconnect" href="${supabaseOrigin}" crossorigin>`
+      : "",
     `<link rel="dns-prefetch" href="https://www.googletagmanager.com">`,
   ]
     .filter(Boolean)
@@ -43,34 +68,55 @@ export default defineConfig(({ mode }) => {
             if (!ctx.bundle) {
               return html;
             }
-            /** Beberapa lebar (`?w=480;720;…`) menghasilkan banyak file; `src` hero memakai w=720 (varian kedua terkecil). */
-            const heroSizes = Object.values(ctx.bundle)
-              .filter(
-                (c): c is { type: "asset"; fileName: string; source: string | Uint8Array } =>
-                  c.type === "asset" &&
-                  c.fileName.includes("DSC00768_11zon") &&
-                  c.fileName.endsWith(".webp"),
-              )
-              .map((c) => {
-                const src = c.source;
-                const bytes =
-                  typeof src === "string" ? Buffer.byteLength(src) : src.byteLength;
-                return { fileName: c.fileName, bytes };
-              })
-              .sort((a, b) => a.bytes - b.bytes);
-            const pick = heroSizes[Math.min(1, Math.max(0, heroSizes.length - 1))];
-            if (!pick) {
+            /**
+             * Lighthouse "LCP request discovery" membutuhkan URL kandidat LCP terlihat di HTML awal.
+             * Hero di-render dari JS; satu `href` preload saja gagal jika browser memilih URL lain dari
+             * `srcset` (ukuran file tidak selalu sejajar dengan lebar). Ambil string final dari chunk HomePage.
+             * `imagesizes` harus sama dengan `sizes` di `HomePage.tsx` (hero `<img>`).
+             */
+            const heroImgSizes = "(max-width: 1024px) 100vw, min(560px, 46vw)";
+            const chunk = Object.values(ctx.bundle).find(
+              (c): c is { type: "chunk"; fileName: string; code: string } =>
+                c.type === "chunk" &&
+                typeof (c as { code?: string }).code === "string" &&
+                (c as { code: string }).code.includes(
+                  "Pasangan pengantin dalam suasana pernikahan elegan",
+                ),
+            );
+            const code = chunk?.code;
+            const heroUrls = code
+              ? [...code.matchAll(/"(\/assets\/DSC00768_11zon[^"]*)"/g)].map((m) => m[1])
+              : [];
+            const imagesrcset = heroUrls.find((s) => /\d+w/.test(s));
+            const hrefFromChunk = heroUrls.find((s) => !/\d+w/.test(s));
+            if (!imagesrcset || !hrefFromChunk) {
               return html;
             }
-            const hrefNorm = pick.fileName.startsWith("/")
-              ? pick.fileName
-              : `/${pick.fileName}`;
-            const tag = `    <link rel="preload" as="image" href="${hrefNorm}" fetchpriority="high" />\n`;
+            const tag = `    <link rel="preload" as="image" href="${hrefFromChunk}" imagesrcset="${imagesrcset}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
             const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
             if (charsetMeta.test(html)) {
               return html.replace(charsetMeta, (m) => `${m}\n${tag}`);
             }
             return html.replace("</head>", `${tag}  </head>`);
+          },
+        },
+      },
+      {
+        name: "async-build-stylesheets",
+        transformIndexHtml: {
+          order: "post",
+          handler(html) {
+            /** Hanya CSS hasil build (`/assets/*.css`); font eksternal dibiarkan seperti di `index.html`. */
+            return html.replace(/<link\s+([^>]+)>/gi, (full, inner: string) => {
+              if (!/\brel\s*=\s*["']stylesheet["']/i.test(inner)) return full;
+              const href = /href\s*=\s*["']([^"']+)["']/i.exec(inner)?.[1];
+              if (!href?.startsWith("/assets/") || !href.endsWith(".css")) return full;
+              if (/\bmedia\s*=\s*["']print["']/i.test(inner) || /\bonload\s*=/.test(inner)) {
+                return full;
+              }
+              const attrs = inner.trim();
+              return `<link ${attrs} media="print" onload="this.media='all'">\n    <noscript><link ${attrs}></noscript>`;
+            });
           },
         },
       },
@@ -92,9 +138,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-      },
+      alias: [
+        ...reactRouterAliasEntries,
+        { find: "@", replacement: path.resolve(__dirname, "./src") },
+      ],
       dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
     },
     server: {
