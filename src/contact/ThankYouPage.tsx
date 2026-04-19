@@ -1,10 +1,15 @@
-import { useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
+import { pushGtmThankYouPageView } from "@/analytics/gtmDataLayer";
 import { Header } from "@/share/Header";
 
 export function ThankYouPage() {
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    pushGtmThankYouPageView();
   }, []);
 
   return (

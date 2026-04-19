@@ -53,3 +53,20 @@ export function pushGtmFormSubmit(payload: { page_path: string; form_id?: string
     ...payload,
   });
 }
+
+/**
+ * Konversi thank-you (SPA): trigger "Page View" + filter URL tidak jalan setelah
+ * `navigate("/thank-you-page")`. Di GTM buat Trigger → Custom Event, nama event
+ * persis `thank_you_page_view`, lalu pakai itu untuk tag Google Ads (bukan Page View).
+ */
+export function pushGtmThankYouPageView(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  getDataLayer().push({
+    event: "thank_you_page_view",
+    page_path: "/thank-you-page",
+    page_location: window.location.href,
+    page_title: typeof document !== "undefined" ? document.title : "",
+  });
+}
