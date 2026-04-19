@@ -38,12 +38,11 @@ export default defineConfig(({ mode }) => {
 
   const originHints = [
     /**
-     * preconnect: `analytics-ingest` dipanggil setelah idle (lihat sendAnalyticsBatch); koneksi awal
-     * memangkas rantai kritis ke Edge Function vs dns-prefetch saja.
+     * Jangan `preconnect` ke Supabase di HTML awal: beranda tidak memanggil API Supabase di rantai kritis,
+     * sehingga Lighthouse menandai preconnect sebagai tidak terpakai. `dns-prefetch` saja menghemat DNS
+     * nanti (blog, formulir, analytics batch) tanpa membuka koneksi TLS dini.
      */
-    supabaseOrigin
-      ? `<link rel="preconnect" href="${supabaseOrigin}" crossorigin>`
-      : "",
+    supabaseOrigin ? `<link rel="dns-prefetch" href="${supabaseOrigin}">` : "",
     `<link rel="dns-prefetch" href="https://www.googletagmanager.com">`,
   ]
     .filter(Boolean)
@@ -58,6 +57,22 @@ export default defineConfig(({ mode }) => {
         name: "inject-origin-hints",
         transformIndexHtml(html) {
           return html.replace("<head>", `<head>\n    ${originHints}`);
+        },
+      },
+      {
+        /** Jika HTML masih berisi preconnect Supabase (template lama / edge), turunkan ke dns-prefetch agar PSI tidak menandai "unused preconnect". */
+        name: "supabase-preconnect-to-dns-prefetch",
+        transformIndexHtml: {
+          order: "post",
+          handler(html) {
+            return html.replace(
+              /<link\s+rel="preconnect"\s+href="(https:\/\/[^"]*supabase\.co)\/?"\s*([^>]*)\/?>/gi,
+              (_full, origin: string, rest: string) => {
+                const cleaned = rest.replace(/\s*crossorigin="[^"]*"/gi, "").trim();
+                return `<link rel="dns-prefetch" href="${origin}"${cleaned ? ` ${cleaned}` : ""}>`;
+              },
+            );
+          },
         },
       },
       {

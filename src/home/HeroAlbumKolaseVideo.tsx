@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
+import posterMAo from "@/home/assets/youtube/mAoEjRTJKC4-hqdefault.jpg?w=640&format=webp";
+import posterK9 from "@/home/assets/youtube/K9anWRATqdo-hqdefault.jpg?w=640&format=webp";
 
 /** Privacy Enhanced embed — host `youtube-nocookie.com`. */
 function embedSrc(videoId: string) {
@@ -13,8 +15,18 @@ function embedSrc(videoId: string) {
   return `https://www.youtube-nocookie.com/embed/${videoId}?${q.toString()}`;
 }
 
-function posterSrc(videoId: string) {
-  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+/** Poster di-host sendiri (cache panjang dari origin Anda), bukan `i.ytimg.com` (TTL pendek di PSI). */
+const LOCAL_POSTERS: Record<string, string> = {
+  mAoEjRTJKC4: posterMAo,
+  K9anWRATqdo: posterK9,
+};
+
+function localPosterSrc(videoId: string): string {
+  const src = LOCAL_POSTERS[videoId];
+  if (!src) {
+    throw new Error(`Tambahkan poster lokal di assets/youtube untuk videoId=${videoId}`);
+  }
+  return src;
 }
 
 type SlotProps = {
@@ -48,7 +60,7 @@ function AutoplayYoutubeSlot({ videoId, iframeTitle, placeholder, className }: S
       ) : (
         <div className="relative h-full w-full">
           <img
-            src={posterSrc(videoId)}
+            src={localPosterSrc(videoId)}
             alt=""
             width={480}
             height={360}

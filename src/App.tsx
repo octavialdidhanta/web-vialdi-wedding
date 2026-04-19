@@ -1,8 +1,11 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AnalyticsProvider } from "@/analytics/AnalyticsProvider";
+import { HomePage } from "@/home/HomePage";
 
-const HomePage = lazy(() => import("@/home/HomePage").then((m) => ({ default: m.HomePage })));
+const QueryRoutesLayout = lazy(() =>
+  import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
+);
 const AboutUsPage = lazy(() =>
   import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
 );
@@ -56,13 +59,15 @@ export default function App() {
           <Route element={<AnalyticsProvider />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/service" element={<OurServicesPage />} />
-            <Route path="/blog" element={<BlogPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route element={<QueryRoutesLayout />}>
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/admin/*" element={<AdminRoutes />} />
+            </Route>
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/about-us" element={<AboutUsPage />} />
             <Route path="/terms-and-conditions" element={<TermsPage />} />
             <Route path="/thank-you-page" element={<ThankYouPage />} />
-            <Route path="/admin/*" element={<AdminRoutes />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

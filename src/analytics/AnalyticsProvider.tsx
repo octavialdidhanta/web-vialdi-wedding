@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import {
   buildSessionTouchEvent,
@@ -12,9 +12,7 @@ import {
   pushGtmUserInteraction,
   pushGtmVirtualPageView,
 } from "@/analytics/gtmDataLayer";
-const LazyToaster = lazy(() =>
-  import("@/share/ui/sonner").then((m) => ({ default: m.Toaster })),
-);
+import { Toaster } from "@/share/ui/sonner";
 
 const HEARTBEAT_MS = 15_000;
 const DEDUPE_MS = 30_000;
@@ -138,7 +136,7 @@ export function AnalyticsProvider() {
     await sendAnalyticsBatch([buildSessionTouchEvent(), { type: "page_view", path }], {
       keepalive: true,
       deferNetwork: true,
-      /** Hindari kompetisi dengan LCP + chunk lazy Home; preconnect Supabase di index membantu TLS. */
+      /** Hindari kompetisi dengan LCP (hero + bundle beranda). */
       deferNetworkLeadMs: 4500,
     });
   }, []);
@@ -397,9 +395,7 @@ export function AnalyticsProvider() {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <LazyToaster position="top-center" richColors />
-      </Suspense>
+      <Toaster position="top-center" richColors />
       <Outlet />
     </>
   );
