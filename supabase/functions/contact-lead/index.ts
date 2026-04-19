@@ -90,10 +90,28 @@ function getEnvOptional(name: string) {
 function parseTemplateBodyKeys(): string[] {
   const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_KEYS");
   if (!raw) return ["name"];
+  if (/^__none__$/i.test(raw.trim())) return [];
   return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Sejajar urutan dengan `WHATSAPP_TEMPLATE_BODY_KEYS` untuk template body bernama (Meta). */
+function parseTemplateBodyParameterNames(expectedCount: number): string[] | null {
+  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES");
+  if (!raw) return null;
+  const names = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (names.length !== expectedCount) {
+    console.warn(
+      `contact-lead: WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES count (${names.length}) != KEYS (${expectedCount}) — pakai format posisional`,
+    );
+    return null;
+  }
+  return names;
 }
 
 function getLeadField(ctx: Record<string, string>, key: string) {
@@ -171,29 +189,31 @@ async function sendWhatsappTemplateToClient(args: {
   }
 
   const keys = parseTemplateBodyKeys();
-  const parameters = keys.map((k) => ({
-    type: "text",
-    text: getLeadField(args.ctx, k).slice(0, 1024),
-  }));
+  const paramNames = parseTemplateBodyParameterNames(keys.length);
+  const parameters = keys.map((k, i) => {
+    const t = getLeadField(args.ctx, k).trim().slice(0, 1024);
+    const text = t.length > 0 ? t : "\u2014";
+    const p: Record<string, unknown> = { type: "text", text };
+    if (paramNames?.[i]) {
+      p.parameter_name = paramNames[i];
+    }
+    return p;
+  });
 
   const url = `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`;
+  const template: Record<string, unknown> = {
+    name: templateName,
+    language: { code: templateLanguage },
+  };
+  if (parameters.length > 0) {
+    template.components = [{ type: "body", parameters }];
+  }
+
   const body = {
     messaging_product: "whatsapp",
     to: toDigits,
     type: "template",
-    template: {
-      name: templateName,
-      language: { code: templateLanguage },
-      components:
-        parameters.length > 0
-          ? [
-              {
-                type: "body",
-                parameters,
-              },
-            ]
-          : [],
-    },
+    template,
   };
 
   const res = await fetch(url, {

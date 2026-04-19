@@ -1,8 +1,8 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AnalyticsProvider } from "@/analytics/AnalyticsProvider";
-import { HomePage } from "@/home/HomePage";
 
+const HomePage = lazy(() => import("@/home/HomePage").then((m) => ({ default: m.HomePage })));
 const QueryRoutesLayout = lazy(() =>
   import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
 );

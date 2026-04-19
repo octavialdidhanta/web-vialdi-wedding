@@ -98,12 +98,32 @@ function getEnvOptional(name: string) {
 function parseTemplateBodyKeys(): string[] {
   const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_KEYS");
   if (!raw) return ["name"];
-  const keys = raw
+  if (/^__none__$/i.test(raw.trim())) return [];
+  return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  // Kosong (mis. env rusak) → minimal satu parameter agar Graph tidak error
-  return keys.length > 0 ? keys : ["name"];
+}
+
+/**
+ * Template WhatsApp baru (Meta) memakai parameter **bernama** di body; Graph API membutuhkan
+ * `parameter_name` per entri. Daftar ini harus sejajar urutannya dengan `WHATSAPP_TEMPLATE_BODY_KEYS`.
+ * Contoh: KEYS=name,email NAMES=nama_klien,email_klien
+ */
+function parseTemplateBodyParameterNames(expectedCount: number): string[] | null {
+  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES");
+  if (!raw) return null;
+  const names = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (names.length !== expectedCount) {
+    console.warn(
+      `wedding-package-lead: WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES count (${names.length}) != KEYS (${expectedCount}) — pakai format posisional`,
+    );
+    return null;
+  }
+  return names;
 }
 
 /** Meta (#131008) menolak parameter body berteks kosong — wajib ada nilai. */
@@ -193,29 +213,33 @@ async function sendWhatsappTemplateToClient(args: {
   }
 
   const keys = parseTemplateBodyKeys();
-  const parameters = keys.map((k) => ({
-    type: "text",
-    text: nonEmptyTemplateParamText(getLeadField(args.ctx, k)),
-  }));
+  const paramNames = parseTemplateBodyParameterNames(keys.length);
+  const parameters = keys.map((k, i) => {
+    const p: Record<string, unknown> = {
+      type: "text",
+      text: nonEmptyTemplateParamText(getLeadField(args.ctx, k)),
+    };
+    if (paramNames?.[i]) {
+      p.parameter_name = paramNames[i];
+    }
+    return p;
+  });
 
   const url = `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`;
+  /** Jangan kirim `components: []` — Meta (#100) jika template tanpa variabel body. */
+  const template: Record<string, unknown> = {
+    name: templateName,
+    language: { code: templateLanguage },
+  };
+  if (parameters.length > 0) {
+    template.components = [{ type: "body", parameters }];
+  }
+
   const body = {
     messaging_product: "whatsapp",
     to: toDigits,
     type: "template",
-    template: {
-      name: templateName,
-      language: { code: templateLanguage },
-      components:
-        parameters.length > 0
-          ? [
-              {
-                type: "body",
-                parameters,
-              },
-            ]
-          : [],
-    },
+    template,
   };
 
   const res = await fetch(url, {

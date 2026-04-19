@@ -136,6 +136,13 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
           "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets, sama seperti contact-lead)",
         );
       }
+      if (res2.whatsapp && "error" in res2.whatsapp && typeof res2.whatsapp.error === "string") {
+        setErrorMessage(
+          "Data tersimpan, tetapi notifikasi WhatsApp gagal. Hubungi tim jika perlu. Detail: " +
+            res2.whatsapp.error.slice(0, 280),
+        );
+        return;
+      }
       navigate("/thank-you-page");
     } catch (e: unknown) {
       setErrorMessage(e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.");
