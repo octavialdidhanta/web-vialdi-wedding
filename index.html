@@ -2,10 +2,16 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <!-- Google Tag Manager: gtm.js setelah idle — dataLayer tetap menerima push awal (SPA + GTM). -->
+    <!--
+      GTM + tag di dalamnya (GA, Meta, TikTok, dll.) membebani main thread dan byte tidak terpakai di PSI.
+      dataLayer tetap hidup; gtm.js dimuat setelah engagement pertama atau fallback setelah load (bot / bounce).
+    -->
     <script>
       window.dataLayer = window.dataLayer || [];
+      var __gtmBooted = false;
       function loadGtm() {
+        if (__gtmBooted) return;
+        __gtmBooted = true;
         (function (w, d, s, l, i) {
           w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
           var f = d.getElementsByTagName(s)[0],
@@ -16,17 +22,16 @@
           f.parentNode.insertBefore(j, f);
         })(window, document, "script", "dataLayer", "GTM-N7LD8CX");
       }
-      if ("requestIdleCallback" in window) {
-        requestIdleCallback(loadGtm, { timeout: 3500 });
-      } else {
-        window.addEventListener(
-          "load",
-          function () {
-            setTimeout(loadGtm, 0);
-          },
-          { once: true },
-        );
-      }
+      ["scroll", "pointerdown", "keydown", "touchstart"].forEach(function (ev) {
+        window.addEventListener(ev, loadGtm, { once: true, passive: true });
+      });
+      window.addEventListener(
+        "load",
+        function () {
+          setTimeout(loadGtm, 10000);
+        },
+        { once: true },
+      );
     </script>
     <!-- End Google Tag Manager -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

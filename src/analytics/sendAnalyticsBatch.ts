@@ -1,5 +1,3 @@
-import { supabase } from "@/share/supabaseClient";
-
 const SESSION_KEY_PREFIX = "vialdi_analytics_session_v1";
 
 /** Nilai yang sama dengan CHECK di DB + validasi Edge. */
@@ -222,6 +220,7 @@ function simpleUaHash(): string {
 
 export async function getOptionalAuthUserId(): Promise<string | null> {
   try {
+    const { supabase } = await import("@/share/supabaseClient");
     const { data } = await supabase.auth.getSession();
     return data.session?.user.id ?? null;
   } catch {
@@ -235,7 +234,10 @@ export async function sendAnalyticsBatch(
     useBeacon?: boolean;
     keepalive?: boolean;
     authUserId?: string | null;
-    /** Lewati lookup Supabase Auth agar tidak memblokir critical path (mis. page_view awal). */
+    /**
+     * Default `true`: hindari memuat `@supabase/supabase-js` di bundle utama untuk tiap ping/klik.
+     * Set `false` hanya jika ingest membutuhkan `auth_user_id` dari sesi Supabase.
+     */
     skipAuthLookup?: boolean;
     /** Jangan tunggu respons fetch di task saat ini (memutus tautan kritis Lighthouse). */
     deferNetwork?: boolean;
@@ -248,7 +250,8 @@ export async function sendAnalyticsBatch(
   }
   const session_id = getOrCreateSessionId();
   const web_id = getRequiredWebId();
-  const auth_user_id = options?.skipAuthLookup
+  const skipAuthLookup = options?.skipAuthLookup ?? true;
+  const auth_user_id = skipAuthLookup
     ? (options.authUserId ?? null)
     : (options?.authUserId ?? (await getOptionalAuthUserId()));
   const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;

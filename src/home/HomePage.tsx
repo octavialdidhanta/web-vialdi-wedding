@@ -1,13 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
-import { Footer } from "@/share/Footer";
 import { SectionTitle } from "@/home/SectionTitle";
-import { FeaturedLayananCards } from "@/home/FeaturedLayananCards";
-import { ServiceCategoryGrid } from "@/home/ServiceCategoryGrid";
-import { WeddingGuaranteeSection } from "@/home/WeddingGuaranteeSection";
 import { PaketUnggulanQuickNav } from "@/home/PaketUnggulanQuickNav";
-import { PostPackageTrustLeadCard, PostPackageTrustSection } from "@/home/PostPackageTrustSection";
 import {
   PackageConsultOpenerProvider,
   usePackageConsultOpenerOptional,
@@ -32,6 +27,22 @@ const JanjiCompanionColumn = lazy(() =>
 const HomeFaqSection = lazy(() =>
   import("@/home/HomeFaqSection").then((m) => ({ default: m.HomeFaqSection })),
 );
+const ServiceCategoryGrid = lazy(() =>
+  import("@/home/ServiceCategoryGrid").then((m) => ({ default: m.ServiceCategoryGrid })),
+);
+const FeaturedLayananCards = lazy(() =>
+  import("@/home/FeaturedLayananCards").then((m) => ({ default: m.FeaturedLayananCards })),
+);
+const WeddingGuaranteeSection = lazy(() =>
+  import("@/home/WeddingGuaranteeSection").then((m) => ({ default: m.WeddingGuaranteeSection })),
+);
+const PostPackageTrustLeadCard = lazy(() =>
+  import("@/home/PostPackageTrustSection").then((m) => ({ default: m.PostPackageTrustLeadCard })),
+);
+const PostPackageTrustSection = lazy(() =>
+  import("@/home/PostPackageTrustSection").then((m) => ({ default: m.PostPackageTrustSection })),
+);
+const Footer = lazy(() => import("@/share/Footer").then((m) => ({ default: m.Footer })));
 
 function LazySectionFallback({ className }: { className: string }) {
   return (
@@ -204,12 +215,24 @@ function HomePageInner() {
       <div className="flex flex-col">
         {/* Kategori layanan */}
         <section className="order-1 bg-card py-10 md:py-14">
-          <ServiceCategoryGrid />
+          <DeferUntilNearViewport placeholderClassName="min-h-[18rem] md:min-h-[20rem]">
+            <Suspense
+              fallback={<LazySectionFallback className="min-h-[18rem] md:min-h-[20rem]" />}
+            >
+              <ServiceCategoryGrid />
+            </Suspense>
+          </DeferUntilNearViewport>
         </section>
 
         {/* Kartu layanan unggulan */}
         <section className="order-2 border-y border-border/60 bg-secondary/50 pt-8 pb-14 md:pt-10 md:pb-20">
-          <FeaturedLayananCards />
+          <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[30rem]">
+            <Suspense
+              fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[30rem]" />}
+            >
+              <FeaturedLayananCards />
+            </Suspense>
+          </DeferUntilNearViewport>
         </section>
 
         {/* Paket unggulan — kartu pembuka narasi di mobile tepat di bawah carousel; lanjutan narasi setelah janji (md:hidden). */}
@@ -239,10 +262,18 @@ function HomePageInner() {
             </Suspense>
           </DeferUntilNearViewport>
           <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
-            <PostPackageTrustLeadCard />
+            <DeferUntilNearViewport placeholderClassName="min-h-[14rem]">
+              <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
+                <PostPackageTrustLeadCard />
+              </Suspense>
+            </DeferUntilNearViewport>
           </div>
           <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 md:mt-10 md:block md:px-6 md:pt-10">
-            <PostPackageTrustSection />
+            <DeferUntilNearViewport placeholderClassName="min-h-[12rem]">
+              <Suspense fallback={<LazySectionFallback className="min-h-[12rem]" />}>
+                <PostPackageTrustSection />
+              </Suspense>
+            </DeferUntilNearViewport>
           </div>
         </section>
 
@@ -259,7 +290,11 @@ function HomePageInner() {
         {/* Janji & garansi + Before/After (kanan) */}
         <section className="order-4 bg-secondary/40 pt-12 pb-8 md:order-4 md:pt-16 md:pb-10">
           <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-2.5 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
-            <WeddingGuaranteeSection />
+            <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[32rem]">
+              <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[32rem]" />}>
+                <WeddingGuaranteeSection />
+              </Suspense>
+            </DeferUntilNearViewport>
             <DeferUntilNearViewport placeholderClassName="min-h-[320px] md:min-h-[36rem]">
               <Suspense
                 fallback={<LazySectionFallback className="min-h-[320px] md:min-h-[36rem]" />}
@@ -273,7 +308,11 @@ function HomePageInner() {
         {/* Narasi post-paket (tanpa kartu pembuka di mobile — kartu itu sudah di atas): di mobile setelah janji + before/after; di desktop sisi atas tetap di dalam blok paket. */}
         <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-8 md:hidden">
           <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
-            <PostPackageTrustSection />
+            <DeferUntilNearViewport placeholderClassName="min-h-[16rem]">
+              <Suspense fallback={<LazySectionFallback className="min-h-[16rem]" />}>
+                <PostPackageTrustSection />
+              </Suspense>
+            </DeferUntilNearViewport>
           </div>
         </section>
 
@@ -323,7 +362,11 @@ function HomePageInner() {
         </Suspense>
       </DeferUntilNearViewport>
 
-      <Footer />
+      <DeferUntilNearViewport rootMargin="0px 0px 480px 0px" placeholderClassName="min-h-[14rem]">
+        <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
+          <Footer />
+        </Suspense>
+      </DeferUntilNearViewport>
     </div>
   );
 }

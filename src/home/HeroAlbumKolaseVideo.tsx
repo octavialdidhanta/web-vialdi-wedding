@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+/** Privacy Enhanced embed — host `youtube-nocookie.com`. */
 function embedSrc(videoId: string) {
   const q = new URLSearchParams({
     rel: "0",
@@ -8,7 +9,7 @@ function embedSrc(videoId: string) {
     autoplay: "1",
     mute: "1",
   });
-  return `https://www.youtube.com/embed/${videoId}?${q.toString()}`;
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${q.toString()}`;
 }
 
 type SlotProps = {

@@ -76,8 +76,20 @@ export default defineConfig(({ mode }) => {
       },
     ],
     build: {
-      /** Hindari .map besar di produksi (deploy lebih ringan, PSI lebih bersih). */
-      sourcemap: mode !== "production",
+      /**
+       * Source map untuk bundle produksi: membantu debug + memuaskan Lighthouse
+       * ("Missing source maps for large first-party JavaScript"). Pastikan file
+       * `*.js.map` ikut di-deploy ke folder `assets/` yang sama dengan chunk JS.
+       *
+       * `sourcemapExcludeSources`: map lebih kecil (tanpa inline `sourcesContent`);
+       * stack trace tetap ke file/line asli jika path ada di map.
+       */
+      sourcemap: true,
+      rollupOptions: {
+        output: {
+          sourcemapExcludeSources: true,
+        },
+      },
     },
     resolve: {
       alias: {
