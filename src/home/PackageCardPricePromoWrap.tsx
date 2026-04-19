@@ -15,7 +15,7 @@ export function PackageCardPricePromoWrap({ priceArea, footNote = null }: Props)
   return (
     <div
       data-package-card-price-promo=""
-      className="package-card-price-promo flex w-full min-w-0 shrink-0 flex-col gap-1 rounded-xl border border-[oklch(0.48_0.22_300)]/30 bg-gradient-to-b from-[oklch(0.97_0.02_300)]/90 via-card to-card py-1.5 pl-1.5 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-black/[0.04] min-h-[6.875rem]"
+      className="package-card-price-promo flex w-full min-w-0 shrink-0 flex-col gap-1 rounded-xl border border-[var(--package-purple-solid)]/22 bg-gradient-to-b from-[oklch(0.97_0.015_300)]/90 via-card to-card py-1.5 pl-1.5 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-1 ring-inset ring-black/[0.04] min-h-[6.875rem]"
     >
       <div className="min-w-0 shrink-0">{priceArea}</div>
       {footNote != null ? (

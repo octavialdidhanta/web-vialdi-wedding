@@ -8,10 +8,10 @@ const pillBase =
   "inline-flex shrink-0 snap-start rounded-full border px-3 py-2 text-xs font-semibold shadow-sm transition-[color,background-color,border-color,box-shadow,opacity] md:px-3.5 md:text-sm";
 
 const pillInactive =
-  "border-border/70 bg-card/90 text-navy hover:border-[oklch(0.48_0.22_300)]/45 hover:text-[oklch(0.34_0.1_305)]";
+  "border-border/70 bg-card/90 text-navy hover:border-[var(--package-purple-solid)]/40 hover:text-[oklch(0.32_0.06_302)]";
 
 const pillActive =
-  "border-[oklch(0.48_0.22_300)] bg-[oklch(0.97_0.05_300)] text-[oklch(0.28_0.1_305)] ring-2 ring-[oklch(0.48_0.22_300)]/30 hover:border-[oklch(0.42_0.2_300)] hover:bg-[oklch(0.96_0.06_300)] hover:ring-[oklch(0.48_0.22_300)]/45";
+  "border-[var(--package-purple-solid)] bg-[oklch(0.97_0.022_300)] text-[oklch(0.28_0.06_302)] ring-2 ring-[var(--package-purple-solid)]/22 hover:border-[oklch(0.38_0.09_302)] hover:bg-[oklch(0.96_0.03_300)] hover:ring-[var(--package-purple-solid)]/35";
 
 const pillComingSoon =
   "cursor-not-allowed border-border/40 bg-muted/30 text-muted-foreground opacity-90";

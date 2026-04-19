@@ -18,9 +18,25 @@ export function PackageCardPriceStack({ showDivider = false, leading, children }
   return (
     <div className={cn("flex w-full min-w-0 flex-col", showDivider && "gap-2 md:gap-2.5")}>
       {showDivider ? <div className="h-0 w-full shrink-0 border-t border-border" /> : null}
-      <div className="flex min-h-[4.5rem] w-full min-w-0 items-center gap-2 md:gap-2">
-        {leading != null ? <div className="shrink-0 self-center">{leading}</div> : null}
-        <div className="min-w-0 flex-1 text-left">{children}</div>
+      <div
+        className={cn(
+          "flex min-h-[4.5rem] w-full min-w-0 items-center",
+          leading != null ? "gap-0" : "gap-2 md:gap-2",
+        )}
+      >
+        {leading != null ? (
+          <div className="shrink-0 self-center -mr-2.5 max-w-[min(100%,5.5rem)] md:-mr-4 md:max-w-[min(100%,6.25rem)]">
+            {leading}
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "min-w-0 flex-1 text-left",
+            leading != null && "-ml-0.5 md:-ml-1",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -1,25 +1,45 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
 import { SectionTitle } from "@/home/SectionTitle";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
-import { JanjiCompanionColumn } from "@/home/JanjiCompanionColumn";
-import { PostPackageTrustLeadCard, PostPackageTrustSection } from "@/home/PostPackageTrustSection";
 import { FeaturedLayananCards } from "@/home/FeaturedLayananCards";
 import { ServiceCategoryGrid } from "@/home/ServiceCategoryGrid";
 import { WeddingGuaranteeSection } from "@/home/WeddingGuaranteeSection";
 import { PaketUnggulanQuickNav } from "@/home/PaketUnggulanQuickNav";
-import { WeddingPackageHighlight } from "@/home/WeddingPackageHighlight";
-import { InstagramProfileEmbed } from "@/home/InstagramProfileEmbed";
-import { HeroAlbumKolaseVideo } from "@/home/HeroAlbumKolaseVideo";
+import { PostPackageTrustLeadCard, PostPackageTrustSection } from "@/home/PostPackageTrustSection";
 import {
   PackageConsultOpenerProvider,
   usePackageConsultOpenerOptional,
 } from "@/home/PackageConsultOpenerContext";
+import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
+import { cn } from "@/share/lib/utils";
+import heroImage from "@/home/assets/hero/DSC00768_11zon.webp";
 
-const HERO_IMAGE =
-  "https://jasafotowedding.com/wp-content/uploads/2024/02/Screenshot-2023-08-30-171354-e1707757094943.png";
+const HeroAlbumKolaseVideo = lazy(() =>
+  import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
+);
+const WeddingPackageHighlight = lazy(() =>
+  import("@/home/WeddingPackageHighlight").then((m) => ({ default: m.WeddingPackageHighlight })),
+);
+const InstagramProfileEmbed = lazy(() =>
+  import("@/home/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
+);
+const JanjiCompanionColumn = lazy(() =>
+  import("@/home/JanjiCompanionColumn").then((m) => ({ default: m.JanjiCompanionColumn })),
+);
+const HomeFaqSection = lazy(() =>
+  import("@/home/HomeFaqSection").then((m) => ({ default: m.HomeFaqSection })),
+);
+
+function LazySectionFallback({ className }: { className: string }) {
+  return (
+    <div
+      className={cn("animate-pulse rounded-lg bg-muted/35 motion-reduce:animate-none", className)}
+      aria-hidden
+    />
+  );
+}
 
 const VIEWPORT_DEFAULT = "width=device-width, initial-scale=1.0";
 /** Mencegah pinch-to-zoom hanya saat Home aktif; dikembalikan saat navigasi ke halaman lain. */
@@ -114,7 +134,7 @@ function HomePageInner() {
           className="pointer-events-none absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[oklch(0.75_0.08_300)]/15 blur-3xl"
         />
 
-        <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-4 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
+        <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
               <span className="h-2 w-2 rounded-full bg-[oklch(0.55_0.16_300)]" />
@@ -151,14 +171,14 @@ function HomePageInner() {
           <div className="relative">
             <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
               <img
-                src={HERO_IMAGE}
+                src={heroImage}
                 alt="Pasangan pengantin dalam suasana pernikahan elegan"
                 width={1200}
                 height={1200}
                 sizes="(max-width: 1024px) 100vw, min(560px, 46vw)"
                 fetchPriority="high"
                 decoding="async"
-                className="aspect-square w-full object-cover"
+                className="aspect-square w-full object-cover object-bottom"
               />
               <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">
                 Photo by Vialdi Wedding
@@ -177,7 +197,15 @@ function HomePageInner() {
           </div>
         </div>
 
-        <HeroAlbumKolaseVideo />
+        <DeferUntilNearViewport placeholderClassName="min-h-[26rem] sm:min-h-[28rem] lg:min-h-[22rem]">
+          <Suspense
+            fallback={
+              <LazySectionFallback className="min-h-[26rem] sm:min-h-[28rem] lg:min-h-[22rem]" />
+            }
+          >
+            <HeroAlbumKolaseVideo />
+          </Suspense>
+        </DeferUntilNearViewport>
       </section>
 
       {/* Mobile: kategori → layanan → paket → kartu "solusinya" → janji + before/after → kutipan dokumentasi → sisa narasi post-paket → Instagram. Md+: kutipan tetap sebelum blok janji seperti desktop. */}
@@ -206,7 +234,18 @@ function HomePageInner() {
               belowTitle={<PaketUnggulanQuickNav />}
             />
           </div>
-          <WeddingPackageHighlight />
+          <DeferUntilNearViewport
+            className="w-full"
+            placeholderClassName="min-h-[300px] pb-3 md:min-h-[56rem] md:pb-4"
+          >
+            <Suspense
+              fallback={
+                <LazySectionFallback className="min-h-[300px] w-full pb-3 md:min-h-[56rem] md:pb-4" />
+              }
+            >
+              <WeddingPackageHighlight />
+            </Suspense>
+          </DeferUntilNearViewport>
           <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
             <PostPackageTrustLeadCard />
           </div>
@@ -217,7 +256,7 @@ function HomePageInner() {
 
         {/* Kutipan dokumentasi — mobile: setelah before/after; md+: sebelum blok janji */}
         <section className="order-5 bg-background py-14 md:order-3 md:py-20">
-          <div className="mx-auto max-w-4xl px-4 text-center md:px-6">
+          <div className="mx-auto max-w-4xl px-2.5 text-center md:px-6">
             <p className="font-wedding-serif text-xl font-bold leading-snug text-navy md:text-2xl lg:text-[1.65rem]">
               Dokumentasi jernih, komunikasi transparan, dan tim yang paham ritme hari H — dari rumah
               sederhana hingga venue hotel &amp; gedung.
@@ -227,28 +266,40 @@ function HomePageInner() {
 
         {/* Janji & garansi + Before/After (kanan) */}
         <section className="order-4 bg-secondary/40 pt-12 pb-8 md:order-4 md:pt-16 md:pb-10">
-          <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-4 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
+          <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-2.5 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
             <WeddingGuaranteeSection />
-            <JanjiCompanionColumn />
+            <DeferUntilNearViewport placeholderClassName="min-h-[320px] md:min-h-[36rem]">
+              <Suspense
+                fallback={<LazySectionFallback className="min-h-[320px] md:min-h-[36rem]" />}
+              >
+                <JanjiCompanionColumn />
+              </Suspense>
+            </DeferUntilNearViewport>
           </div>
         </section>
 
         {/* Narasi post-paket (tanpa kartu pembuka di mobile — kartu itu sudah di atas): di mobile setelah janji + before/after; di desktop sisi atas tetap di dalam blok paket. */}
         <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-8 md:hidden">
-          <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+          <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
             <PostPackageTrustSection />
           </div>
         </section>
 
         {/* Instagram */}
         <section className="order-7 border-t border-border/60 bg-background py-10 md:order-6 md:py-14">
-          <InstagramProfileEmbed />
+          <DeferUntilNearViewport placeholderClassName="min-h-[440px] md:min-h-[1120px]">
+            <Suspense
+              fallback={<LazySectionFallback className="min-h-[440px] md:min-h-[1120px]" />}
+            >
+              <InstagramProfileEmbed />
+            </Suspense>
+          </DeferUntilNearViewport>
         </section>
       </div>
 
       {/* CTA */}
       <section className="bg-background">
-        <div className="mx-auto max-w-4xl px-4 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
+        <div className="mx-auto max-w-4xl px-2.5 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
           <SectionTitle
             title="Mulai dari obrolan singkat"
             subtitle="Ceritakan tanggal, venue, dan impian Anda. Kami bantu susun paket yang masuk akal dan menyenangkan."
@@ -271,66 +322,14 @@ function HomePageInner() {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="bg-background">
-        <div className="mx-auto max-w-[90rem] px-4 md:px-6 pb-20">
-          <div className="mx-auto w-full max-w-5xl rounded-3xl border border-border bg-card px-3 py-6 shadow-sm md:p-10">
-            <div className="mx-auto max-w-3xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight text-navy md:text-4xl">FAQ</h2>
-              <p className="mt-3 text-muted-foreground">
-                Pertanyaan yang sering ditanyakan sebelum memesan layanan wedding organizer &
-                dokumentasi.
-              </p>
-            </div>
-
-            <div className="mx-auto mt-8 max-w-4xl">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1">
-                  <AccordionTrigger>Apa saja yang dicakup oleh Vialdi Wedding?</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    Kami menyediakan dokumentasi foto &amp; video (termasuk paket dengan album),
-                    kolaborasi dengan vendor rias dan busana, serta pendampingan dekorasi pelaminan
-                    sesuai paket yang dipilih.
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-2">
-                  <AccordionTrigger>Bagaimana cara memilih paket yang tepat?</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    Setelah konsultasi gratis, kami merekomendasikan durasi tim, jumlah fotografer /
-                    videografer, dan add-on berdasarkan skala acara (rumah, outdoor, hotel, atau
-                    gedung).
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-3">
-                  <AccordionTrigger>Kapan hasil foto dan video biasanya selesai?</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    Waktu penyelesaian bervariasi per paket. Untuk paket prioritas, estimasi hasil
-                    foto utama dapat lebih cepat — detail tertuang di proposal resmi.
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-4">
-                  <AccordionTrigger>Apakah revisi editing dimungkinkan?</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    Ya, dalam batas wajar dan sesuai kesepakatan di kontrak. Tujuan kami adalah hasil
-                    yang Anda banggakan tanpa mengorbankan kualitas artistik.
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="item-5">
-                  <AccordionTrigger>Apakah melayani luar kota?</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    Silakan sampaikan kota dan venue pada formulir kontak. Biaya transport &
-                    akomodasi tim (jika diperlukan) akan dijelaskan secara transparan.
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          </div>
-        </div>
-      </section>
+      <DeferUntilNearViewport
+        rootMargin="200px 0px 120px 0px"
+        placeholderClassName="min-h-[28rem] md:min-h-[34rem]"
+      >
+        <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[34rem]" />}>
+          <HomeFaqSection />
+        </Suspense>
+      </DeferUntilNearViewport>
 
       <Footer />
     </div>

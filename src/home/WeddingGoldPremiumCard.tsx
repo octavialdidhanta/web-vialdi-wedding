@@ -77,7 +77,7 @@ export function WeddingGoldPremiumCard() {
         <>
           <div className="flex min-h-0 grow flex-col">
             <p className="text-center">
-              <span className="inline-block rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
+              <span className="inline-block rounded-lg bg-[var(--package-purple-solid)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
                 Foto &amp; video
               </span>
             </p>
@@ -102,7 +102,7 @@ export function WeddingGoldPremiumCard() {
         <PackageAccordionRoot type="single" collapsible className="w-full space-y-2">
           {goldSections.map((s) => (
             <AccordionItem key={s.id} value={s.id} className="border-0">
-              <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+              <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
                 {s.title}
               </AccordionTrigger>
               <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">
@@ -152,7 +152,7 @@ export function WeddingGoldPremiumCard() {
             ].map((u) => (
               <div
                 key={u.label}
-                className="rounded-lg bg-[oklch(0.48_0.22_300)] px-1 py-3 text-center shadow-sm md:px-2 md:py-4"
+                className="rounded-lg bg-[var(--package-purple-solid)] px-1 py-3 text-center shadow-sm md:px-2 md:py-4"
               >
                 <div className="text-lg font-bold tabular-nums md:text-2xl">{u.value}</div>
                 <div className="mt-1 opacity-90">{u.label}</div>

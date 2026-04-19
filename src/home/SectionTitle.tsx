@@ -29,7 +29,7 @@ export function SectionTitle({
         <>
           <div
             className={cn(
-              "mt-3 h-1 w-16 rounded-full bg-[oklch(0.48_0.22_300)]",
+              "mt-3 h-1 w-16 rounded-full bg-[var(--package-purple-solid)]",
               align === "center" && "mx-auto",
             )}
           />

@@ -68,7 +68,7 @@ function AutoplayYoutubeSlot({ videoId, iframeTitle, placeholder, className }: S
 export function HeroAlbumKolaseVideo() {
   return (
     <div className="relative left-1/2 right-1/2 -mx-[50vw] mt-8 w-screen max-w-[100vw] sm:mt-10 lg:relative lg:left-auto lg:right-auto lg:mx-auto lg:mt-10 lg:w-full lg:max-w-[90rem]">
-      <div className="flex flex-col gap-6 px-4 pb-2 md:px-6 lg:flex-row lg:gap-8 lg:pb-0">
+      <div className="flex flex-col gap-6 px-2.5 pb-2 md:px-6 lg:flex-row lg:gap-8 lg:pb-0">
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-center text-sm font-semibold leading-snug text-navy lg:mb-3 lg:text-left">
             Contoh album kolase yang akan diterima klien

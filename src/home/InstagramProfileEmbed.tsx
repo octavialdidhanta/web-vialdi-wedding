@@ -58,7 +58,7 @@ export function InstagramProfileEmbed() {
   }, [clearLoadTimer]);
 
   return (
-    <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+    <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
       <div className="flex flex-col items-center gap-2 text-center md:flex-row md:items-end md:justify-between md:text-left">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">

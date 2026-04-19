@@ -15,10 +15,19 @@
     <meta property="og:type" content="website" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Non-render-blocking: stylesheet font tidak menahan FCP (onload swap media). -->
     <link
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <!-- Google Tag Manager: dimuat setelah idle agar tidak memblokir LCP/FCP (dataLayer tetap tersedia) -->
     <script>
       window.dataLayer = window.dataLayer || [];

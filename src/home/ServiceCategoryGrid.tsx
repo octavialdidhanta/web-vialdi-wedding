@@ -57,7 +57,7 @@ const categories: Category[] = [
 
 export function ServiceCategoryGrid() {
   return (
-    <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+    <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
       <h2 className="text-center text-2xl font-bold tracking-tight text-navy md:text-3xl">
         Layanan Vialdi Wedding
       </h2>

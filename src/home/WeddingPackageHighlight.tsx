@@ -9,7 +9,7 @@ import { WeddingSuperJuniorPackageCard } from "@/home/WeddingSuperJuniorPackageC
 
 /** Mobile: kartu sedikit lebih sempit agar terlihat “cuil” kartu berikutnya (peek) tanpa chevron. Desktop: tinggi kartu seragam. */
 const cardShell =
-  "min-w-[19rem] w-[min(25rem,calc(100vw-2.75rem))] max-w-[28rem] shrink-0 snap-start snap-always self-stretch md:flex md:h-[56rem] md:max-h-[56rem] md:min-h-0 md:min-w-[21rem] md:w-[min(28rem,calc(100vw-3rem))] md:flex-col";
+  "min-w-[19rem] w-[min(25rem,calc(100vw-2rem))] max-w-[28rem] shrink-0 snap-start snap-always self-stretch md:flex md:h-[56rem] md:max-h-[56rem] md:min-h-0 md:min-w-[21rem] md:w-[min(28rem,calc(100vw-3rem))] md:flex-col";
 
 const NUDGE_PX = 14;
 const NUDGE_BACK_MS = 400;
@@ -86,11 +86,11 @@ export function WeddingPackageHighlight() {
       <div
         ref={carouselRef}
         data-package-carousel=""
-        className="no-scrollbar relative left-1/2 right-1/2 -mx-[50vw] w-screen max-w-[100vw] snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-4 scroll-pr-4 px-0 pb-3 sm:pb-3 md:static md:mx-auto md:w-full md:max-w-[90rem] md:overflow-x-auto md:snap-x md:scroll-pl-6 md:scroll-pr-6 md:px-6 md:pb-4"
+        className="no-scrollbar relative left-1/2 right-1/2 -mx-[50vw] w-screen max-w-[100vw] snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-2 scroll-pr-2 px-0 pb-3 sm:pb-3 md:static md:mx-auto md:w-full md:max-w-[90rem] md:overflow-x-auto md:snap-x md:scroll-pl-6 md:scroll-pr-6 md:px-6 md:pb-4"
         role="region"
         aria-label="Daftar paket foto dan video — geser horizontal untuk melihat paket lainnya"
       >
-        <div className="flex w-max flex-nowrap items-stretch gap-2 px-4 sm:gap-3 md:gap-4 md:px-0">
+        <div className="flex w-max flex-nowrap items-stretch gap-2 px-2 sm:gap-3 md:gap-4 md:px-0">
           <div className={cardShell}>
             <RoyalWeddingPackageCard />
           </div>
@@ -115,7 +115,7 @@ export function WeddingPackageHighlight() {
         </div>
       </div>
 
-      <p className="mt-1 px-4 text-left text-[0.7rem] leading-snug text-muted-foreground md:px-6 lg:hidden">
+      <p className="mt-1 px-2 text-left text-[0.7rem] leading-snug text-muted-foreground md:px-6 lg:hidden">
         Geser ke samping untuk melihat paket lainnya.
       </p>
     </div>

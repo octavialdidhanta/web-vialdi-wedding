@@ -3,15 +3,15 @@ import { PackageAccordionRoot } from "@/home/packageAccordionViewport";
 import { PackageCardPriceStack } from "@/home/PackageCardPriceStack";
 import { PackageCardPricePromoWrap } from "@/home/PackageCardPricePromoWrap";
 import { PackagePromoMarquee } from "@/home/PackagePromoMarquee";
-import { PackageBestSellerSeal } from "@/home/PackageBestSellerSeal";
 import { PackageConsultLeadForm } from "@/home/PackageConsultLeadForm";
 import { PackagePricingCardShell } from "@/home/PackagePricingCardShell";
+import royalWeddingPriceBadge from "@/home/assets/Untitled design (3).png";
 
 export function RoyalWeddingPlatinumFotoOnlyCard() {
   return (
     <PackagePricingCardShell
       leadSummary={{
-        badgeLabel: "> Foto only",
+        badgeLabel: "Foto only",
         packageName: "Royal Wedding Platinum + Album Foto",
         strikethroughPrice: "Rp 4.500.000",
         price: "Rp 3.500.000",
@@ -20,8 +20,8 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
         <>
           <div className="flex min-h-0 grow flex-col">
             <p className="text-center">
-              <span className="inline-block rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
-                &gt; Foto only
+              <span className="inline-block rounded-lg bg-[var(--package-purple-solid)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
+                Foto only
               </span>
             </p>
             <h2 className="mt-5 text-center text-lg font-bold leading-snug text-navy md:text-xl">
@@ -30,7 +30,18 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
           </div>
           <PackageCardPricePromoWrap
             priceArea={
-              <PackageCardPriceStack showDivider leading={<PackageBestSellerSeal />}>
+              <PackageCardPriceStack
+                showDivider
+                leading={
+                  <img
+                    src={royalWeddingPriceBadge}
+                    alt="Lencana promo paket Royal Wedding Platinum"
+                    className="block h-11 w-full max-w-none object-contain object-left md:h-[3.75rem]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                }
+              >
                 <p className="text-sm text-muted-foreground line-through">Rp 4.500.000</p>
                 <p className="text-3xl font-bold tracking-tight text-navy">Rp 3.500.000</p>
               </PackageCardPriceStack>
@@ -44,7 +55,7 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
       accordion={
         <PackageAccordionRoot type="single" collapsible className="w-full space-y-2">
           <AccordionItem value="pl-photo" className="border-0">
-            <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+            <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
               Photo
             </AccordionTrigger>
             <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">
@@ -65,7 +76,7 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
           </AccordionItem>
 
           <AccordionItem value="pl-album" className="border-0">
-            <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+            <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
               Album Kolase
             </AccordionTrigger>
             <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">
@@ -76,7 +87,7 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
           </AccordionItem>
 
           <AccordionItem value="pl-bonus" className="border-0">
-            <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+            <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
               Bonus
             </AccordionTrigger>
             <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">
@@ -94,7 +105,7 @@ export function RoyalWeddingPlatinumFotoOnlyCard() {
           </AccordionItem>
 
           <AccordionItem value="pl-extra" className="border-0">
-            <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+            <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
               Extra Bonus
             </AccordionTrigger>
             <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">

@@ -12,12 +12,10 @@ import {
 } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
-
-const GARANSI_SEAL_IMAGE =
-  "https://jasafotowedding.com/wp-content/uploads/2021/06/garansi.png";
+import garansiSealImage from "@/home/assets/Untitled design (4).png";
 
 const triggerPurple =
-  "rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] md:px-4 [&>svg]:text-white";
+  "rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] md:px-4 [&>svg]:text-white";
 
 const contentMuted =
   "rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] leading-relaxed text-muted-foreground data-[state=closed]:border-0 md:px-4";
@@ -76,7 +74,7 @@ function CheckRow({ children }: { children: ReactNode }) {
   return (
     <li className="flex gap-3 text-sm leading-relaxed text-foreground/90 md:text-[0.9375rem]">
       <span
-        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[oklch(0.48_0.22_300)] text-white"
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--package-purple-solid)] text-white"
         aria-hidden
       >
         <Check className="h-3 w-3" strokeWidth={3} />
@@ -183,7 +181,7 @@ export function PostPackageTrustSection() {
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white shadow-sm md:h-11 md:w-11 md:rounded-xl"
                   style={{
-                    background: "linear-gradient(165deg, oklch(0.72 0.1 300), oklch(0.48 0.22 300))",
+                    background: "linear-gradient(165deg, oklch(0.68 0.055 302), var(--package-purple-solid))",
                   }}
                 >
                   <Icon className="h-5 w-5" aria-hidden strokeWidth={1.75} />
@@ -204,13 +202,13 @@ export function PostPackageTrustSection() {
           </blockquote>
           <div className="flex h-full flex-col rounded-2xl border border-border bg-card px-3 py-5 text-center shadow-md md:p-8">
             <img
-              src={GARANSI_SEAL_IMAGE}
+              src={garansiSealImage}
               alt="Garansi 100% uang kembali"
-              width={220}
-              height={220}
+              width={320}
+              height={320}
               loading="lazy"
               decoding="async"
-              className="mx-auto h-auto w-40 max-w-full object-contain sm:w-44 md:w-48"
+              className="mx-auto h-auto w-52 max-w-full object-contain sm:w-60 md:w-72 lg:w-80"
             />
             <h3 className="mt-6 text-lg font-bold text-navy md:text-xl">Garansi kepuasan &amp; transparansi</h3>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">

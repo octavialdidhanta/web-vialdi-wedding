@@ -34,7 +34,8 @@ export default defineConfig(({ mode }) => {
       },
     ],
     build: {
-      sourcemap: "hidden",
+      /** Peta sumber publik: Lighthouse "Best practices" tidak mengeluh file besar tanpa .map */
+      sourcemap: true,
     },
     resolve: {
       alias: {

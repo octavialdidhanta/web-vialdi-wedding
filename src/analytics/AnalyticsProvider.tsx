@@ -137,6 +137,8 @@ export function AnalyticsProvider() {
       keepalive: true,
       skipAuthLookup: true,
       deferNetwork: true,
+      /** Hindari kompetisi bandwidth dengan LCP (hero) di audit mobile PSI. */
+      deferNetworkLeadMs: 2400,
     });
   }, []);
 

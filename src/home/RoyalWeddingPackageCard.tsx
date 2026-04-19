@@ -2,11 +2,11 @@ import { PackageCardPriceStack } from "@/home/PackageCardPriceStack";
 import { PackageCardPricePromoWrap } from "@/home/PackageCardPricePromoWrap";
 import { PackagePromoMarquee } from "@/home/PackagePromoMarquee";
 import { ROYAL_WEDDING_GOLD_MARQUEE_PROMO_TEXT } from "@/home/royalWeddingGoldMarqueePromoText";
-import { PackageBestSellerSeal } from "@/home/PackageBestSellerSeal";
 import { PackageConsultLeadForm } from "@/home/PackageConsultLeadForm";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
 import { PackageAccordionRoot } from "@/home/packageAccordionViewport";
 import { PackagePricingCardShell } from "@/home/PackagePricingCardShell";
+import royalWeddingPriceBadge from "@/home/assets/Untitled design (3).png";
 
 const sections = [
   {
@@ -71,7 +71,7 @@ export function RoyalWeddingPackageCard() {
         <>
           <div className="flex min-h-0 grow flex-col">
             <p className="text-center">
-              <span className="inline-block rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
+              <span className="inline-block rounded-lg bg-[var(--package-purple-solid)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
                 Foto &amp; video
               </span>
             </p>
@@ -81,7 +81,18 @@ export function RoyalWeddingPackageCard() {
           </div>
           <PackageCardPricePromoWrap
             priceArea={
-              <PackageCardPriceStack leading={<PackageBestSellerSeal />}>
+              <PackageCardPriceStack
+                showDivider
+                leading={
+                  <img
+                    src={royalWeddingPriceBadge}
+                    alt="Lencana promo paket Royal Wedding Gold"
+                    className="block h-11 w-full max-w-none object-contain object-left md:h-[3.75rem]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                }
+              >
                 <p className="text-sm text-muted-foreground line-through">Rp 7.900.000</p>
                 <p className="text-3xl font-bold tracking-tight text-navy">Rp 5.500.000</p>
               </PackageCardPriceStack>
@@ -94,7 +105,7 @@ export function RoyalWeddingPackageCard() {
         <PackageAccordionRoot type="single" collapsible className="w-full space-y-2">
           {sections.map((s) => (
             <AccordionItem key={s.id} value={s.id} className="border-0">
-              <AccordionTrigger className="rounded-lg bg-[oklch(0.48_0.22_300)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[oklch(0.36_0.19_300)] [&>svg]:text-white">
+              <AccordionTrigger className="rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm md:px-4 font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] [&>svg]:text-white">
                 {s.title}
               </AccordionTrigger>
               <AccordionContent className="rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] md:px-4 leading-relaxed data-[state=closed]:border-0">

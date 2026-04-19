@@ -155,28 +155,38 @@ function getAnonKey(): string {
 /**
  * Menjadwalkan POST ingest agar tidak menggantung critical path Lighthouse:
  * hindari `queueMicrotask` langsung dari idle callback (tetap tercatat sebagai rantai panjang).
+ *
+ * @param leadMs — jeda tambahan setelah `load` (hanya untuk batch tertentu) agar fetch tidak
+ *   berebut bandwidth dengan LCP (gambar hero, font); membantu metrik PSI/PageSpeed.
  */
-function scheduleDeferredIngest(run: () => void) {
+function scheduleDeferredIngest(run: () => void, leadMs = 0) {
   if (typeof window === "undefined") {
     queueMicrotask(run);
     return;
   }
 
   const afterPaint = () => {
-    requestAnimationFrame(() => {
+    const chain = () => {
       requestAnimationFrame(() => {
-        if (typeof requestIdleCallback === "function") {
-          requestIdleCallback(
-            () => {
-              void run();
-            },
-            { timeout: 12_000 },
-          );
-        } else {
-          setTimeout(() => void run(), 400);
-        }
+        requestAnimationFrame(() => {
+          if (typeof requestIdleCallback === "function") {
+            requestIdleCallback(
+              () => {
+                void run();
+              },
+              { timeout: 12_000 },
+            );
+          } else {
+            setTimeout(() => void run(), 400);
+          }
+        });
       });
-    });
+    };
+    if (leadMs > 0) {
+      window.setTimeout(chain, leadMs);
+    } else {
+      chain();
+    }
   };
 
   if (document.readyState === "complete") {
@@ -229,6 +239,8 @@ export async function sendAnalyticsBatch(
     skipAuthLookup?: boolean;
     /** Jangan tunggu respons fetch di task saat ini (memutus tautan kritis Lighthouse). */
     deferNetwork?: boolean;
+    /** Setelah `load`, tunggu dulu (ms) sebelum rantai rAF/idle — dipakai page_view awal. */
+    deferNetworkLeadMs?: number;
   },
 ): Promise<void> {
   if (events.length === 0) {
@@ -267,9 +279,12 @@ export async function sendAnalyticsBatch(
   };
 
   if (options?.deferNetwork) {
-    scheduleDeferredIngest(() => {
-      void runFetch();
-    });
+    scheduleDeferredIngest(
+      () => {
+        void runFetch();
+      },
+      options.deferNetworkLeadMs ?? 0,
+    );
     return;
   }
 
