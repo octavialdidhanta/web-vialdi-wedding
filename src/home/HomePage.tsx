@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
@@ -14,7 +14,8 @@ import {
 } from "@/home/PackageConsultOpenerContext";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
-import heroImage from "@/home/assets/hero/DSC00768_11zon.webp";
+import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
+import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;720;960;1280;1600&format=webp&as=srcset";
 
 const HeroAlbumKolaseVideo = lazy(() =>
   import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
@@ -41,11 +42,6 @@ function LazySectionFallback({ className }: { className: string }) {
   );
 }
 
-const VIEWPORT_DEFAULT = "width=device-width, initial-scale=1.0";
-/** Mencegah pinch-to-zoom hanya saat Home aktif; dikembalikan saat navigasi ke halaman lain. */
-const VIEWPORT_HOME_NO_PINCH =
-  "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no";
-
 export function HomePage() {
   return (
     <PackageConsultOpenerProvider>
@@ -58,11 +54,7 @@ function HomePageInner() {
   const packageConsultOpener = usePackageConsultOpenerOptional();
   const [blockLandscapeTouch, setBlockLandscapeTouch] = useState(false);
 
-  useLayoutEffect(() => {
-    const meta = document.querySelector('meta[name="viewport"]');
-    const previous = meta?.getAttribute("content") ?? VIEWPORT_DEFAULT;
-    if (meta) meta.setAttribute("content", VIEWPORT_HOME_NO_PINCH);
-
+  useEffect(() => {
     let cancelled = false;
     const tryLockPortrait = () => {
       if (cancelled) return;
@@ -80,7 +72,6 @@ function HomePageInner() {
 
     return () => {
       cancelled = true;
-      if (meta) meta.setAttribute("content", previous);
       window.removeEventListener("pointerdown", onFirstPointer);
       try {
         screen.orientation?.unlock?.();
@@ -172,9 +163,10 @@ function HomePageInner() {
             <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
               <img
                 src={heroImage}
+                srcSet={heroImageSrcset}
                 alt="Pasangan pengantin dalam suasana pernikahan elegan"
-                width={1200}
-                height={1200}
+                width={720}
+                height={720}
                 sizes="(max-width: 1024px) 100vw, min(560px, 46vw)"
                 fetchPriority="high"
                 decoding="async"

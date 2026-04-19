@@ -1,6 +1,6 @@
-import makeupRiasFeatured from "@/home/assets/makeup/Untitled design (1)_11zon.jpg";
-import jasPremiumFeatured from "@/home/assets/makeup/sewa-jas-premium.jpg";
-import dekorasiPelaminFeatured from "@/home/assets/makeup/dekorasi-pelaminan-impian.jpg";
+import makeupRiasFeatured from "@/home/assets/makeup/Untitled design (1)_11zon.jpg?w=640&format=webp";
+import jasPremiumFeatured from "@/home/assets/makeup/sewa-jas-premium.jpg?w=720&format=webp";
+import dekorasiPelaminFeatured from "@/home/assets/makeup/dekorasi-pelaminan-impian.jpg?w=800&format=webp";
 
 /** Kartu yang memakai crop zoom + geser vertikal agar subjek pas di frame. */
 const IMAGE_ZOOM_TITLES = new Set(["Koleksi Gaun & Jas Premium"]);
@@ -11,18 +11,24 @@ const cards = [
     subtitle: "Make-up tahan lama, natural di kamera, disesuaikan dengan konsep dan busana Anda.",
     image: makeupRiasFeatured,
     alt: "Pengantin berhijab dengan rias pengantin profesional memegang bunga",
+    imgWidth: 640,
+    imgHeight: 800,
   },
   {
     title: "Koleksi Gaun & Jas Premium",
     subtitle: "Pilihan busana formal berkualitas untuk mempelai dan keluarga — rapi di setiap sudut foto.",
     image: jasPremiumFeatured,
     alt: "Jas formal di manekin dengan dasi kupu-kupu di latar gelap",
+    imgWidth: 720,
+    imgHeight: 902,
   },
   {
     title: "Dekorasi Pelaminan Impian",
     subtitle: "Tata ruang elegan dari aisle hingga pelaminan, selaras tema dan venue Anda.",
     image: dekorasiPelaminFeatured,
     alt: "Dekorasi pernikahan outdoor dengan bunga",
+    imgWidth: 800,
+    imgHeight: 1000,
   },
 ] as const;
 
@@ -51,8 +57,8 @@ export function FeaturedLayananCards() {
                 <img
                   src={c.image}
                   alt={c.alt}
-                  width={800}
-                  height={1000}
+                  width={c.imgWidth}
+                  height={c.imgHeight}
                   sizes="(max-width: 767px) min(20rem, calc(100vw - 1.25rem)), (max-width: 1280px) 33vw, 24rem"
                   loading="lazy"
                   decoding="async"
