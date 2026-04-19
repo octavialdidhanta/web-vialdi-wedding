@@ -1,5 +1,5 @@
 /** Google Tag Manager container (snippet utama ada di index.html). */
-export const GTM_CONTAINER_ID = "GTM-NPJBZX8";
+export const GTM_CONTAINER_ID = "GTM-N7LD8CX";
 
 declare global {
   interface Window {

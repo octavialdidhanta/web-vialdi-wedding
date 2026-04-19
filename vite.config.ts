@@ -32,10 +32,34 @@ export default defineConfig(({ mode }) => {
           return html.replace("<head>", `<head>\n    ${originHints}`);
         },
       },
+      {
+        name: "preload-lcp-hero-image",
+        transformIndexHtml: {
+          order: "post",
+          handler(html, ctx) {
+            if (!ctx.bundle) {
+              return html;
+            }
+            const key = Object.keys(ctx.bundle).find(
+              (k) => k.includes("DSC00768_11zon") && k.endsWith(".webp"),
+            );
+            if (!key) {
+              return html;
+            }
+            const href = key.startsWith("/") ? key : `/${key}`;
+            const tag = `    <link rel="preload" as="image" href="${href}" fetchpriority="high" />\n`;
+            const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
+            if (charsetMeta.test(html)) {
+              return html.replace(charsetMeta, (m) => `${m}\n${tag}`);
+            }
+            return html.replace("</head>", `${tag}  </head>`);
+          },
+        },
+      },
     ],
     build: {
-      /** Peta sumber publik: Lighthouse "Best practices" tidak mengeluh file besar tanpa .map */
-      sourcemap: true,
+      /** Hindari .map besar di produksi (deploy lebih ringan, PSI lebih bersih). */
+      sourcemap: mode !== "production",
     },
     resolve: {
       alias: {
