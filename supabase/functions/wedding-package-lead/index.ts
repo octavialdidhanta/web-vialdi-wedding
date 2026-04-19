@@ -97,7 +97,12 @@ function getEnvOptional(name: string) {
 
 function parseTemplateBodyKeys(): string[] {
   const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_KEYS");
-  if (!raw) return ["name"];
+  if (!raw) {
+    const name = (getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world").trim().toLowerCase();
+    // `hello_world` (Meta sample) has no body placeholders — sending default `["name"]` triggers (#100).
+    if (name === "hello_world") return [];
+    return ["name"];
+  }
   if (/^__none__$/i.test(raw.trim())) return [];
   return raw
     .split(",")
@@ -253,6 +258,15 @@ async function sendWhatsappTemplateToClient(args: {
 
   const text = await res.text();
   if (!res.ok) {
+    const usesNamed = Boolean(paramNames && paramNames.length === parameters.length);
+    console.error("wedding-package-lead: WhatsApp Graph request failed", {
+      status: res.status,
+      template: templateName,
+      language: templateLanguage,
+      body_key_count: keys.length,
+      body_uses_parameter_name: usesNamed,
+      graph_error_preview: text.slice(0, 400),
+    });
     return { ok: false, error: `WhatsApp API error (${res.status}): ${text.slice(0, 500)}` };
   }
 
