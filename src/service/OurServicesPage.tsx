@@ -15,7 +15,7 @@ export function OurServicesPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-background">
+      <section className="relative overflow-x-hidden border-b border-border/40 bg-background">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full opacity-20 blur-3xl"
@@ -26,7 +26,7 @@ export function OurServicesPage() {
           className="pointer-events-none absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-accent-orange/15 blur-3xl"
         />
 
-        <div className="relative mx-auto max-w-[90rem] px-6 py-8 md:py-20">
+        <div className="relative mx-auto max-w-[90rem] px-4 py-8 md:px-6 md:py-20">
           <div className="max-w-4xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
               <span className="h-2 w-2 rounded-full bg-accent-orange" />
@@ -52,7 +52,7 @@ export function OurServicesPage() {
             </div>
 
             {/* Quick navigation */}
-            <div className="no-scrollbar mt-8 -mx-6 overflow-x-auto px-6 md:mx-0 md:overflow-visible md:px-0">
+            <div className="no-scrollbar mt-8 -mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
               <div className="flex w-max gap-2 md:w-auto md:flex-wrap">
                 {serviceSections.map((s) => (
                   <a
@@ -71,11 +71,11 @@ export function OurServicesPage() {
 
       {/* Sections */}
       <section className="bg-background">
-        <div className="mx-auto max-w-[90rem] space-y-8 px-4 py-14 sm:px-6 md:space-y-10 md:py-20">
+        <div className="mx-auto max-w-[90rem] space-y-8 px-4 py-14 md:space-y-10 md:px-6 md:py-20">
           {serviceSections.map((sec) => (
             <div key={sec.id} id={sec.id} className="scroll-mt-24">
               {/* Content card */}
-              <div className="rounded-3xl border border-border bg-card px-3 py-6 shadow-sm sm:px-6 md:px-10 md:py-10">
+              <div className="rounded-3xl border border-border bg-card px-4 py-6 shadow-sm md:px-10 md:py-10">
                 <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">

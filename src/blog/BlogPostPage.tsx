@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
 import { ReadingProgress } from "@/blog/ReadingProgress";
+import { blogPostMeta, blogPostUi } from "@/blog/content";
 import type { BlogPostPublic } from "@/blog/types";
 import { getRelatedPosts } from "@/blog/supabaseBlog";
 import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQueries";
@@ -31,8 +32,8 @@ export function BlogPostPage() {
   const { data: post, isLoading: loadingPost, error: errPost } = usePublishedPostQuery(slug);
   const { data: allPosts = [] } = usePublishedPostsQuery();
 
-  const title = post ? `${post.title} — Blog vialdi.id` : "Artikel tidak ditemukan — vialdi.id";
-  const description = post?.excerpt ?? "Artikel blog tidak ditemukan.";
+  const title = post ? blogPostMeta.documentTitle(post.title) : blogPostMeta.notFoundDocumentTitle;
+  const description = post?.excerpt ?? blogPostMeta.notFoundDescription;
   useBlogMeta(title, description.slice(0, 165));
 
   const { older, newer } = useMemo(() => {
@@ -56,7 +57,7 @@ export function BlogPostPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-lg px-6 py-16 text-center text-sm text-muted-foreground">
+        <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-muted-foreground md:px-6">
           Memuat artikel…
         </div>
         <Footer />
@@ -68,14 +69,14 @@ export function BlogPostPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-lg px-6 py-16 text-center">
-          <h1 className="text-xl font-bold text-navy">Gagal memuat</h1>
+        <div className="mx-auto max-w-lg px-4 py-16 text-center md:px-6">
+          <h1 className="text-xl font-bold text-navy">{blogPostUi.loadErrorHeading}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{(errPost as Error).message}</p>
           <Link
             to="/blog"
             className="mt-6 inline-block text-sm font-semibold text-accent-orange hover:underline"
           >
-            ← Kembali ke blog
+            {blogPostUi.backToBlogShort}
           </Link>
         </div>
         <Footer />
@@ -87,14 +88,14 @@ export function BlogPostPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-lg px-6 py-16 text-center">
-          <h1 className="text-xl font-bold text-navy">Artikel tidak ditemukan</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Slug tidak cocok dengan arsip kami.</p>
+        <div className="mx-auto max-w-lg px-4 py-16 text-center md:px-6">
+          <h1 className="text-xl font-bold text-navy">{blogPostUi.notFoundHeading}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{blogPostUi.notFoundSlugHint}</p>
           <Link
             to="/blog"
             className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
           >
-            ← Kembali ke blog
+            {blogPostUi.backToBlogShort}
           </Link>
         </div>
         <Footer />
@@ -107,16 +108,16 @@ export function BlogPostPage() {
       <Header />
       <ReadingProgress />
 
-      <article className="border-b border-border/60 bg-background">
+      <article className="overflow-x-hidden border-b border-border/60 bg-background">
         {/* Header artikel: polos, tanpa gradasi */}
         <header className="border-b border-border bg-card">
-          <div className="mx-auto w-full max-w-[90rem] px-6 py-5 md:py-6">
+          <div className="mx-auto w-full max-w-[90rem] px-4 py-5 md:px-6 md:py-6">
             <Link
               to="/blog"
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-navy md:text-sm"
             >
               <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Kembali ke arsip blog
+              {blogPostUi.backToBlog}
             </Link>
 
             <div className="mt-4 grid gap-6 lg:mt-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,36%)] lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-10">
@@ -165,7 +166,7 @@ export function BlogPostPage() {
         </header>
 
         {/* Tiga kolom: kiri artikel terkait | tengah isi | kanan informasi & TOC */}
-        <div className="mx-auto w-full max-w-[90rem] px-6 pb-8 pt-5 md:pb-10 md:pt-6">
+        <div className="mx-auto w-full max-w-[90rem] px-4 pb-8 pt-5 md:px-6 md:pb-10 md:pt-6">
           <div className="grid w-full grid-cols-1 gap-8 xl:grid-cols-[minmax(0,280px)_minmax(0,48rem)_minmax(0,1fr)] xl:items-start xl:gap-x-10 xl:gap-y-0 2xl:gap-x-12">
             {/* Kiri: artikel terkait */}
             <aside className="order-2 min-w-0 border-t border-border pt-6 xl:order-1 xl:sticky xl:top-24 xl:border-t-0 xl:pt-0">
@@ -204,9 +205,7 @@ export function BlogPostPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Belum ada rekomendasi artikel lain.
-                </p>
+                <p className="mt-4 text-sm text-muted-foreground">{blogPostUi.relatedEmpty}</p>
               )}
 
               <div className="mt-8 border-t border-border pt-6">
@@ -333,7 +332,7 @@ export function BlogPostPage() {
                     to="/blog"
                     className="flex items-center gap-2 text-sm font-medium text-navy underline-offset-4 hover:underline"
                   >
-                    Lihat semua artikel
+                    {blogPostUi.allPostsLink}
                   </Link>
                   <Link
                     to="/contact"
@@ -341,7 +340,7 @@ export function BlogPostPage() {
                     className="inline-flex items-center gap-2 text-sm font-semibold text-accent-orange hover:underline"
                   >
                     <Mail className="h-4 w-4 shrink-0" aria-hidden />
-                    Diskusi dengan tim
+                    {blogPostUi.contactCta}
                   </Link>
                 </div>
               </div>

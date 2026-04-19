@@ -6,6 +6,7 @@ import {
   founder,
   hero,
   milestones,
+  milestonesIntro,
   positioning,
   storyEmpathy,
   values,
@@ -16,8 +17,11 @@ import { SectionTitle } from "@/home/SectionTitle";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
 
-const sectionShell = "mx-auto max-w-[90rem] px-6 py-12 md:py-20";
-const heroShell = "mx-auto max-w-[90rem] px-6 py-10 md:py-20";
+/** Selaras mobile Home: `px-4`, dari `md:` pakai `px-6` + max-w 90rem. */
+const sectionShell = "mx-auto max-w-[90rem] px-4 py-12 md:px-6 md:py-20";
+const heroShell = "mx-auto max-w-[90rem] px-4 py-10 md:px-6 md:py-20";
+const ctaShell =
+  "mx-auto max-w-4xl px-4 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left";
 
 export function AboutUsPage() {
   useAboutPageMeta();
@@ -26,7 +30,7 @@ export function AboutUsPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="relative overflow-hidden border-b border-border/40 bg-background">
+      <section className="relative overflow-x-hidden border-b border-border/40 bg-background">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full opacity-20 blur-3xl"
@@ -84,10 +88,7 @@ export function AboutUsPage() {
 
       <section className="bg-secondary/40">
         <div className={sectionShell}>
-          <SectionTitle
-            title="Perjalanan singkat—tanpa dramatisasi angka"
-            subtitle="Kami menyimpan ruang untuk fakta yang akan Anda lengkapi sendiri. Yang pasti: arah kerja kami konsisten sejak awal."
-          />
+          <SectionTitle title={milestonesIntro.title} subtitle={milestonesIntro.subtitle} />
           <div className="mt-10 md:mt-12">
             <MilestoneSection items={milestones} />
           </div>
@@ -143,7 +144,7 @@ export function AboutUsPage() {
       </section>
 
       <section className="bg-background">
-        <div className={`mx-auto max-w-4xl px-6 py-12 text-center md:py-20 md:text-left`}>
+        <div className={ctaShell}>
           <SectionTitle title={cta.title} subtitle={cta.subtitle} />
           <div className="mt-10 flex justify-center md:justify-start">
             <Link

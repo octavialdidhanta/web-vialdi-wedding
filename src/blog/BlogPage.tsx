@@ -2,8 +2,16 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Search, Sparkles } from "lucide-react";
+import {
+  blogCta,
+  blogEmpty,
+  blogFeatured,
+  blogHero,
+  blogIndexSeo,
+  blogList,
+  blogSearch,
+} from "@/blog/content";
 import { PostCard } from "@/blog/PostCard";
-import { blogIndexSeo } from "@/blog/types";
 import { getAllTagsFromPosts, getFeaturedPost } from "@/blog/supabaseBlog";
 import { usePublishedPostsQuery } from "@/blog/useBlogQueries";
 import { useBlogMeta } from "@/blog/useBlogMeta";
@@ -47,7 +55,7 @@ export function BlogPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-lg px-6 py-16 text-center text-sm text-destructive">
+        <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-destructive md:px-6">
           {(error as Error).message}
         </div>
         <Footer />
@@ -59,7 +67,7 @@ export function BlogPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="relative overflow-hidden border-b border-border/40 bg-background">
+      <section className="relative overflow-x-hidden border-b border-border/40 bg-background">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full bg-accent-orange/10 blur-3xl"
@@ -69,23 +77,22 @@ export function BlogPage() {
           className="pointer-events-none absolute bottom-0 left-1/4 h-64 w-64 rounded-full opacity-30 blur-3xl"
           style={{ background: "var(--gradient-primary)" }}
         />
-        <div className="relative mx-auto max-w-[90rem] px-6 py-8 md:py-10">
+        <div className="relative mx-auto max-w-[90rem] px-4 py-8 md:px-6 md:py-10">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-navy shadow-sm">
             <Sparkles className="h-3 w-3 text-accent-orange" aria-hidden />
-            Blog vialdi.id
+            {blogHero.eyebrow}
           </div>
           <h1 className="mt-4 max-w-3xl text-2xl font-bold leading-snug tracking-tight text-navy md:text-3xl lg:text-4xl">
-            Baca pelan-pelan—tiap artikel bisa dijadikan bahan diskusi tim.
+            {blogHero.title}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-            Filter topik, cari kata kunci, atau langsung mulai dari rekomendasi editor. Layout
-            dirancang nyaman untuk layar lebar maupun mobile.
+            {blogHero.subtitle}
           </p>
         </div>
       </section>
 
       <section className="sticky top-16 z-40 border-b border-border/60 bg-background/95 py-2.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[90rem] flex-col gap-2.5 px-6 md:flex-row md:items-center md:justify-between md:gap-5">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-2.5 px-4 md:flex-row md:items-center md:justify-between md:gap-5 md:px-6">
           <div className="relative min-w-0 max-w-xl flex-1">
             <Search
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
@@ -93,14 +100,14 @@ export function BlogPage() {
             />
             <Input
               type="search"
-              placeholder="Cari judul, topik, atau ringkasan…"
+              placeholder={blogSearch.placeholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-9 rounded-lg border-border bg-card pl-9 pr-3 text-sm shadow-sm"
-              aria-label="Cari artikel blog"
+              aria-label={blogSearch.ariaLabel}
             />
           </div>
-          <div className="no-scrollbar flex min-w-0 gap-1.5 overflow-x-auto scroll-px-3 px-1 pb-0.5 md:max-w-[50%] md:px-2">
+          <div className="no-scrollbar flex min-w-0 gap-1.5 overflow-x-auto scroll-px-4 px-1 pb-0.5 md:max-w-[50%] md:scroll-px-6 md:px-2">
             <button
               type="button"
               onClick={() => setActiveTag(null)}
@@ -130,7 +137,7 @@ export function BlogPage() {
             ))}
           </div>
         </div>
-        <div className="mx-auto max-w-[90rem] px-6 pt-1">
+        <div className="mx-auto max-w-[90rem] px-4 pt-1 md:px-6">
           <p className="text-[11px] text-muted-foreground md:text-xs">
             Menampilkan{" "}
             <span className="font-semibold text-navy">{isLoading ? "…" : filtered.length}</span>{" "}
@@ -152,9 +159,9 @@ export function BlogPage() {
       </section>
 
       <section className="bg-secondary/25">
-        <div className="mx-auto max-w-[90rem] space-y-8 px-6 py-8 md:space-y-10 md:py-10">
+        <div className="mx-auto max-w-[90rem] space-y-8 px-4 py-8 md:space-y-10 md:px-6 md:py-10">
           {isLoading ? (
-            <div id="pilihan-editor" aria-busy="true" aria-label="Memuat pilihan editor">
+            <div id="pilihan-editor" aria-busy="true" aria-label="Memuat sorotan">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <Skeleton className="h-3 w-28" />
                 <Skeleton className="h-5 w-24 rounded-full" />
@@ -178,10 +185,10 @@ export function BlogPage() {
             <div id="pilihan-editor">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h2 className="text-[11px] font-bold uppercase tracking-wider text-navy">
-                  Pilihan editor
+                  {blogFeatured.heading}
                 </h2>
                 <span className="rounded-full bg-accent-orange/15 px-2.5 py-0.5 text-[10px] font-semibold text-accent-orange">
-                  Mulai dari sini
+                  {blogFeatured.badge}
                 </span>
               </div>
               <PostCard post={featured} priority />
@@ -193,7 +200,7 @@ export function BlogPage() {
             className="min-h-[min(48vh,400px)] scroll-mt-20 md:min-h-[440px]"
           >
             <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-navy">
-              Semua artikel
+              {blogList.allArticlesHeading}
             </h2>
             {isLoading ? (
               <div
@@ -218,10 +225,8 @@ export function BlogPage() {
               </div>
             ) : listPosts.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-10 text-center md:py-14">
-                <p className="text-sm font-medium text-navy">Belum ada artikel yang cocok.</p>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Coba hapus filter atau kata kunci lain.
-                </p>
+                <p className="text-sm font-medium text-navy">{blogEmpty.title}</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{blogEmpty.hint}</p>
                 <button
                   type="button"
                   className="mt-4 text-xs font-semibold text-accent-orange hover:underline"
@@ -230,7 +235,7 @@ export function BlogPage() {
                     setActiveTag(null);
                   }}
                 >
-                  Reset pencarian & filter
+                  {blogEmpty.resetLabel}
                 </button>
               </div>
             ) : (
@@ -243,19 +248,16 @@ export function BlogPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-gradient-to-br from-card to-secondary/40 p-5 text-center shadow-sm md:p-6">
-            <p className="text-base font-bold text-navy md:text-lg">
-              Ingin bahas konten ini dengan tim kami?
-            </p>
+            <p className="text-base font-bold text-navy md:text-lg">{blogCta.title}</p>
             <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground md:text-sm">
-              Ceritakan konteks bisnis Anda—kami bantu sambungkan wawasan di blog dengan langkah
-              praktis di lapangan.
+              {blogCta.subtitle}
             </p>
             <Link
               to="/contact"
               data-track={TRACK_KEYS.contactCta}
               className="mt-4 inline-flex rounded-full bg-primary px-6 py-2.5 text-xs font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90 md:text-sm"
             >
-              Ajak diskusi
+              {blogCta.buttonLabel}
             </Link>
           </div>
         </div>

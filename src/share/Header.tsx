@@ -16,10 +16,11 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between px-6">
-        <Link to="/" className="flex items-baseline gap-0 text-2xl font-bold tracking-tight">
-          <span className="text-accent-orange">v</span>
-          <span className="text-navy">ialdi</span>
-          <span className="text-navy">.id</span>
+        <Link to="/" className="flex flex-wrap items-baseline gap-x-1 text-xl font-bold tracking-tight md:text-2xl">
+          <span className="text-navy">Vialdi</span>
+          <span className="bg-gradient-to-r from-[oklch(0.55_0.2_350)] to-[oklch(0.5_0.18_300)] bg-clip-text text-transparent">
+            Wedding
+          </span>
         </Link>
         <nav className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (

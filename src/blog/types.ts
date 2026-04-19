@@ -22,9 +22,3 @@ export type BlogPostPublic = {
   toc: TocEntry[];
   bodyHtml: string;
 };
-
-export const blogIndexSeo = {
-  title: "Blog — vialdi.id | Wawasan digital marketing & growth",
-  description:
-    "Artikel ringan tentang lead, funnel, iklan, dan optimasi bisnis. Filter topik, cari judul, dan baca dengan pengalaman yang nyaman di perangkat apa pun.",
-} as const;

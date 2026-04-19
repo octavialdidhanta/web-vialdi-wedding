@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import { termsHero, termsSections } from "@/term&condition/content";
+import { termsFooter, termsHero, termsSections } from "@/term&condition/content";
 import { useTermsPageMeta } from "@/term&condition/useTermsPageMeta";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
@@ -90,9 +90,7 @@ export function TermsPage() {
                 Hubungi kami
               </Link>
             </p>
-            <p className="mt-4 text-xs text-muted-foreground">
-              PT. Integrasi Visual Digital Indonesia — vialdi.id
-            </p>
+            <p className="mt-4 text-xs text-muted-foreground">{termsFooter.entityLine}</p>
           </div>
         </div>
       </section>

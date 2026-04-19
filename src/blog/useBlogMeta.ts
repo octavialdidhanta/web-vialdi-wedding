@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const DEFAULT_DOCUMENT_TITLE = "vialdi.id";
+const DEFAULT_DOCUMENT_TITLE = "Vialdi Wedding";
 
 type MetaSnapshot = {
   el: HTMLMetaElement;

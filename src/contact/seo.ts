@@ -1,5 +1,5 @@
 export const contactSeo = {
-  title: "Kontak — vialdi.id | Konsultasi digital marketing & growth",
+  title: "Kontak — Vialdi Wedding | Konsultasi dokumentasi & paket pernikahan",
   description:
-    "Hubungi vialdi.id untuk konsultasi digital marketing, lead, dan growth. Form singkat 3 langkah: data kontak, konteks bisnis, dan kebutuhan—tanpa komitmen.",
+    "Hubungi Vialdi Wedding untuk konsultasi gratis: dokumentasi foto & video, album, dan paket pernikahan. Form singkat 2 langkah — data kontak lalu jadwal & lokasi acara.",
 } as const;

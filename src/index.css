@@ -87,6 +87,15 @@
   --sidebar-accent-foreground: oklch(0.22 0.03 250);
   --sidebar-border: oklch(0.9 0.01 80);
   --sidebar-ring: oklch(0.5 0.03 250);
+
+  /* Aksen home / kartu paket — satu keluarga dengan ungu brand (hindari “rainbow” retail) */
+  --priority-eyebrow: oklch(0.34 0.1 305);
+  --seal-ring: oklch(0.52 0.12 300);
+  --seal-surface-from: oklch(0.98 0.018 300);
+  --seal-surface-to: oklch(0.9 0.045 305);
+  --seal-ink: oklch(0.26 0.07 295);
+  --hero-glow-strong: oklch(0.55 0.14 300);
+  --hero-glow-soft: oklch(0.9 0.04 300);
 }
 
 .dark {
@@ -124,6 +133,12 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+@layer utilities {
+  .text-priority-eyebrow {
+    color: var(--priority-eyebrow);
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -135,6 +150,10 @@
   }
 }
 
+.font-wedding-serif {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -142,6 +161,46 @@
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Running text promo paket — durasi via --marquee-duration (disetel per panjang teks, acuan 22s = teks Royal Gold) */
+@keyframes package-promo-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.package-promo-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: package-promo-marquee var(--marquee-duration, 22s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .package-promo-marquee {
+    overflow-x: auto;
+  }
+
+  .package-promo-marquee__track {
+    animation: none;
+  }
+}
+
+/* Area scroll accordion: geser vertikal + horizontal (carousel paket) tetap jalan; scroll tidak “terkunci” di tepi. */
+[data-package-accordion-viewport] {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Strip carousel paket: geser kiri/kanan + vertikal (halaman) tidak saling memblok. */
+[data-package-carousel] {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Hide vertical page scrollbar (still scrollable) */

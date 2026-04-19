@@ -1,12 +1,16 @@
+import { useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/share/Header";
-import { Footer } from "@/share/Footer";
 
 export function ThankYouPage() {
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex min-h-dvh flex-col overflow-x-hidden bg-background">
       <Header />
-      <div className="flex-1 px-4 py-14">
+      <main className="flex min-h-0 flex-1 flex-col justify-center px-4 py-8 md:px-6 md:py-10">
         <div className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-card p-8 text-center shadow-sm md:p-12">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-orange/15 text-accent-orange">
             ✓
@@ -34,8 +38,7 @@ export function ThankYouPage() {
             </Link>
           </div>
         </div>
-      </div>
-      <Footer />
+      </main>
     </div>
   );
 }

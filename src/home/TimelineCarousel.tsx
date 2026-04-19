@@ -63,7 +63,7 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
             aria-label="Previous"
             onClick={() => emblaApi?.scrollPrev()}
             disabled={!canPrev}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-navy transition-all hover:border-accent-orange hover:text-accent-orange disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-navy transition-all hover:border-[oklch(0.52_0.14_300)] hover:text-[oklch(0.42_0.14_305)] disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -72,7 +72,7 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
             aria-label="Next"
             onClick={() => emblaApi?.scrollNext()}
             disabled={!canNext}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-primary-foreground transition-all hover:bg-accent-orange disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-primary-foreground transition-all hover:bg-[oklch(0.48_0.18_300)] disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowRight className="h-4 w-4" />
           </button>
@@ -103,14 +103,14 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
                 <div className="flex flex-1 flex-col p-6">
                   <h3 className="text-lg font-bold text-navy">{item.title}</h3>
                   {item.subtitle && (
-                    <p className="mt-1 text-xs font-medium uppercase tracking-wider text-accent-orange">
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wider text-[oklch(0.48_0.18_300)]">
                       {item.subtitle}
                     </p>
                   )}
                   <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                     {item.caption}
                   </p>
-                  <div className="mt-6 h-1 w-12 rounded-full bg-accent-orange/40 transition-all duration-300 group-hover:w-20 group-hover:bg-accent-orange" />
+                  <div className="mt-6 h-1 w-12 rounded-full bg-[oklch(0.55_0.12_300)]/35 transition-all duration-300 group-hover:w-20 group-hover:bg-[oklch(0.48_0.18_300)]" />
                 </div>
               </article>
             </div>

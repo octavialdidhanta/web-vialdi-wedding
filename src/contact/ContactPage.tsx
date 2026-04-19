@@ -1,61 +1,30 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { submitContactLead } from "@/contact/api";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
+import { readLeadIdentity } from "@/contact/leadIdentityStorage";
+import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
+import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
 import { useContactPageMeta } from "@/contact/useContactPageMeta";
-import {
-  bidangUsahaOptions,
-  jabatanOptions,
-  jenisUsahaOptions,
-  kebutuhanOptions,
-} from "@/contact/options";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
 import { Button } from "@/share/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/share/ui/card";
 import { Input } from "@/share/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/share/ui/select";
 import { Textarea } from "@/share/ui/textarea";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
-function isValidEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-}
-
-function normalizePhone(v: string) {
-  const trimmed = v.trim();
-  const compact = trimmed.replace(/[\s().-]/g, "");
-
-  if (compact.startsWith("+")) {
-    const digits = compact.slice(1).replace(/[^\d]/g, "");
-    return `+${digits}`;
-  }
-
-  const digitsOnly = compact.replace(/[^\d]/g, "");
-  if (/^(0?8\d{8,13})$/.test(digitsOnly)) {
-    const national = digitsOnly.startsWith("0") ? digitsOnly.slice(1) : digitsOnly;
-    return `+62${national}`;
-  }
-
-  const digits = compact.replace(/[^\d]/g, "");
-  return digits.length ? `+${digits}` : "";
-}
-
-function isValidPhone(v: string) {
-  const normalized = normalizePhone(v);
-  const digits = normalized.replace(/[^\d]/g, "");
-  return normalized.startsWith("+") && digits.length >= 9 && digits.length <= 15;
-}
+/** Label paket untuk CRM — konsisten dengan alur `wedding-package-lead` di kartu paket. */
+const CONTACT_LEAD_PACKAGE_LABEL = "Konsultasi umum — halaman kontak";
 
 export function ContactPage() {
   useContactPageMeta();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
-  const [leadVialdiId, setLeadVialdiId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Step 1
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -64,73 +33,89 @@ export function ContactPage() {
     email: false,
   });
 
-  // Step 2
-  const [industry, setIndustry] = useState<string>("");
-  const [businessType, setBusinessType] = useState<"B2B" | "B2C" | "">("");
-
-  // Step 3
-  const [jobTitle, setJobTitle] = useState("");
-  const [needs, setNeeds] = useState("");
-  const [officeAddress, setOfficeAddress] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventAddress, setEventAddress] = useState("");
 
   const phoneOk = isValidPhone(phone);
   const emailOk = isValidEmail(email);
 
+  const { leadRowId, resetStep1Lead } = useWeddingLeadStep1Autosave({
+    packageLabel: CONTACT_LEAD_PACKAGE_LABEL,
+    name,
+    phone,
+    email,
+    step,
+  });
+
+  useEffect(() => {
+    const saved = readLeadIdentity();
+    if (!saved) return;
+    setName((n) => n.trim() || saved.name);
+    setPhone((p) => p.trim() || saved.phone);
+    setEmail((e) => e.trim() || saved.email);
+  }, []);
+
   const canNext = useMemo(() => {
     if (submitting) return false;
-    if (step === 1) return name.trim() && phoneOk && emailOk;
-    if (step === 2) return !!leadVialdiId && industry.trim() && businessType;
-    return !!leadVialdiId && jobTitle.trim() && needs.trim() && officeAddress.trim();
+    if (step === 1) {
+      return name.trim().length > 0 && phoneOk && emailOk && !!leadRowId;
+    }
+    return (
+      !!leadRowId &&
+      eventDate.trim().length > 0 &&
+      eventTime.trim().length > 0 &&
+      eventAddress.trim().length > 0
+    );
   }, [
-    businessType,
     emailOk,
-    industry,
-    jobTitle,
-    leadVialdiId,
+    eventAddress,
+    eventDate,
+    eventTime,
+    leadRowId,
     name,
-    needs,
-    officeAddress,
     phoneOk,
     step,
     submitting,
   ]);
 
-  async function onNext() {
+  function resetForm() {
+    setStep(1);
+    resetStep1Lead();
+    setErrorMessage("");
+    setName("");
+    setPhone("");
+    setEmail("");
+    setTouched({ phone: false, email: false });
+    setEventDate("");
+    setEventTime("");
+    setEventAddress("");
+  }
+
+  async function onPrimary() {
     if (!canNext) return;
+    if (step === 1) {
+      setStep(2);
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage("");
     try {
-      if (step === 1) {
-        const res = await submitContactLead({
-          step: 1,
-          name: name.trim(),
-          phone_number: phone.trim(),
-          email: email.trim(),
-        });
-        setLeadVialdiId(res.id);
-        setStep(2);
-        return;
-      }
-
-      if (step === 2) {
-        const res = await submitContactLead({
-          step: 2,
-          id: leadVialdiId!,
-          industry,
-          business_type: businessType as "B2B" | "B2C",
-        });
-        setLeadVialdiId(res.id);
-        setStep(3);
-        return;
-      }
-
-      await submitContactLead({
-        step: 3,
-        id: leadVialdiId!,
-        job_title: jobTitle,
-        needs,
-        office_address: officeAddress,
+      const res2 = await submitWeddingPackageLead({
+        step: 2,
+        id: leadRowId!,
+        event_date: eventDate.trim(),
+        event_time: eventTime.trim(),
+        event_address: eventAddress.trim(),
       });
+      if (import.meta.env.DEV && res2.whatsapp?.skipped && res2.whatsapp?.skip_reason) {
+        console.warn(
+          "[wedding-package-lead] WhatsApp tidak dipanggil —",
+          res2.whatsapp.skip_reason,
+          "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets)",
+        );
+      }
       navigate("/thank-you-page");
     } catch (e: unknown) {
       setErrorMessage(e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.");
@@ -140,178 +125,158 @@ export function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
       <Header />
-      <div className="flex-1 px-4 py-10">
-        <div className="mx-auto w-full max-w-2xl">
-          <div className="mb-8">
+      <div className="flex-1 px-4 py-10 md:px-6">
+        <div className="mx-auto w-full max-w-lg">
+          <div className="mb-8 text-center md:text-left">
             <div className="text-sm font-semibold text-muted-foreground">Kontak</div>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground">
-              Mulai dari sini, kami bantu rancang strategi growth bisnismu.
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy md:text-4xl">
+              Konsultasi gratis dengan Vialdi Wedding
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Cukup 3 langkah singkat (±30 detik). Informasi ini membantu kami memberi rekomendasi
-              awal yang relevan tanpa komitmen.
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+              Ceritakan rencana hari H Anda — tim kami membantu menyesuaikan dokumentasi foto &amp;
+              video, album, dan paket yang masuk akal. Dua langkah singkat, sama seperti form
+              konsultasi di halaman paket; data hanya dipakai untuk menghubungi Anda.
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground md:text-sm">
+              Tidak ada komitmen di tahap ini. Setelah terkirim, kami menghubungi Anda untuk diskusi
+              awal.
             </p>
           </div>
 
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base font-semibold">Step {step} / 3</CardTitle>
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="space-y-1 px-4 pb-2 pt-5 md:px-6">
+              <CardTitle className="text-center text-sm font-semibold">
+                Langkah {step} dari 2 — konsultasi
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {step === 1 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground">
-                    Tenang, ini untuk menghubungi kamu terkait konsultasi saja—bukan spam.
+            <CardContent className="space-y-4 px-4 pb-5 pt-0 md:px-6">
+              {step === 1 ? (
+                <div className="space-y-3">
+                  <p className="text-center text-[0.65rem] text-muted-foreground md:text-left">
+                    Data hanya untuk menghubungi Anda terkait konsultasi layanan pernikahan. Lanjut
+                    ke langkah 2 kapan sudah siap.
                   </p>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Nama</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">
+                      Nama calon pengantin
+                    </label>
                     <Input
+                      name="lead-full-name"
+                      autoComplete="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Nama kamu"
+                      placeholder="Nama lengkap"
+                      className="h-9 text-sm"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Nomor telepon</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Nomor telepon</label>
                     <Input
+                      name="lead-phone"
+                      autoComplete="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-                      placeholder="Contoh: 0812xxxxxxx"
+                      placeholder="0812xxxxxxx"
                       inputMode="tel"
+                      className="h-9 text-sm"
                     />
                     {touched.phone && !phoneOk ? (
-                      <div className="text-xs font-medium text-destructive">
-                        Nomor telepon tidak valid. Gunakan 9–15 digit (contoh: 0812xxxxxxx atau
-                        +62812xxxxxxx).
-                      </div>
+                      <p className="text-[0.65rem] font-medium text-destructive">
+                        Nomor tidak valid (9–15 digit, contoh 0812… atau +62812…).
+                      </p>
                     ) : null}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Email</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Email</label>
                     <Input
+                      name="lead-email"
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                      placeholder="nama@perusahaan.com"
+                      placeholder="nama@email.com"
                       inputMode="email"
+                      type="email"
+                      className="h-9 text-sm"
                     />
                     {touched.email && !emailOk ? (
-                      <div className="text-xs font-medium text-destructive">
-                        Email tidak valid. Pastikan formatnya seperti nama@perusahaan.com.
-                      </div>
+                      <p className="text-[0.65rem] font-medium text-destructive">
+                        Format email tidak valid.
+                      </p>
                     ) : null}
                   </div>
                 </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground">
-                    Supaya rekomendasi kami tepat, bantu jawab konteks bisnisnya dulu.
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-center text-[0.65rem] text-muted-foreground md:text-left">
+                    Lengkapi jadwal &amp; lokasi agar tim bisa menyiapkan diskusi awal.
                   </p>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Bidang usaha</label>
-                    <Select value={industry} onValueChange={setIndustry}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih bidang usaha" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bidangUsahaOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Tanggal acara</label>
+                    <Input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      className="h-9 text-sm"
+                    />
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Jenis usaha</label>
-                    <Select
-                      value={businessType}
-                      onValueChange={(v) => setBusinessType(v as "B2B" | "B2C")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih jenis usaha" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {jenisUsahaOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Jam acara</label>
+                    <Input
+                      value={eventTime}
+                      onChange={(e) => setEventTime(e.target.value)}
+                      placeholder="Contoh: 10.00 WIB / sore / seharian"
+                      className="h-9 text-sm"
+                    />
                   </div>
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground">
-                    Terakhir, pilih kebutuhan utama. Kami akan respon dengan langkah paling relevan.
-                  </p>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Jabatan</label>
-                      <Select value={jobTitle} onValueChange={setJobTitle}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih jabatan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {jabatanOptions.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Kebutuhan</label>
-                      <Select value={needs} onValueChange={setNeeds}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih kebutuhan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {kebutuhanOptions.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Alamat kantor</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">
+                      Alamat lengkap acara
+                    </label>
                     <Textarea
-                      value={officeAddress}
-                      onChange={(e) => setOfficeAddress(e.target.value)}
-                      placeholder="Alamat kantor / domisili bisnis"
-                      rows={4}
+                      value={eventAddress}
+                      onChange={(e) => setEventAddress(e.target.value)}
+                      placeholder="Alamat venue / rumah acara"
+                      rows={3}
+                      className="min-h-[4.5rem] resize-y text-sm"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-3">
-                {errorMessage ? (
-                  <div className="mr-auto text-xs font-medium text-destructive">{errorMessage}</div>
-                ) : null}
-                <Button onClick={onNext} disabled={!canNext}>
-                  {step === 3
-                    ? submitting
-                      ? "Mengirim..."
-                      : "Kirim"
-                    : submitting
-                      ? "Menyimpan..."
-                      : "Lanjut"}
+              {step === 2 && errorMessage ? (
+                <p className="text-center text-[0.65rem] font-medium text-destructive">
+                  {errorMessage}
+                </p>
+              ) : null}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                {step === 1 ? (
+                  <Button type="button" variant="outline" size="sm" className="sm:mr-auto" asChild>
+                    <Link to="/">Kembali ke beranda</Link>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="sm:mr-auto"
+                    onClick={resetForm}
+                  >
+                    Isi ulang dari awal
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canNext}
+                  data-track={TRACK_KEYS.contactCta}
+                  onClick={onPrimary}
+                >
+                  {step === 2 ? (submitting ? "Mengirim..." : "Kirim") : "Lanjut"}
                 </Button>
               </div>
             </CardContent>
