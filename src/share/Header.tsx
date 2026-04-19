@@ -1,7 +1,7 @@
+import { useEffect, useRef } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/share/ui/sheet";
 
 const navLinks = [
   { to: "/", label: "Home" },
@@ -13,6 +13,18 @@ const navLinks = [
 ] as const;
 
 export function Header() {
+  const mobileNavRef = useRef<HTMLDetailsElement>(null);
+
+  const closeMobileNav = () => {
+    mobileNavRef.current?.removeAttribute("open");
+  };
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between px-6">
@@ -54,46 +66,57 @@ export function Header() {
             Contact
           </Link>
 
-          {/* Mobile nav */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" aria-hidden />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[85vw] sm:max-w-sm">
-              <div className="mt-10">
+          {/* Mobile nav: `<details>` menggantikan Radix Sheet agar dialog/remove-scroll tidak membesarkan bundle beranda. */}
+          <details
+            ref={mobileNavRef}
+            className="relative md:hidden"
+            onToggle={(e) => {
+              document.body.style.overflow = e.currentTarget.open ? "hidden" : "";
+            }}
+          >
+            <summary
+              className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange [&::-webkit-details-marker]:hidden"
+              aria-label="Buka menu navigasi"
+            >
+              <Menu className="h-5 w-5" aria-hidden />
+            </summary>
+            <div
+              className="fixed inset-x-0 bottom-0 top-16 z-40 bg-black/60 md:hidden"
+              aria-hidden
+              onClick={closeMobileNav}
+            />
+            <nav
+              className="fixed right-0 top-16 z-50 flex h-[calc(100dvh-4rem)] w-[min(85vw,24rem)] flex-col border-l border-border bg-background shadow-lg md:hidden"
+              onClick={(ev) => ev.stopPropagation()}
+            >
+              <div className="overflow-y-auto p-6 pt-8">
                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Navigation
                 </div>
                 <div className="mt-4 flex flex-col gap-2">
                   {navLinks.map((link) => (
-                    <SheetClose asChild key={link.to}>
-                      <NavLink
-                        to={link.to}
-                        end={link.to === "/"}
-                        {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
-                        className={({ isActive }) =>
-                          `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
-                            isActive
-                              ? "border-accent-orange bg-accent-orange/10 text-accent-orange"
-                              : "border-border bg-card text-navy hover:border-accent-orange hover:text-accent-orange"
-                          }`
-                        }
-                      >
-                        <span>{link.label}</span>
-                        <span className="text-muted-foreground">→</span>
-                      </NavLink>
-                    </SheetClose>
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      end={link.to === "/"}
+                      {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
+                      onClick={closeMobileNav}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+                          isActive
+                            ? "border-accent-orange bg-accent-orange/10 text-accent-orange"
+                            : "border-border bg-card text-navy hover:border-accent-orange hover:text-accent-orange"
+                        }`
+                      }
+                    >
+                      <span>{link.label}</span>
+                      <span className="text-muted-foreground">→</span>
+                    </NavLink>
                   ))}
                 </div>
               </div>
-            </SheetContent>
-          </Sheet>
+            </nav>
+          </details>
         </div>
       </div>
     </header>

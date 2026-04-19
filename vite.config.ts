@@ -89,7 +89,8 @@ export default defineConfig(({ mode }) => {
              * `srcset` (ukuran file tidak selalu sejajar dengan lebar). Ambil string final dari chunk HomePage.
              * `imagesizes` harus sama dengan `sizes` di `HomePage.tsx` (hero `<img>`).
              */
-            const heroImgSizes = "(max-width: 1024px) 100vw, min(560px, 46vw)";
+            const heroImgSizes =
+              "(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)";
             const chunk = Object.values(ctx.bundle).find(
               (c): c is { type: "chunk"; fileName: string; code: string } =>
                 c.type === "chunk" &&

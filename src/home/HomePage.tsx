@@ -10,7 +10,7 @@ import {
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
-import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;720;960;1280;1600&format=webp&as=srcset";
+import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280;1600&format=webp&as=srcset";
 
 const HeroAlbumKolaseVideo = lazy(() =>
   import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
@@ -178,7 +178,7 @@ function HomePageInner() {
                 alt="Pasangan pengantin dalam suasana pernikahan elegan"
                 width={720}
                 height={720}
-                sizes="(max-width: 1024px) 100vw, min(560px, 46vw)"
+                sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
                 fetchPriority="high"
                 decoding="async"
                 className="aspect-square w-full object-cover object-bottom"
