@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readLandingAttributionForLead } from "@/analytics/sendAnalyticsBatch";
 import { saveLeadIdentity } from "@/contact/leadIdentityStorage";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
@@ -50,6 +51,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
             phone_number: args.phone.trim(),
             email: args.email.trim(),
             package_label: args.packageLabel,
+            attribution: readLandingAttributionForLead(),
             ...(currentId ? { id: currentId } : {}),
           });
           if (requestId !== latestRequestIdRef.current) return;

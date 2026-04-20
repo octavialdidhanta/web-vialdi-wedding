@@ -6,6 +6,7 @@ import { readLeadIdentity } from "@/contact/leadIdentityStorage";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
+import { readLandingAttributionForLead } from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Button } from "@/share/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/share/ui/card";
@@ -128,6 +129,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
         event_date: eventDate.trim(),
         event_time: eventTime.trim(),
         event_address: eventAddress.trim(),
+        attribution: readLandingAttributionForLead(),
       });
       if (import.meta.env.DEV && res2.whatsapp?.skipped && res2.whatsapp?.skip_reason) {
         console.warn(

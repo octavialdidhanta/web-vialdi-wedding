@@ -643,11 +643,17 @@ function AnalyticsPanels({
 
               <div className="min-w-0 border-t border-border/60 pt-8">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Top kampanye UTM
+                  Top kampanye (UTM &amp; Meta)
                 </h4>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Hanya baris dengan <code className="text-[10px]">utm_campaign</code> terisi; diurutkan jumlah
-                  sesi unik.
+                  Satu baris per kombinasi UTM (wajib <code className="text-[10px]">utm_campaign</code>); kolom Meta
+                  menampilkan nilai <code className="text-[10px]">meta_*</code> di DB untuk sesi dalam baris itu (query{" "}
+                  <code className="text-[10px]">meta_*</code> terpisah atau mirror dari UTM untuk klik Meta). Preview
+                  Meta umum: <code className="text-[10px]">utm_campaign</code> = nama kampanye,{" "}
+                  <code className="text-[10px]">utm_medium</code> = nama ad set, <code className="text-[10px]">utm_content</code>{" "}
+                  = ID iklan, <code className="text-[10px]">utm_source</code> ={" "}
+                  <code className="text-[10px]">{"{{site_source_name}}"}</code>. Tanpa data Meta, tiga kolom terakhir
+                  kosong (—).
                 </p>
                 <div className="mt-2 overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-left text-xs">
@@ -656,19 +662,29 @@ function AnalyticsPanels({
                         <th className="px-3 py-2 font-medium">utm_campaign</th>
                         <th className="px-3 py-2 font-medium">utm_source</th>
                         <th className="px-3 py-2 font-medium">utm_medium</th>
+                        <th className="px-3 py-2 font-medium">utm_content</th>
+                        <th className="px-3 py-2 font-medium">utm_term</th>
+                        <th className="px-3 py-2 font-medium">Meta: campaign</th>
+                        <th className="px-3 py-2 font-medium">Meta: ad set</th>
+                        <th className="px-3 py-2 font-medium" title="Nama iklan atau ID iklan (meta_ad / utm_content)">
+                          Meta: ad
+                        </th>
                         <th className="px-3 py-2 font-medium">Sesi</th>
                       </tr>
                     </thead>
                     <tbody>
                       {analytics.acquisition_top_campaigns.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                          <td colSpan={9} className="px-3 py-4 text-muted-foreground">
                             —
                           </td>
                         </tr>
                       ) : (
                         analytics.acquisition_top_campaigns.map((r, i) => (
-                          <tr key={`${r.utm_campaign}-${r.utm_source}-${r.utm_medium}-${i}`} className="border-t border-border/60">
+                          <tr
+                            key={`${r.utm_campaign}-${r.utm_source}-${r.utm_medium}-${r.utm_content}-${r.utm_term}-${i}`}
+                            className="border-t border-border/60"
+                          >
                             <td className="max-w-[140px] truncate px-3 py-2 font-medium text-navy" title={r.utm_campaign}>
                               {r.utm_campaign || "—"}
                             </td>
@@ -677,6 +693,21 @@ function AnalyticsPanels({
                             </td>
                             <td className="max-w-[100px] truncate px-3 py-2" title={r.utm_medium}>
                               {r.utm_medium || "—"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2" title={r.utm_content}>
+                              {r.utm_content || "—"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2" title={r.utm_term}>
+                              {r.utm_term || "—"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2" title={r.meta_campaign_name}>
+                              {r.meta_campaign_name || "—"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2" title={r.meta_adset_name}>
+                              {r.meta_adset_name || "—"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2" title={r.meta_ad_name}>
+                              {r.meta_ad_name || "—"}
                             </td>
                             <td className="px-3 py-2 tabular-nums">{r.sessions}</td>
                           </tr>

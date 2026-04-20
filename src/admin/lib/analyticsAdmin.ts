@@ -58,6 +58,24 @@ export type AnalyticsAcquisitionCampaignRow = {
   utm_source: string;
   utm_medium: string;
   utm_campaign: string;
+  utm_content: string;
+  utm_term: string;
+  /** Max per bucket UTM; dari kolom meta_* (URL meta_* atau mirror Meta). */
+  meta_campaign_name: string;
+  meta_adset_name: string;
+  meta_ad_name: string;
+  sessions: number;
+};
+
+/**
+ * Breakdown Meta dari kolom meta_*.
+ * Sumber: query `meta_campaign` / `meta_adset` / `meta_ad`, atau (bila tidak ada) mirror dari UTM
+ * untuk traffic Meta — sesuai Meta Ads Manager: campaign→utm_campaign, ad set→utm_medium, ad id→utm_content.
+ */
+export type AnalyticsAcquisitionMetaAdsRow = {
+  meta_campaign_name: string;
+  meta_adset_name: string;
+  meta_ad_name: string;
   sessions: number;
 };
 
@@ -72,6 +90,8 @@ export type AdminAnalyticsSummary = {
   service: AnalyticsServiceSlice;
   acquisition_channels: AnalyticsAcquisitionChannelRow[];
   acquisition_top_campaigns: AnalyticsAcquisitionCampaignRow[];
+  /** Agregat terpisah by meta_* saja; UI utama memakai kolom meta_* di acquisition_top_campaigns. */
+  acquisition_top_meta_ads: AnalyticsAcquisitionMetaAdsRow[];
 };
 
 function asNumber(v: unknown, fallback = 0): number {
@@ -194,6 +214,22 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
             utm_source: String(x.utm_source ?? ""),
             utm_medium: String(x.utm_medium ?? ""),
             utm_campaign: String(x.utm_campaign ?? ""),
+            utm_content: String(x.utm_content ?? ""),
+            utm_term: String(x.utm_term ?? ""),
+            meta_campaign_name: String(x.meta_campaign_name ?? ""),
+            meta_adset_name: String(x.meta_adset_name ?? ""),
+            meta_ad_name: String(x.meta_ad_name ?? ""),
+            sessions: asNumber(x.sessions),
+          };
+        })
+      : [],
+    acquisition_top_meta_ads: Array.isArray(o.acquisition_top_meta_ads)
+      ? (o.acquisition_top_meta_ads as unknown[]).map((row) => {
+          const x = mapRow(row);
+          return {
+            meta_campaign_name: String(x.meta_campaign_name ?? ""),
+            meta_adset_name: String(x.meta_adset_name ?? ""),
+            meta_ad_name: String(x.meta_ad_name ?? ""),
             sessions: asNumber(x.sessions),
           };
         })

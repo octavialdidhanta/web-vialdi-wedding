@@ -3,6 +3,99 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// --- Lead attribution (inlined: Supabase deploy bundles entry file only) ---
+const _LEAD_UTM_MAX = 200;
+const _LEAD_URL_MAX = 2000;
+const _LEAD_ALLOWED_KEYS = [
+  "landing_url",
+  "referrer",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+] as const;
+type LeadAttributionSanitized = Record<(typeof _LEAD_ALLOWED_KEYS)[number], string | null>;
+
+function _leadClip(s: string, max: number): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max);
+}
+function _leadMaxForKey(key: string): number {
+  if (key === "landing_url" || key === "referrer") return _LEAD_URL_MAX;
+  return _LEAD_UTM_MAX;
+}
+function _computeAttributionLabel(a: LeadAttributionSanitized): string {
+  const campaign = a.utm_campaign?.trim();
+  const src = a.utm_source?.trim();
+  const med = a.utm_medium?.trim();
+  const parts: string[] = [];
+  if (campaign) {
+    parts.push(campaign);
+    if (src || med) {
+      const tail = [src, med].filter(Boolean).join(" / ");
+      if (tail) parts.push(`(${tail})`);
+    }
+    return parts.join(" ").slice(0, 500);
+  }
+  if (src || med) {
+    const head = [src, med].filter(Boolean).join(" / ");
+    if (head) return head.slice(0, 500);
+  }
+  const land = a.landing_url?.trim();
+  if (land) {
+    const short = land.length > 120 ? `${land.slice(0, 117)}...` : land;
+    return `Landing: ${short}`.slice(0, 500);
+  }
+  const ref = a.referrer?.trim();
+  if (ref) {
+    const short = ref.length > 100 ? `${ref.slice(0, 97)}...` : ref;
+    return `Referrer: ${short}`.slice(0, 500);
+  }
+  const term = a.utm_term?.trim();
+  if (term) return `Term: ${term}`.slice(0, 500);
+  const content = a.utm_content?.trim();
+  if (content) return `Content: ${content}`.slice(0, 500);
+  return "Direct / unknown";
+}
+function parseLeadAttribution(raw: unknown): {
+  attribution: LeadAttributionSanitized;
+  label: string;
+} | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const out: LeadAttributionSanitized = {
+    landing_url: null,
+    referrer: null,
+    utm_source: null,
+    utm_medium: null,
+    utm_campaign: null,
+    utm_content: null,
+    utm_term: null,
+  };
+  for (const key of _LEAD_ALLOWED_KEYS) {
+    const v = obj[key];
+    if (v === undefined || v === null) continue;
+    if (typeof v !== "string") return null;
+    const clipped = _leadClip(v, _leadMaxForKey(key));
+    out[key] = clipped.length > 0 ? clipped : null;
+  }
+  const hasAny = _LEAD_ALLOWED_KEYS.some((k) => out[k] != null && out[k] !== "");
+  if (!hasAny) return null;
+  return { attribution: out, label: _computeAttributionLabel(out) };
+}
+function attributionToJsonb(a: LeadAttributionSanitized): Record<string, string> {
+  const o: Record<string, string> = {};
+  for (const k of _LEAD_ALLOWED_KEYS) {
+    const v = a[k];
+    if (v != null && v !== "") o[k] = v;
+  }
+  return o;
+}
+// --- end lead attribution ---
+
 type Step = 1 | 2 | 3;
 
 type Payload =
@@ -559,6 +652,16 @@ Deno.serve(async (req) => {
   const payload = okPayload(payloadRaw);
   if (!payload) return badRequest("Invalid payload for step");
 
+  const rawPayload = payloadRaw as Record<string, unknown>;
+  const leadAttr = parseLeadAttribution(rawPayload["attribution"]);
+  const attrUpdate =
+    leadAttr !== null
+      ? {
+          attribution: attributionToJsonb(leadAttr.attribution),
+          attribution_label: leadAttr.label,
+        }
+      : null;
+
   let supabaseUrl: string;
   let serviceRoleKey: string;
   let systemUserId: string;
@@ -585,6 +688,7 @@ Deno.serve(async (req) => {
         email: payload.email,
         step: 1,
         source: "Website",
+        ...(attrUpdate ?? {}),
       })
       .select("*")
       .single();
@@ -604,6 +708,7 @@ Deno.serve(async (req) => {
         phone_number: payload.phone_number,
         email: payload.email,
         source: "Website",
+        ...(attrUpdate ?? {}),
       })
       .select("id")
       .single();
@@ -652,9 +757,19 @@ Deno.serve(async (req) => {
   if (payload.step === 2) {
     const { error: upErr } = await admin
       .from("leads_vialdiid")
-      .update({ industry: payload.industry, business_type: payload.business_type, step: 2 })
+      .update({
+        industry: payload.industry,
+        business_type: payload.business_type,
+        step: 2,
+        ...(attrUpdate ?? {}),
+      })
       .eq("id", payload.id);
     if (upErr) return json({ error: upErr.message }, { status: 500 });
+
+    if (attrUpdate) {
+      const { error: leadAttrErr } = await admin.from("leads").update(attrUpdate).eq("id", leadId);
+      if (leadAttrErr) return json({ error: leadAttrErr.message }, { status: 500 });
+    }
 
     const { error: profileUpErr } = await admin
       .from("lead_client_profiles")
@@ -674,13 +789,17 @@ Deno.serve(async (req) => {
       office_address: payload.office_address,
       step: 3,
       submitted_at: new Date().toISOString(),
+      ...(attrUpdate ?? {}),
     })
     .eq("id", payload.id);
   if (upErr) return json({ error: upErr.message }, { status: 500 });
 
   // Put most relevant fields into lead & profile
   const services = payload.needs;
-  const { error: leadUpErr } = await admin.from("leads").update({ services }).eq("id", leadId);
+  const { error: leadUpErr } = await admin
+    .from("leads")
+    .update({ services, ...(attrUpdate ?? {}) })
+    .eq("id", leadId);
   if (leadUpErr) return json({ error: leadUpErr.message }, { status: 500 });
 
   const { error: profileUpErr } = await admin

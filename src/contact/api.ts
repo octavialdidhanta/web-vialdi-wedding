@@ -1,11 +1,19 @@
+import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
 
-export type ContactLeadStep1 = { step: 1; name: string; phone_number: string; email: string };
+export type ContactLeadStep1 = {
+  step: 1;
+  name: string;
+  phone_number: string;
+  email: string;
+  attribution?: LeadAttributionPayload;
+};
 export type ContactLeadStep2 = {
   step: 2;
   id: string;
   industry: string;
   business_type: "B2B" | "B2C";
+  attribution?: LeadAttributionPayload;
 };
 export type ContactLeadStep3 = {
   step: 3;
@@ -13,6 +21,7 @@ export type ContactLeadStep3 = {
   job_title: string;
   needs: string;
   office_address: string;
+  attribution?: LeadAttributionPayload;
 };
 
 export type ContactLeadResponse = { id: string; lead_id: string };
@@ -25,6 +34,7 @@ function tryParseJson(text: string): any | null {
   }
 }
 
+/** Sertakan `attribution: readLandingAttributionForLead()` dari `@/analytics/sendAnalyticsBatch` pada setiap step. */
 export async function submitContactLead(
   payload: ContactLeadStep1 | ContactLeadStep2 | ContactLeadStep3,
 ): Promise<ContactLeadResponse> {

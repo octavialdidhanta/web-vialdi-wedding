@@ -23,6 +23,9 @@ type SessionTouch = {
   utm_campaign?: string;
   utm_content?: string;
   utm_term?: string;
+  meta_campaign_name?: string;
+  meta_adset_name?: string;
+  meta_ad_name?: string;
   has_gclid?: boolean;
   has_fbclid?: boolean;
   has_msclkid?: boolean;
@@ -157,6 +160,27 @@ function clipText(raw: unknown, max: number): string {
   return s.length <= max ? s : s.slice(0, max);
 }
 
+/** Meta `{{site_source_name}}` dan placement umum (bukan daftar lengkap). */
+function looksMetaUtmSource(raw: string): boolean {
+  const s = raw.trim().toLowerCase();
+  if (!s) return false;
+  const exact = new Set([
+    "fb",
+    "ig",
+    "msg",
+    "an",
+    "facebook",
+    "instagram",
+    "messenger",
+    "fbinstagram",
+    "audience_network",
+    "audnetwork",
+  ]);
+  if (exact.has(s)) return true;
+  if (s.includes("facebook") || s.includes("instagram")) return true;
+  return false;
+}
+
 async function closeOpenPageViews(
   supabase: ReturnType<typeof createClient>,
   sessionId: string,
@@ -243,6 +267,9 @@ Deno.serve(async (req) => {
   let mergedUtmCampaign = "";
   let mergedUtmContent = "";
   let mergedUtmTerm = "";
+  let mergedMetaCampaign = "";
+  let mergedMetaAdset = "";
+  let mergedMetaAd = "";
   let mergedHasGclid = false;
   let mergedHasFbclid = false;
   let mergedHasMsclkid = false;
@@ -267,12 +294,31 @@ Deno.serve(async (req) => {
       if (uco && !mergedUtmContent) mergedUtmContent = uco;
       const ut = clipText(st.utm_term, MAX_UTM_LEN);
       if (ut && !mergedUtmTerm) mergedUtmTerm = ut;
+      const mc = clipText(st.meta_campaign_name, MAX_UTM_LEN);
+      if (mc && !mergedMetaCampaign) mergedMetaCampaign = mc;
+      const mas = clipText(st.meta_adset_name, MAX_UTM_LEN);
+      if (mas && !mergedMetaAdset) mergedMetaAdset = mas;
+      const mad = clipText(st.meta_ad_name, MAX_UTM_LEN);
+      if (mad && !mergedMetaAd) mergedMetaAd = mad;
       mergedHasGclid = mergedHasGclid || Boolean(st.has_gclid);
       mergedHasFbclid = mergedHasFbclid || Boolean(st.has_fbclid);
       mergedHasMsclkid = mergedHasMsclkid || Boolean(st.has_msclkid);
       mergedHasGbraid = mergedHasGbraid || Boolean(st.has_gbraid);
       mergedHasWbraid = mergedHasWbraid || Boolean(st.has_wbraid);
     }
+  }
+
+  /**
+   * Meta Ads Manager "Campaign URL" sering hanya mengisi UTM:
+   * utm_source=site, utm_medium=ad set name, utm_campaign=campaign name, utm_content=ad id.
+   * Tanpa query meta_* terpisah, mirror ke kolom meta_* agar agregasi dashboard konsisten.
+   */
+  const hasExplicitMeta =
+    mergedMetaCampaign.length > 0 || mergedMetaAdset.length > 0 || mergedMetaAd.length > 0;
+  if (!hasExplicitMeta && (mergedHasFbclid || looksMetaUtmSource(mergedUtmSource))) {
+    if (mergedUtmCampaign.length > 0) mergedMetaCampaign = mergedUtmCampaign;
+    if (mergedUtmMedium.length > 0) mergedMetaAdset = mergedUtmMedium;
+    if (mergedUtmContent.length > 0) mergedMetaAd = mergedUtmContent;
   }
 
   const { error: touchErr } = await supabase.rpc("analytics_session_touch", {
@@ -287,6 +333,9 @@ Deno.serve(async (req) => {
     p_utm_campaign: mergedUtmCampaign,
     p_utm_content: mergedUtmContent,
     p_utm_term: mergedUtmTerm,
+    p_meta_campaign_name: mergedMetaCampaign,
+    p_meta_adset_name: mergedMetaAdset,
+    p_meta_ad_name: mergedMetaAd,
     p_has_gclid: mergedHasGclid,
     p_has_fbclid: mergedHasFbclid,
     p_has_msclkid: mergedHasMsclkid,

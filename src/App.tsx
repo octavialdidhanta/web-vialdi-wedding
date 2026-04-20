@@ -1,8 +1,38 @@
-import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { AnalyticsProvider } from "@/analytics/AnalyticsProvider";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { HomePage } from "@/home/HomePage";
 
-const HomePage = lazy(() => import("@/home/HomePage").then((m) => ({ default: m.HomePage })));
+function DeferredAnalyticsLayout() {
+  const [Layout, setLayout] = useState<null | ComponentType>(null);
+
+  useEffect(() => {
+    const load = () => {
+      import("@/analytics/AnalyticsProvider")
+        .then((m) => {
+          setLayout(() => m.AnalyticsProvider);
+        })
+        .catch(() => {
+          // If analytics fails to load, keep the app usable.
+          setLayout(null);
+        });
+    };
+
+    if (typeof window === "undefined") return;
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(load, { timeout: 4000 });
+      return;
+    }
+    const t = window.setTimeout(load, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  if (!Layout) {
+    return <Outlet />;
+  }
+
+  return <Layout />;
+}
+
 const QueryRoutesLayout = lazy(() =>
   import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
 );
@@ -56,7 +86,7 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-          <Route element={<AnalyticsProvider />}>
+          <Route element={<DeferredAnalyticsLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/service" element={<OurServicesPage />} />
             <Route element={<QueryRoutesLayout />}>

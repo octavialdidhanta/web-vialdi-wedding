@@ -1,3 +1,4 @@
+import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
 
 export type WeddingLeadStep1 = {
@@ -8,6 +9,7 @@ export type WeddingLeadStep1 = {
   package_label: string;
   /** Kirim saat autosave ulang agar satu baris diperbarui, bukan duplikat. */
   id?: string;
+  attribution?: LeadAttributionPayload;
 };
 
 export type WeddingLeadStep2 = {
@@ -16,6 +18,7 @@ export type WeddingLeadStep2 = {
   event_date: string;
   event_time: string;
   event_address: string;
+  attribution?: LeadAttributionPayload;
 };
 
 /** Step 1 & step 2 both return id + lead_id; step 2 adds whatsapp status from Edge Function. */
