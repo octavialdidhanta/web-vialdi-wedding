@@ -10,7 +10,7 @@ import {
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
-import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280;1600&format=webp&as=srcset";
+import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280&format=webp&as=srcset";
 import type { ComponentType } from "react";
 
 const HeroAlbumKolaseVideo = lazy(() =>
