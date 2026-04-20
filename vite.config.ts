@@ -158,7 +158,16 @@ export default defineConfig(({ mode }) => {
             if (id.includes("/src/analytics/")) return "analytics";
             if (id.includes("/src/share/ui/")) return "ui";
             if (id.includes("node_modules/lucide-react")) return "icons";
-            if (id.includes("node_modules/@radix-ui")) return "ui-vendor";
+            /**
+             * Jangan gabungkan semua Radix ke satu chunk.
+             * Home butuh `react-accordion`, tapi Select/Menu/ScrollArea hanya dipakai di area lain (admin/forms).
+             * Memisah mengurangi "unused JS" untuk rute beranda.
+             */
+            if (id.includes("node_modules/@radix-ui/react-accordion")) return "radix-accordion";
+            if (id.includes("node_modules/@radix-ui/react-select")) return "radix-select";
+            if (id.includes("node_modules/@radix-ui/react-menubar")) return "radix-menubar";
+            if (id.includes("node_modules/@radix-ui/react-scroll-area")) return "radix-scroll-area";
+            if (id.includes("node_modules/@radix-ui")) return "radix-core";
             if (id.includes("node_modules/react-router")) return "react-router";
           },
         },
