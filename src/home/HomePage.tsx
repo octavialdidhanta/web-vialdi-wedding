@@ -11,7 +11,7 @@ import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
 import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280;1600&format=webp&as=srcset";
-import { FloatingWhatsApp } from "@/home/FloatingWhatsApp";
+import type { ComponentType } from "react";
 
 const HeroAlbumKolaseVideo = lazy(() =>
   import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
@@ -52,6 +52,40 @@ function LazySectionFallback({ className }: { className: string }) {
       aria-hidden
     />
   );
+}
+
+function DeferredFloatingWhatsApp() {
+  const [Comp, setComp] = useState<null | ComponentType>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      import("@/home/FloatingWhatsApp")
+        .then((m) => {
+          if (!cancelled) setComp(() => m.FloatingWhatsApp);
+        })
+        .catch(() => {
+          // If WA fails to load, keep app usable.
+          if (!cancelled) setComp(null);
+        });
+    };
+
+    if (typeof window === "undefined") return;
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(load, { timeout: 3500 });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const t = window.setTimeout(load, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, []);
+
+  if (!Comp) return null;
+  return <Comp />;
 }
 
 export function HomePage() {
@@ -121,7 +155,7 @@ function HomePageInner() {
       ) : null}
 
       <Header />
-      <FloatingWhatsApp />
+      <DeferredFloatingWhatsApp />
 
       {/* Hero */}
       <section className="relative overflow-x-hidden border-b border-border/40 bg-background pb-10 md:pb-14 lg:pb-20">

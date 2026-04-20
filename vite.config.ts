@@ -150,6 +150,17 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           sourcemapExcludeSources: true,
+          /**
+           * Kurangi "network dependency chain": gabungkan modul analytics (termasuk gtmDataLayer)
+           * agar dynamic import tidak memicu banyak request kecil berantai.
+           */
+          manualChunks(id) {
+            if (id.includes("/src/analytics/")) return "analytics";
+            if (id.includes("/src/share/ui/")) return "ui";
+            if (id.includes("node_modules/lucide-react")) return "icons";
+            if (id.includes("node_modules/@radix-ui")) return "ui-vendor";
+            if (id.includes("node_modules/react-router")) return "react-router";
+          },
         },
       },
     },

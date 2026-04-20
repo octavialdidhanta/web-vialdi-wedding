@@ -1,5 +1,4 @@
 import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
-import { supabase } from "@/share/supabaseClient";
 
 export type ContactLeadStep1 = {
   step: 1;
@@ -41,6 +40,7 @@ function tryParseJson(text: string): any | null {
 export async function submitContactLead(
   payload: ContactLeadStep1 | ContactLeadStep2 | ContactLeadStep3,
 ): Promise<ContactLeadResponse> {
+  const { supabase } = await import("@/share/supabaseClient");
   const { data, error } = await supabase.functions.invoke("contact-lead", { body: payload });
   if (error) {
     const bodyText = (error as any)?.context?.body;

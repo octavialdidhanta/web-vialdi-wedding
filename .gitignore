@@ -34,3 +34,7 @@ dist-ssr
 # Environment variables (do not commit secrets)
 .env
 .env.*
+
+# Local Supabase CLI downloads (do not commit)
+supabase.exe
+supabase_*.tar.gz

@@ -1,6 +1,5 @@
 import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
 import type { AnalyticsWebId } from "@/analytics/trackRegistry";
-import { supabase } from "@/share/supabaseClient";
 
 export type WeddingLeadStep1 = {
   step: 1;
@@ -53,6 +52,7 @@ function tryParseJson(text: string): unknown | null {
 export async function submitWeddingPackageLead(
   payload: WeddingLeadStep1 | WeddingLeadStep2,
 ): Promise<WeddingLeadResponse> {
+  const { supabase } = await import("@/share/supabaseClient");
   const { data, error } = await supabase.functions.invoke("wedding-package-lead", {
     body: payload,
   });

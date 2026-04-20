@@ -6,24 +6,44 @@ function DeferredAnalyticsLayout() {
   const [Layout, setLayout] = useState<null | ComponentType>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const load = () => {
       import("@/analytics/AnalyticsProvider")
         .then((m) => {
-          setLayout(() => m.AnalyticsProvider);
+          if (!cancelled) setLayout(() => m.AnalyticsProvider);
         })
         .catch(() => {
           // If analytics fails to load, keep the app usable.
-          setLayout(null);
+          if (!cancelled) setLayout(null);
         });
     };
 
     if (typeof window === "undefined") return;
-    if (typeof requestIdleCallback !== "undefined") {
-      requestIdleCallback(load, { timeout: 4000 });
-      return;
+
+    /**
+     * IMPORTANT: jangan ikut di critical request chain PSI/Lighthouse.
+     * Tunggu `load` event, baru schedule idle import.
+     */
+    const schedule = () => {
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(load, { timeout: 12_000 });
+        return;
+      }
+      window.setTimeout(load, 4000);
+    };
+
+    if (document.readyState === "complete") {
+      schedule();
+      return () => {
+        cancelled = true;
+      };
     }
-    const t = window.setTimeout(load, 0);
-    return () => window.clearTimeout(t);
+
+    window.addEventListener("load", schedule, { once: true });
+    return () => {
+      cancelled = true;
+      window.removeEventListener("load", schedule);
+    };
   }, []);
 
   if (!Layout) {
