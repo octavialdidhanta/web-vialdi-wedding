@@ -1,6 +1,7 @@
 import makeupRiasFeatured from "@/home/assets/makeup/Untitled design (1)_11zon.jpg?w=640&format=webp";
 import jasPremiumFeatured from "@/home/assets/makeup/sewa-jas-premium.jpg?w=720&format=webp";
 import dekorasiPelaminFeatured from "@/home/assets/makeup/dekorasi-pelaminan-impian.jpg?w=800&format=webp";
+import dokumentasiFeatured from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
 
 /** Kartu yang memakai crop zoom + geser vertikal agar subjek pas di frame. */
 const IMAGE_ZOOM_TITLES = new Set(["Koleksi Gaun & Jas Premium"]);
@@ -30,6 +31,14 @@ const cards = [
     imgWidth: 800,
     imgHeight: 1000,
   },
+  {
+    title: "Dokumentasi",
+    subtitle: "Tim foto & video yang paham ritme acara — hasil rapi, warna natural, dan siap album & sosial media.",
+    image: dokumentasiFeatured,
+    alt: "Pasangan pengantin dalam suasana pernikahan elegan",
+    imgWidth: 720,
+    imgHeight: 720,
+  },
 ] as const;
 
 export function FeaturedLayananCards() {
@@ -37,8 +46,8 @@ export function FeaturedLayananCards() {
     <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
       <h2 className="text-2xl font-bold tracking-tight text-navy md:text-3xl">Layanan Unggulan</h2>
       <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
-        Tiga pilar utama yang sering menjadi kebutuhan pasangan: kecantikan, busana, dan suasana
-        resepsi yang memukau.
+        Empat pilar utama yang sering menjadi kebutuhan pasangan: kecantikan, busana, suasana resepsi,
+        dan dokumentasi yang rapi.
       </p>
 
       {/* Mobile: full-bleed horizontal strip (break out of page gutters); md+: grid in normal flow */}
@@ -47,7 +56,7 @@ export function FeaturedLayananCards() {
         role="region"
         aria-label="Layanan unggulan — geser horizontal untuk melihat kartu lainnya"
       >
-        <div className="flex w-max items-stretch gap-3 px-2.5 md:grid md:w-full md:max-w-none md:px-0 md:grid-cols-3 md:gap-5">
+        <div className="flex w-max items-stretch gap-3 px-2.5 md:grid md:w-full md:max-w-none md:px-0 md:grid-cols-4 md:gap-5">
           {cards.map((c) => (
             <article
               key={c.title}

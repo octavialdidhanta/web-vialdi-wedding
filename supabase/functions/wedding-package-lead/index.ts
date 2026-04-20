@@ -107,6 +107,8 @@ type Payload =
       package_label: string;
       /** Jika ada: perbarui baris step 1 yang sama (autosave), jangan buat lead ganda. */
       id?: string;
+      /** Link ke public.analytics_sessions.id (anonymous session). */
+      analytics_session_id?: string;
     }
   | {
       step: 2;
@@ -114,6 +116,7 @@ type Payload =
       event_date: string;
       event_time: string;
       event_address: string;
+      analytics_session_id?: string;
     };
 
 const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
@@ -194,7 +197,9 @@ function parseTemplateBodyKeys(): string[] {
     const name = (getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world").trim().toLowerCase();
     // `hello_world` (Meta sample) has no body placeholders — sending default `["name"]` triggers (#100).
     if (name === "hello_world") return [];
-    return ["name"];
+    // Default project template expects:
+    // 1) greeting name, 2) Nama, 3) Tanggal Acara, 4) Jam Acara, 5) Paket
+    return ["name", "name", "event_date", "event_time", "package_label"];
   }
   if (/^__none__$/i.test(raw.trim())) return [];
   return raw
@@ -643,6 +648,9 @@ function okPayload(body: any): Payload | null {
     const idRaw = body?.id;
     const id =
       typeof idRaw === "string" && idRaw.trim().length > 0 && isUuid(idRaw.trim()) ? idRaw.trim() : undefined;
+    const sidRaw = body?.analytics_session_id;
+    const analytics_session_id =
+      typeof sidRaw === "string" && sidRaw.trim().length > 0 && isUuid(sidRaw.trim()) ? sidRaw.trim() : undefined;
     return {
       step: 1,
       name: body.name.trim(),
@@ -650,6 +658,7 @@ function okPayload(body: any): Payload | null {
       email: body.email.trim(),
       package_label: body.package_label.trim().slice(0, 500),
       ...(id ? { id } : {}),
+      ...(analytics_session_id ? { analytics_session_id } : {}),
     };
   }
 
@@ -658,12 +667,16 @@ function okPayload(body: any): Payload | null {
     if (!nonEmpty(body?.event_date) || !isIsoDateOnly(body.event_date)) return null;
     if (!nonEmpty(body?.event_time)) return null;
     if (!nonEmpty(body?.event_address)) return null;
+    const sidRaw = body?.analytics_session_id;
+    const analytics_session_id =
+      typeof sidRaw === "string" && sidRaw.trim().length > 0 && isUuid(sidRaw.trim()) ? sidRaw.trim() : undefined;
     return {
       step: 2,
       id: body.id.trim(),
       event_date: body.event_date.trim(),
       event_time: body.event_time.trim().slice(0, 200),
       event_address: body.event_address.trim().slice(0, 8000),
+      ...(analytics_session_id ? { analytics_session_id } : {}),
     };
   }
 
@@ -733,6 +746,7 @@ Deno.serve(async (req) => {
           phone_number: p1.phone_number,
           email: p1.email,
           package_label: p1.package_label,
+          ...(p1.analytics_session_id ? { analytics_session_id: p1.analytics_session_id } : {}),
           ...(attrUpdate ?? {}),
         })
         .eq("id", p1.id);
@@ -745,6 +759,7 @@ Deno.serve(async (req) => {
           phone_number: p1.phone_number,
           email: p1.email,
           services: p1.package_label,
+          ...(p1.analytics_session_id ? { analytics_session_id: p1.analytics_session_id } : {}),
           ...(attrUpdate ?? {}),
         })
         .eq("id", leadId);
@@ -774,6 +789,7 @@ Deno.serve(async (req) => {
         phone_number: payload.phone_number,
         email: payload.email,
         package_label: payload.package_label,
+        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         step: 1,
         source: SOURCE,
         ...(attrUpdate ?? {}),
@@ -797,6 +813,7 @@ Deno.serve(async (req) => {
         email: payload.email,
         source: SOURCE,
         services: payload.package_label,
+        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         ...(attrUpdate ?? {}),
       })
       .select("id")
@@ -859,6 +876,7 @@ Deno.serve(async (req) => {
       event_date: p2.event_date,
       event_time: p2.event_time,
       event_address: p2.event_address,
+      ...(p2.analytics_session_id ? { analytics_session_id: p2.analytics_session_id } : {}),
       step: 2,
       submitted_at: new Date().toISOString(),
       ...(attrUpdate ?? {}),
@@ -868,7 +886,11 @@ Deno.serve(async (req) => {
 
   const { error: leadUpErr } = await admin
     .from("leads")
-    .update({ services: servicesLine, ...(attrUpdate ?? {}) })
+    .update({
+      services: servicesLine,
+      ...(p2.analytics_session_id ? { analytics_session_id: p2.analytics_session_id } : {}),
+      ...(attrUpdate ?? {}),
+    })
     .eq("id", leadId);
   if (leadUpErr) return json({ error: leadUpErr.message }, { status: 500 });
 

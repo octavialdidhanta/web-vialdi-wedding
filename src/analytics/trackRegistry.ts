@@ -5,6 +5,8 @@
 export const TRACK_KEYS = {
   /** Tombol / tautan utama ke halaman kontak (header, hero, blog CTA, dll.) */
   contactCta: "contact_cta",
+  /** Tombol Floating WhatsApp (ikon WA) */
+  whatsappFloatingClick: "whatsapp_floating_click",
   /** Kirim formulir subscribe footer (jika nanti terhubung ke backend) */
   footerSubscribe: "footer_subscribe_submit",
   /** Logo / brand ke home */

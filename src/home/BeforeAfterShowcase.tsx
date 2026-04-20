@@ -14,6 +14,10 @@ export function BeforeAfterShowcase() {
   const knobRef = useRef<HTMLDivElement>(null);
   const rangeRef = useRef<HTMLInputElement>(null);
   const rafRef = useRef<number | null>(null);
+  const dragRef = useRef<{ active: boolean; pointerId: number | null }>({
+    active: false,
+    pointerId: null,
+  });
 
   /** Dekat viewport → mulai unduh before; setelah before selesai → unduh after (decode lebih ringan bertahap). */
   const [loadBefore, setLoadBefore] = useState(false);
@@ -81,6 +85,64 @@ export function BeforeAfterShowcase() {
     return () => io.disconnect();
   }, []);
 
+  const updateFromClientX = useCallback(
+    (clientX: number) => {
+      const root = figureRef.current;
+      if (!root) return;
+      const rect = root.getBoundingClientRect();
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      scheduleApply(pct);
+    },
+    [scheduleApply],
+  );
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const root = figureRef.current;
+      const input = rangeRef.current;
+      if (!root || !input) return;
+
+      // Only start drag when pointer is close to the current handle position.
+      const rect = root.getBoundingClientRect();
+      const currentPct = Number(input.value || 50);
+      const handleX = rect.left + (currentPct / 100) * rect.width;
+      const thresholdPx = 36; // forgiving on mobile; still prevents accidental touches
+      const dx = Math.abs(e.clientX - handleX);
+
+      if (dx > thresholdPx) return;
+
+      dragRef.current.active = true;
+      dragRef.current.pointerId = e.pointerId;
+      root.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      updateFromClientX(e.clientX);
+    },
+    [updateFromClientX],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (!dragRef.current.active) return;
+      e.preventDefault();
+      updateFromClientX(e.clientX);
+    },
+    [updateFromClientX],
+  );
+
+  const endDrag = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const root = figureRef.current;
+    if (!dragRef.current.active || !root) return;
+    dragRef.current.active = false;
+    if (dragRef.current.pointerId !== null) {
+      try {
+        root.releasePointerCapture(dragRef.current.pointerId);
+      } catch {
+        // ignore
+      }
+    }
+    dragRef.current.pointerId = null;
+  }, []);
+
   return (
     <div className="min-w-0 w-full">
       <h2 className="text-center font-wedding-serif text-2xl font-bold leading-tight tracking-tight text-navy md:text-3xl lg:text-left">
@@ -96,7 +158,11 @@ export function BeforeAfterShowcase() {
 
       <figure
         ref={figureRef}
-        className="relative mx-auto mt-6 aspect-[4/5] w-full max-w-lg touch-none select-none overflow-hidden rounded-2xl border border-border bg-muted shadow-lg [content-visibility:auto] md:mt-7 lg:mx-0 lg:max-w-none lg:w-full"
+        className="relative mx-auto mt-6 aspect-[4/5] w-full max-w-lg touch-pan-y select-none overflow-hidden rounded-2xl border border-border bg-muted shadow-lg [content-visibility:auto] md:mt-7 lg:mx-0 lg:max-w-none lg:w-full"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         {!loadBefore ? (
           <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />
@@ -140,7 +206,7 @@ export function BeforeAfterShowcase() {
         />
         <div
           ref={knobRef}
-          className="pointer-events-none absolute top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-white/95 text-navy shadow-lg [transform:translate3d(-50%,-50%,0)]"
+          className="pointer-events-auto absolute top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border-2 border-white bg-white/95 text-navy shadow-lg [transform:translate3d(-50%,-50%,0)]"
           style={{ left: "50%" }}
         >
           <GripVertical className="h-6 w-6 opacity-70" aria-hidden />
@@ -157,7 +223,7 @@ export function BeforeAfterShowcase() {
           max={96}
           defaultValue={50}
           onInput={(e) => scheduleApply(Number(e.currentTarget.value))}
-          className="absolute inset-0 z-20 h-full w-full cursor-ew-resize opacity-0"
+          className="sr-only"
           aria-valuemin={4}
           aria-valuemax={96}
           aria-valuenow={50}

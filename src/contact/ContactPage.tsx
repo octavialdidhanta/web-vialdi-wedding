@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { readLandingAttributionForLead } from "@/analytics/sendAnalyticsBatch";
+import {
+  getOrCreateSessionId,
+  getRequiredWebId,
+  readLandingAttributionForLead,
+} from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
@@ -110,6 +114,8 @@ export function ContactPage() {
         event_time: eventTime.trim(),
         event_address: eventAddress.trim(),
         attribution: readLandingAttributionForLead(),
+        analytics_session_id: getOrCreateSessionId(),
+        web_id: getRequiredWebId(),
       });
       if (import.meta.env.DEV && res2.whatsapp?.skipped && res2.whatsapp?.skip_reason) {
         console.warn(

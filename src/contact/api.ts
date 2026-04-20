@@ -7,6 +7,7 @@ export type ContactLeadStep1 = {
   phone_number: string;
   email: string;
   attribution?: LeadAttributionPayload;
+  analytics_session_id?: string;
 };
 export type ContactLeadStep2 = {
   step: 2;
@@ -14,6 +15,7 @@ export type ContactLeadStep2 = {
   industry: string;
   business_type: "B2B" | "B2C";
   attribution?: LeadAttributionPayload;
+  analytics_session_id?: string;
 };
 export type ContactLeadStep3 = {
   step: 3;
@@ -22,6 +24,7 @@ export type ContactLeadStep3 = {
   needs: string;
   office_address: string;
   attribution?: LeadAttributionPayload;
+  analytics_session_id?: string;
 };
 
 export type ContactLeadResponse = { id: string; lead_id: string };

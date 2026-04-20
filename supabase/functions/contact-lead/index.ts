@@ -99,14 +99,21 @@ function attributionToJsonb(a: LeadAttributionSanitized): Record<string, string>
 type Step = 1 | 2 | 3;
 
 type Payload =
-  | { step: 1; name: string; phone_number: string; email: string }
-  | { step: 2; id: string; industry: string; business_type: "B2B" | "B2C" }
+  | { step: 1; name: string; phone_number: string; email: string; analytics_session_id?: string }
+  | {
+      step: 2;
+      id: string;
+      industry: string;
+      business_type: "B2B" | "B2C";
+      analytics_session_id?: string;
+    }
   | {
       step: 3;
       id: string;
       job_title: string;
       needs: string;
       office_address: string;
+      analytics_session_id?: string;
     };
 
 const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
@@ -140,6 +147,10 @@ function mustGetEnv(name: string) {
 
 function isEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v.trim());
 }
 
 function normalizePhone(v: string) {
@@ -185,7 +196,9 @@ function parseTemplateBodyKeys(): string[] {
   if (!raw) {
     const name = (getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world").trim().toLowerCase();
     if (name === "hello_world") return [];
-    return ["name"];
+    // Default project template expects:
+    // 1) greeting name, 2) Nama, 3) Tanggal Acara, 4) Jam Acara, 5) Paket
+    return ["name", "name", "event_date", "event_time", "package_label"];
   }
   if (/^__none__$/i.test(raw.trim())) return [];
   return raw
@@ -606,6 +619,9 @@ function okPayload(body: any): Payload | null {
       name: body.name.trim(),
       phone_number: normalizePhone(body.phone_number),
       email: body.email.trim(),
+      ...(typeof body?.analytics_session_id === "string" && isUuid(body.analytics_session_id)
+        ? { analytics_session_id: body.analytics_session_id }
+        : {}),
     };
   }
 
@@ -618,6 +634,9 @@ function okPayload(body: any): Payload | null {
       id: body.id.trim(),
       industry: body.industry.trim(),
       business_type: body.business_type,
+      ...(typeof body?.analytics_session_id === "string" && isUuid(body.analytics_session_id)
+        ? { analytics_session_id: body.analytics_session_id }
+        : {}),
     };
   }
 
@@ -632,6 +651,9 @@ function okPayload(body: any): Payload | null {
       job_title: body.job_title.trim(),
       needs: body.needs.trim(),
       office_address: body.office_address.trim(),
+      ...(typeof body?.analytics_session_id === "string" && isUuid(body.analytics_session_id)
+        ? { analytics_session_id: body.analytics_session_id }
+        : {}),
     };
   }
 
@@ -686,6 +708,7 @@ Deno.serve(async (req) => {
         name: payload.name,
         phone_number: payload.phone_number,
         email: payload.email,
+        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         step: 1,
         source: "Website",
         ...(attrUpdate ?? {}),
@@ -708,6 +731,7 @@ Deno.serve(async (req) => {
         phone_number: payload.phone_number,
         email: payload.email,
         source: "Website",
+        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         ...(attrUpdate ?? {}),
       })
       .select("id")
@@ -760,6 +784,7 @@ Deno.serve(async (req) => {
       .update({
         industry: payload.industry,
         business_type: payload.business_type,
+        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         step: 2,
         ...(attrUpdate ?? {}),
       })
@@ -769,6 +794,14 @@ Deno.serve(async (req) => {
     if (attrUpdate) {
       const { error: leadAttrErr } = await admin.from("leads").update(attrUpdate).eq("id", leadId);
       if (leadAttrErr) return json({ error: leadAttrErr.message }, { status: 500 });
+    }
+
+    if (payload.analytics_session_id) {
+      const { error: leadSessErr } = await admin
+        .from("leads")
+        .update({ analytics_session_id: payload.analytics_session_id })
+        .eq("id", leadId);
+      if (leadSessErr) return json({ error: leadSessErr.message }, { status: 500 });
     }
 
     const { error: profileUpErr } = await admin
@@ -787,6 +820,7 @@ Deno.serve(async (req) => {
       job_title: payload.job_title,
       needs: payload.needs,
       office_address: payload.office_address,
+      ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
       step: 3,
       submitted_at: new Date().toISOString(),
       ...(attrUpdate ?? {}),
@@ -798,7 +832,11 @@ Deno.serve(async (req) => {
   const services = payload.needs;
   const { error: leadUpErr } = await admin
     .from("leads")
-    .update({ services, ...(attrUpdate ?? {}) })
+    .update({
+      services,
+      ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
+      ...(attrUpdate ?? {}),
+    })
     .eq("id", leadId);
   if (leadUpErr) return json({ error: leadUpErr.message }, { status: 500 });
 
@@ -819,6 +857,7 @@ Deno.serve(async (req) => {
   if (finalErr) return json({ error: finalErr.message }, { status: 500 });
 
   const to = normalizePhone(String(finalRow?.phone_number ?? ""));
+  const pkgLabel = String(finalRow?.needs ?? "").trim();
   const ctx: Record<string, string> = {
     name: String(finalRow?.name ?? ""),
     email: String(finalRow?.email ?? ""),
@@ -830,6 +869,10 @@ Deno.serve(async (req) => {
     office_address: String(finalRow?.office_address ?? ""),
     lead_id: String(leadId),
     lead_vialdiid_id: String(payload.id),
+    // Keys used by the default 5-variable Vialdi template
+    package_label: pkgLabel,
+    event_date: "",
+    event_time: "",
   };
 
   const wa = await sendWhatsappTemplateToClient({ toE164: to, ctx });

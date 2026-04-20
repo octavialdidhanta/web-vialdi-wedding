@@ -11,6 +11,7 @@ import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
 import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280;1600&format=webp&as=srcset";
+import { FloatingWhatsApp } from "@/home/FloatingWhatsApp";
 
 const HeroAlbumKolaseVideo = lazy(() =>
   import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
@@ -120,6 +121,7 @@ function HomePageInner() {
       ) : null}
 
       <Header />
+      <FloatingWhatsApp />
 
       {/* Hero */}
       <section className="relative overflow-x-hidden border-b border-border/40 bg-background pb-10 md:pb-14 lg:pb-20">
@@ -238,7 +240,7 @@ function HomePageInner() {
         {/* Paket unggulan — kartu pembuka narasi di mobile tepat di bawah carousel; lanjutan narasi setelah janji (md:hidden). */}
         <section
           id="paket-dokumentasi"
-          className="order-3 scroll-mt-24 border-t-0 bg-secondary/30 pt-8 pb-8 md:order-5 md:border-t md:border-border/60 md:pt-10 md:pb-10"
+          className="order-3 scroll-mt-24 border-t-0 bg-secondary/30 pt-8 pb-4 md:order-5 md:border-t md:border-border/60 md:pt-10 md:pb-10"
         >
           <div className="mx-auto max-w-[90rem] px-4 pb-5 md:px-6 md:pb-6">
             <SectionTitle
@@ -288,7 +290,7 @@ function HomePageInner() {
         </section>
 
         {/* Janji & garansi + Before/After (kanan) */}
-        <section className="order-4 bg-secondary/40 pt-12 pb-8 md:order-4 md:pt-16 md:pb-10">
+        <section className="order-4 bg-secondary/40 pt-8 pb-8 md:order-4 md:pt-16 md:pb-10">
           <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-2.5 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
             <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[32rem]">
               <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[32rem]" />}>
