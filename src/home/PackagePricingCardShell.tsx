@@ -94,7 +94,7 @@ export function PackagePricingCardShell({
         className={`${shellBaseClass}${consultOpen ? shellMdFormMode : shellMdBrowseMode}`}
       >
         <div className={headerWrapClass}>
-          <div className="flex w-full flex-col min-h-[15.75rem]">{header}</div>
+          <div className="flex w-full flex-col min-h-[13.25rem] md:min-h-[15.75rem]">{header}</div>
         </div>
 
         {!consultOpen ? (

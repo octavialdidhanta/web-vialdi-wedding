@@ -22,11 +22,11 @@ export function WeddingJuniorPackageCard() {
         <>
           <div className="flex min-h-0 grow flex-col">
             <p className="text-center">
-              <span className="inline-block rounded-lg bg-[var(--package-purple-solid)] px-3 py-2 text-xs md:px-4 font-bold uppercase tracking-wider text-white">
+              <span className="inline-block rounded-lg bg-[var(--package-purple-solid)] px-3 py-1.5 text-xs md:px-4 md:py-2 font-bold uppercase tracking-wider text-white">
                 &gt; Foto only
               </span>
             </p>
-            <h2 className="mt-5 text-center text-lg font-bold leading-snug text-navy md:text-xl">
+            <h2 className="mt-3 text-center text-lg font-bold leading-snug text-navy md:mt-5 md:text-xl">
               Paket Wedding Junior
             </h2>
           </div>
