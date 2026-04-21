@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { usePackageCardLeadOptional } from "@/home/PackagePricingCardShell";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
+import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
@@ -46,7 +47,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   const phoneOk = isValidPhone(phone);
   const emailOk = isValidEmail(email);
 
-  const { leadRowId, resetStep1Lead } = useWeddingLeadStep1Autosave({
+  const { leadRowId, resetStep1Lead, ensureStep1RowId } = useWeddingLeadStep1Autosave({
     packageLabel,
     name,
     phone,
@@ -91,7 +92,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   const canNext = useMemo(() => {
     if (submitting) return false;
     if (step === 1) {
-      return name.trim().length > 0 && phoneOk && emailOk && !!leadRowId;
+      return name.trim().length > 0 && phoneOk && emailOk;
     }
     return (
       !!leadRowId &&
@@ -99,17 +100,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
       eventTime.trim().length > 0 &&
       eventAddress.trim().length > 0
     );
-  }, [
-    emailOk,
-    eventAddress,
-    eventDate,
-    eventTime,
-    leadRowId,
-    name,
-    phoneOk,
-    step,
-    submitting,
-  ]);
+  }, [emailOk, eventAddress, eventDate, eventTime, leadRowId, name, phoneOk, step, submitting]);
 
   function reset() {
     setOpen(false);
@@ -120,7 +111,18 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   async function onPrimary() {
     if (!canNext) return;
     if (step === 1) {
-      setStep(2);
+      setErrorMessage("");
+      setSubmitting(true);
+      try {
+        await ensureStep1RowId();
+        setStep(2);
+      } catch (e: unknown) {
+        setErrorMessage(
+          e instanceof Error ? e.message : "Tidak bisa menyimpan data. Periksa koneksi lalu coba lagi.",
+        );
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -150,6 +152,11 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
             res2.whatsapp.error.slice(0, 280),
         );
         return;
+      }
+      try {
+        clearWeddingPackageLeadBrowserSession(getRequiredWebId());
+      } catch {
+        /* VITE_WEB_ID */
       }
       navigate("/thank-you-page");
     } catch (e: unknown) {
@@ -277,7 +284,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
             </div>
           )}
 
-          {step === 2 && errorMessage ? (
+          {errorMessage ? (
             <p className="text-center text-[0.65rem] font-medium text-destructive">
               {errorMessage}
             </p>
@@ -294,7 +301,13 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
               Lihat detail paket
             </Button>
             <Button type="button" size="sm" disabled={!canNext} onClick={onPrimary}>
-              {step === 2 ? (submitting ? "Mengirim..." : "Kirim") : "Lanjut"}
+              {step === 2
+                ? submitting
+                  ? "Mengirim..."
+                  : "Kirim"
+                : submitting
+                  ? "Menyimpan..."
+                  : "Lanjut"}
             </Button>
           </div>
         </CardContent>

@@ -8,6 +8,7 @@ import {
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
+import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
 import { useContactPageMeta } from "@/contact/useContactPageMeta";
@@ -45,7 +46,7 @@ export function ContactPage() {
   const phoneOk = isValidPhone(phone);
   const emailOk = isValidEmail(email);
 
-  const { leadRowId, resetStep1Lead } = useWeddingLeadStep1Autosave({
+  const { leadRowId, resetStep1Lead, ensureStep1RowId } = useWeddingLeadStep1Autosave({
     packageLabel: CONTACT_LEAD_PACKAGE_LABEL,
     name,
     phone,
@@ -64,7 +65,7 @@ export function ContactPage() {
   const canNext = useMemo(() => {
     if (submitting) return false;
     if (step === 1) {
-      return name.trim().length > 0 && phoneOk && emailOk && !!leadRowId;
+      return name.trim().length > 0 && phoneOk && emailOk;
     }
     return (
       !!leadRowId &&
@@ -72,17 +73,7 @@ export function ContactPage() {
       eventTime.trim().length > 0 &&
       eventAddress.trim().length > 0
     );
-  }, [
-    emailOk,
-    eventAddress,
-    eventDate,
-    eventTime,
-    leadRowId,
-    name,
-    phoneOk,
-    step,
-    submitting,
-  ]);
+  }, [emailOk, eventAddress, eventDate, eventTime, leadRowId, name, phoneOk, step, submitting]);
 
   function resetForm() {
     setStep(1);
@@ -100,7 +91,18 @@ export function ContactPage() {
   async function onPrimary() {
     if (!canNext) return;
     if (step === 1) {
-      setStep(2);
+      setErrorMessage("");
+      setSubmitting(true);
+      try {
+        await ensureStep1RowId();
+        setStep(2);
+      } catch (e: unknown) {
+        setErrorMessage(
+          e instanceof Error ? e.message : "Tidak bisa menyimpan data. Periksa koneksi lalu coba lagi.",
+        );
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -123,6 +125,11 @@ export function ContactPage() {
           res2.whatsapp.skip_reason,
           "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets)",
         );
+      }
+      try {
+        clearWeddingPackageLeadBrowserSession(getRequiredWebId());
+      } catch {
+        /* VITE_WEB_ID */
       }
       navigate("/thank-you-page");
     } catch (e: unknown) {
@@ -255,8 +262,8 @@ export function ContactPage() {
                 </div>
               )}
 
-              {step === 2 && errorMessage ? (
-                <p className="text-center text-[0.65rem] font-medium text-destructive">
+              {errorMessage ? (
+                <p className="text-center text-[0.65rem] font-medium text-destructive md:text-left">
                   {errorMessage}
                 </p>
               ) : null}
@@ -284,7 +291,13 @@ export function ContactPage() {
                   data-track={TRACK_KEYS.contactCta}
                   onClick={onPrimary}
                 >
-                  {step === 2 ? (submitting ? "Mengirim..." : "Kirim") : "Lanjut"}
+                  {step === 2
+                    ? submitting
+                      ? "Mengirim..."
+                      : "Kirim"
+                    : submitting
+                      ? "Menyimpan..."
+                      : "Lanjut"}
                 </Button>
               </div>
             </CardContent>

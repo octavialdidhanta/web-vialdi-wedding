@@ -1,3 +1,5 @@
+import { randomUuidV4 } from "@/share/lib/randomUuid";
+
 const SESSION_KEY_PREFIX = "vialdi_analytics_session_v1";
 
 /** Nilai yang sama dengan CHECK di DB + validasi Edge. */
@@ -373,11 +375,11 @@ export function getOrCreateSessionId(): string {
     if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
       return existing;
     }
-    const id = crypto.randomUUID();
+    const id = randomUuidV4();
     localStorage.setItem(key, id);
     return id;
   } catch {
-    return crypto.randomUUID();
+    return randomUuidV4();
   }
 }
 

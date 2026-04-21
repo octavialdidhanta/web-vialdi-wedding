@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getOrCreateSessionId,
   getRequiredWebId,
@@ -7,8 +7,18 @@ import {
 import { saveLeadIdentity } from "@/contact/leadIdentityStorage";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
+import { readPersistedWeddingPackageLeadRowId, writePersistedWeddingPackageLeadRowId } from "@/contact/weddingPackageLeadSession";
 
 const DEBOUNCE_MS = 1000;
+
+function readPersistedLeadRowIdSafe(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return readPersistedWeddingPackageLeadRowId(getRequiredWebId());
+  } catch {
+    return null;
+  }
+}
 
 type Args = {
   packageLabel: string;
@@ -20,20 +30,28 @@ type Args = {
 };
 
 /**
- * Step 1 ke Edge Function secara debounced; tanpa indikator UI (hanya `leadRowId` untuk alur form).
+ * Step 1 ke Edge Function (debounced). Satu `leads_vialdi_wedding.id` per tab disimpan di
+ * sessionStorage; ganti kartu paket → UPDATE baris yang sama (termasuk `package_label`), bukan INSERT baru.
  */
 export function useWeddingLeadStep1Autosave(args: Args) {
-  const [leadRowId, setLeadRowId] = useState<string | null>(null);
+  const [leadRowId, setLeadRowId] = useState<string | null>(() => readPersistedLeadRowIdSafe());
   const leadRowIdRef = useRef<string | null>(null);
   const latestRequestIdRef = useRef(0);
 
   const resetStep1Lead = useCallback(() => {
     latestRequestIdRef.current += 1;
-    leadRowIdRef.current = null;
-    setLeadRowId(null);
+    try {
+      const webId = getRequiredWebId();
+      const persisted = readPersistedWeddingPackageLeadRowId(webId);
+      leadRowIdRef.current = persisted;
+      setLeadRowId(persisted);
+    } catch {
+      leadRowIdRef.current = null;
+      setLeadRowId(null);
+    }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     leadRowIdRef.current = leadRowId;
   }, [leadRowId]);
 
@@ -41,8 +59,77 @@ export function useWeddingLeadStep1Autosave(args: Args) {
   const fieldsOk =
     args.name.trim().length > 0 && isValidPhone(args.phone) && isValidEmail(args.email);
 
+  /**
+   * Simpan langkah 1 segera (mis. sebelum "Lanjut" jika autosave belum sempat sukses).
+   * Membatalkan hasil debounce yang tertinggal agar tidak menimpa state.
+   */
+  const ensureStep1RowId = useCallback(async (): Promise<string> => {
+    if (args.step !== 1) {
+      throw new Error("ensureStep1RowId hanya untuk langkah 1.");
+    }
+    if (!fieldsOk) {
+      throw new Error("Lengkapi nama, telepon, dan email yang valid.");
+    }
+    latestRequestIdRef.current += 1;
+    const flushToken = latestRequestIdRef.current;
+
+    const currentId = leadRowIdRef.current;
+    const res = await submitWeddingPackageLead({
+      step: 1,
+      name: args.name.trim(),
+      phone_number: args.phone.trim(),
+      email: args.email.trim(),
+      package_label: args.packageLabel,
+      attribution: readLandingAttributionForLead(),
+      analytics_session_id: getOrCreateSessionId(),
+      web_id: getRequiredWebId(),
+      ...(currentId ? { id: currentId } : {}),
+    });
+
+    if (flushToken !== latestRequestIdRef.current) {
+      throw new Error("Permintaan dibatalkan. Coba lagi.");
+    }
+    leadRowIdRef.current = res.id;
+    setLeadRowId(res.id);
+    try {
+      const webId = getRequiredWebId();
+      writePersistedWeddingPackageLeadRowId(webId, res.id);
+    } catch {
+      /* VITE_WEB_ID missing — tetap lanjutkan alur form */
+    }
+    saveLeadIdentity({
+      name: args.name.trim(),
+      phone: args.phone.trim(),
+      email: args.email.trim(),
+    });
+    return res.id;
+  }, [args.step, args.name, args.phone, args.email, args.packageLabel, fieldsOk]);
+
+  /** Saat kembali ke langkah 1 tanpa unmount, pastikan ref mengikuti session (mis. setelah submit di tab lain). */
+  useEffect(() => {
+    if (!enabled) return;
+    try {
+      const webId = getRequiredWebId();
+      const persisted = readPersistedWeddingPackageLeadRowId(webId);
+      if (!persisted) return;
+      setLeadRowId((prev) => {
+        if (prev === persisted) return prev;
+        leadRowIdRef.current = persisted;
+        return persisted;
+      });
+    } catch {
+      /* no web id */
+    }
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled || !fieldsOk) return;
+    let webId: ReturnType<typeof getRequiredWebId>;
+    try {
+      webId = getRequiredWebId();
+    } catch {
+      return;
+    }
 
     const requestId = ++latestRequestIdRef.current;
     const handle = window.setTimeout(() => {
@@ -63,6 +150,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
           if (requestId !== latestRequestIdRef.current) return;
           leadRowIdRef.current = res.id;
           setLeadRowId(res.id);
+          writePersistedWeddingPackageLeadRowId(webId, res.id);
           saveLeadIdentity({
             name: args.name.trim(),
             phone: args.phone.trim(),
@@ -83,5 +171,5 @@ export function useWeddingLeadStep1Autosave(args: Args) {
     };
   }, [enabled, fieldsOk, args.name, args.phone, args.email, args.packageLabel]);
 
-  return { leadRowId, resetStep1Lead };
+  return { leadRowId, resetStep1Lead, ensureStep1RowId };
 }

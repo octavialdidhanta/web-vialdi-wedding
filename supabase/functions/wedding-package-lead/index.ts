@@ -722,10 +722,32 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  // Step 1: insert — atau perbarui baris + leads + profile jika `id` (autosave ulang)
+  // Step 1: insert — atau perbarui baris + leads + profile jika `id` (autosave),
+  // atau satu baris step 1 terbuka dengan `analytics_session_id` yang sama (ganti kartu paket → hanya update).
   if (payload.step === 1) {
-    if ("id" in payload && payload.id) {
-      const p1 = payload;
+    let weddingRowId: string | undefined =
+      "id" in payload && payload.id && String(payload.id).trim().length > 0
+        ? String(payload.id).trim()
+        : undefined;
+
+    if (!weddingRowId && payload.analytics_session_id) {
+      const { data: openBySession, error: openErr } = await admin
+        .from("leads_vialdi_wedding")
+        .select("id")
+        .eq("organization_id", ORG_ID)
+        .eq("analytics_session_id", payload.analytics_session_id)
+        .eq("step", 1)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!openErr && openBySession?.id) {
+        weddingRowId = String(openBySession.id);
+      }
+    }
+
+    if (weddingRowId) {
+      const p1 = { ...payload, id: weddingRowId };
       const { data: row, error: rowErr } = await admin
         .from("leads_vialdi_wedding")
         .select("*")

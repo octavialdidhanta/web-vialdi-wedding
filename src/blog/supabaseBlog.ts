@@ -1,6 +1,7 @@
 import { supabase } from "@/share/supabaseClient";
 import type { BlogAccent, BlogPostPublic, PostStatus, TocEntry } from "@/blog/types";
 import { DEFAULT_BLOG_COVER } from "@/blog/defaultCover";
+import { randomUuidV4 } from "@/share/lib/randomUuid";
 
 const BUCKET = "blog-media";
 
@@ -391,7 +392,7 @@ export async function adminCheckIsCmsAdmin(userId: string): Promise<boolean> {
 
 export async function uploadBlogImage(file: File, userId: string): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const path = `${userId}/${randomUuidV4()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) {
     throw error;

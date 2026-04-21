@@ -1,5 +1,12 @@
 import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import type { AnalyticsWebId } from "@/analytics/trackRegistry";
+import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
+import {
+  FunctionsFetchError,
+  FunctionsHttpError,
+  FunctionsRelayError,
+} from "@supabase/supabase-js";
 
 export type WeddingLeadStep1 = {
   step: 1;
@@ -49,6 +56,60 @@ function tryParseJson(text: string): unknown | null {
   }
 }
 
+function messageFromParsedBody(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const o = parsed as Record<string, unknown>;
+  if (typeof o.error === "string" && o.error.trim()) return o.error.trim();
+  if (typeof o.message === "string" && o.message.trim()) return o.message.trim();
+  return null;
+}
+
+/**
+ * Supabase `functions.invoke` mengembalikan `FunctionsHttpError` dengan `context` = `Response`
+ * (bukan `{ body: string }`). Tanpa ini, pengguna hanya melihat "Edge Function returned a non-2xx status code".
+ */
+async function formatFunctionsInvokeError(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    const ctx = error.context as unknown;
+    if (ctx && typeof ctx === "object" && typeof (ctx as Response).text === "function") {
+      const res = ctx as Response;
+      try {
+        const text = await res.text();
+        const fromJson = messageFromParsedBody(tryParseJson(text));
+        if (fromJson) return fromJson;
+        const trimmed = text.trim();
+        if (trimmed) return trimmed.slice(0, 800);
+        return `Edge Function mengembalikan HTTP ${res.status} tanpa pesan. Periksa log fungsi di Supabase Dashboard.`;
+      } catch {
+        return `Edge Function mengembalikan HTTP ${res.status}.`;
+      }
+    }
+  }
+  if (error instanceof FunctionsRelayError) {
+    return (
+      error.message ||
+      "Edge Function tidak terjangkau (relay). Pastikan `wedding-package-lead` sudah di-deploy."
+    );
+  }
+  if (error instanceof FunctionsFetchError) {
+    return error.message || "Gagal menghubungi Edge Function (jaringan atau CORS).";
+  }
+  const bodyText = (error as { context?: { body?: string } })?.context?.body;
+  if (typeof bodyText === "string") {
+    const fromJson = messageFromParsedBody(tryParseJson(bodyText));
+    if (fromJson) return fromJson;
+    if (bodyText.trim()) return bodyText.trim().slice(0, 800);
+  }
+  if (error instanceof Error) return error.message;
+  return "Terjadi kesalahan saat menghubungi server.";
+}
+
+/** Step 1 UPDATE: baris `id` tidak ada (session lama / DB reset / project lain). */
+function isStaleStep1LeadRowMessage(message: string): boolean {
+  const m = message.trim();
+  return m.includes("Lead tidak ditemukan") || /lead not found/i.test(m);
+}
+
 export async function submitWeddingPackageLead(
   payload: WeddingLeadStep1 | WeddingLeadStep2,
 ): Promise<WeddingLeadResponse> {
@@ -56,17 +117,32 @@ export async function submitWeddingPackageLead(
   const { data, error } = await supabase.functions.invoke("wedding-package-lead", {
     body: payload,
   });
-  if (error) {
-    const bodyText = (error as { context?: { body?: string } })?.context?.body;
-    if (typeof bodyText === "string") {
-      const parsed = tryParseJson(bodyText) as { error?: string; message?: string } | null;
-      const message =
-        (parsed && typeof parsed?.error === "string" && parsed.error) ||
-        (parsed && typeof parsed?.message === "string" && parsed.message) ||
-        bodyText;
-      throw new Error(message);
-    }
-    throw error;
+  if (!error) {
+    return data as WeddingLeadResponse;
   }
-  return data as WeddingLeadResponse;
+
+  const message = await formatFunctionsInvokeError(error);
+
+  if (
+    payload.step === 1 &&
+    typeof payload.id === "string" &&
+    payload.id.trim().length > 0 &&
+    isStaleStep1LeadRowMessage(message)
+  ) {
+    try {
+      clearWeddingPackageLeadBrowserSession(getRequiredWebId());
+    } catch {
+      /* VITE_WEB_ID */
+    }
+    const { id: _stale, ...insertPayload } = payload;
+    const retry = await supabase.functions.invoke("wedding-package-lead", {
+      body: insertPayload,
+    });
+    if (retry.error) {
+      throw new Error(await formatFunctionsInvokeError(retry.error));
+    }
+    return retry.data as WeddingLeadResponse;
+  }
+
+  throw new Error(message);
 }

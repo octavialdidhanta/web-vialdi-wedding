@@ -11,72 +11,137 @@ import { WeddingSuperJuniorPackageCard } from "@/home/WeddingSuperJuniorPackageC
 const cardShell =
   "min-w-[19rem] w-[min(25rem,calc(100vw-2rem))] max-w-[28rem] shrink-0 snap-start snap-always self-stretch md:flex md:h-[56rem] md:max-h-[56rem] md:min-h-0 md:min-w-[21rem] md:w-[min(28rem,calc(100vw-3rem))] md:flex-col";
 
-const NUDGE_PX = 14;
-const NUDGE_BACK_MS = 400;
-/** Setelah geser melewati ini, anggap pengguna sudah tahu ada kartu lain — hentikan petunjuk otomatis. */
-const USER_EXPLORED_SCROLL_LEFT = 40;
-const HINT_INTERVAL_MS = 15000;
-const FIRST_HINT_DELAY_MS = 900;
+/** Petunjuk pantul berulang selama tidak ada sentuhan di area carousel. */
+const BOUNCE_TICK_MS = 3000;
+/** Pantulan pertama sedikit lebih cepat setelah layout. */
+const FIRST_BOUNCE_MS = 900;
+/** Hanya di posisi kartu paling kiri: scroll dianggap masih “kartu pertama”. */
+const AT_FIRST_CARD_MAX_SCROLL_PX = 20;
+/** Lewati ini sekali = pengguna sudah tahu carousel horizontal → hentikan pantul selamanya (sampai reload). */
+const USER_DISCOVERED_HORIZONTAL_SCROLL_PX = 36;
 
 /** Kartu paket (scroll horizontal) — termasuk promo Junior & Akad Nikah. */
 export function WeddingPackageHighlight() {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const scrollEl = carouselRef.current;
-    if (!scrollEl) return;
+    const trackEl = trackRef.current;
+    if (!scrollEl || !trackEl) return;
 
-    const mqMobile = window.matchMedia("(max-width: 767px)");
     const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!mqMobile.matches || mqReduce.matches) return;
+    if (mqReduce.matches) return;
 
-    let intervalId = 0;
     let cancelled = false;
-    let userHasExplored = false;
+    let intervalId = 0;
+    let firstTimeoutId = 0;
+    let animPlaying = false;
+    let userDiscoveredHorizontalScroll = false;
+    /** Identifier sentuhan yang *dimulai* di dalam carousel (tetap dihitung walau jari keluar area). */
+    const touchIdsStartedOnCarousel = new Set<number>();
 
-    function clearHintTimer() {
-      if (intervalId) window.clearInterval(intervalId);
-      intervalId = 0;
+    function stripBounce() {
+      trackEl.classList.remove("pkg-carousel-bounce-hint");
+      animPlaying = false;
     }
 
-    function nudgePeek() {
-      const el = carouselRef.current;
-      if (!el || cancelled || userHasExplored) return;
-      if (el.scrollLeft > USER_EXPLORED_SCROLL_LEFT - 8) return;
-      if (el.scrollWidth <= el.clientWidth + 4) return;
-
-      el.scrollBy({ left: NUDGE_PX, behavior: "smooth" });
-      window.setTimeout(() => {
-        const inner = carouselRef.current;
-        if (!inner || cancelled || userHasExplored) return;
-        inner.scrollBy({ left: -NUDGE_PX, behavior: "smooth" });
-      }, NUDGE_BACK_MS);
+    function touchTargetInCarousel(t: Touch): boolean {
+      const n = t.target;
+      return n instanceof Node && scrollEl.contains(n);
     }
 
-    function onScroll() {
-      const el = carouselRef.current;
-      if (!el) return;
-      if (el.scrollLeft > USER_EXPLORED_SCROLL_LEFT) {
-        userHasExplored = true;
-        clearHintTimer();
+    function stopBounceTimers() {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = 0;
+      }
+      if (firstTimeoutId) {
+        window.clearTimeout(firstTimeoutId);
+        firstTimeoutId = 0;
       }
     }
 
-    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    function onCarouselScroll() {
+      const outer = carouselRef.current;
+      if (!outer || cancelled) return;
+      if (outer.scrollLeft > USER_DISCOVERED_HORIZONTAL_SCROLL_PX) {
+        userDiscoveredHorizontalScroll = true;
+        stripBounce();
+        stopBounceTimers();
+      }
+    }
 
-    const firstT = window.setTimeout(() => {
-      if (!cancelled) nudgePeek();
-    }, FIRST_HINT_DELAY_MS);
+    function tryPlayBounceHint() {
+      if (cancelled) return;
+      if (userDiscoveredHorizontalScroll) return;
+      if (touchIdsStartedOnCarousel.size > 0 || document.visibilityState !== "visible") return;
+      if (animPlaying) return;
 
-    intervalId = window.setInterval(() => {
-      if (!cancelled) nudgePeek();
-    }, HINT_INTERVAL_MS);
+      const outer = carouselRef.current;
+      const inner = trackRef.current;
+      if (!outer || !inner) return;
+      if (outer.scrollWidth <= outer.clientWidth + 4) return;
+      if (outer.scrollLeft > AT_FIRST_CARD_MAX_SCROLL_PX) return;
+
+      animPlaying = true;
+      inner.classList.add("pkg-carousel-bounce-hint");
+      const onEnd = () => {
+        inner.classList.remove("pkg-carousel-bounce-hint");
+        inner.removeEventListener("animationend", onEnd);
+        animPlaying = false;
+      };
+      inner.addEventListener("animationend", onEnd, { once: true });
+    }
+
+    function onDocumentTouchStart(e: TouchEvent) {
+      for (const t of Array.from(e.changedTouches)) {
+        if (touchTargetInCarousel(t)) {
+          touchIdsStartedOnCarousel.add(t.identifier);
+          stripBounce();
+        }
+      }
+    }
+
+    function onDocumentTouchEndOrCancel(e: TouchEvent) {
+      for (const t of Array.from(e.changedTouches)) {
+        touchIdsStartedOnCarousel.delete(t.identifier);
+      }
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") {
+        stripBounce();
+      }
+    }
+
+    document.addEventListener("touchstart", onDocumentTouchStart, { capture: true, passive: true });
+    document.addEventListener("touchend", onDocumentTouchEndOrCancel, { capture: true, passive: true });
+    document.addEventListener("touchcancel", onDocumentTouchEndOrCancel, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    scrollEl.addEventListener("scroll", onCarouselScroll, { passive: true });
+
+    onCarouselScroll();
+
+    if (!userDiscoveredHorizontalScroll) {
+      firstTimeoutId = window.setTimeout(() => {
+        if (!cancelled) tryPlayBounceHint();
+      }, FIRST_BOUNCE_MS);
+
+      intervalId = window.setInterval(() => {
+        if (!cancelled) tryPlayBounceHint();
+      }, BOUNCE_TICK_MS);
+    }
 
     return () => {
       cancelled = true;
-      window.clearTimeout(firstT);
-      clearHintTimer();
-      scrollEl.removeEventListener("scroll", onScroll);
+      stopBounceTimers();
+      stripBounce();
+      scrollEl.removeEventListener("scroll", onCarouselScroll);
+      document.removeEventListener("touchstart", onDocumentTouchStart, true);
+      document.removeEventListener("touchend", onDocumentTouchEndOrCancel, true);
+      document.removeEventListener("touchcancel", onDocumentTouchEndOrCancel, true);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -90,7 +155,10 @@ export function WeddingPackageHighlight() {
         role="region"
         aria-label="Daftar paket foto dan video — geser horizontal untuk melihat paket lainnya"
       >
-        <div className="flex w-max flex-nowrap items-stretch gap-2 px-2 sm:gap-3 md:gap-4 md:px-0">
+        <div
+          ref={trackRef}
+          className="flex w-max flex-nowrap items-stretch gap-2 px-2 sm:gap-3 md:gap-4 md:px-0"
+        >
           <div className={cardShell}>
             <RoyalWeddingPackageCard />
           </div>
