@@ -210,6 +210,7 @@
 html {
   -ms-overflow-style: none; /* IE/Edge legacy */
   scrollbar-width: none; /* Firefox */
+  touch-action: manipulation;
 }
 
 html::-webkit-scrollbar {

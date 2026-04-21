@@ -1,7 +1,10 @@
-import { useEffect, useRef } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+
+const MOBILE_DRAWER_MS = 300;
 
 const navLinks = [
   { to: "/", label: "Home" },
@@ -13,17 +16,151 @@ const navLinks = [
 ] as const;
 
 export function Header() {
-  const mobileNavRef = useRef<HTMLDetailsElement>(null);
+  const location = useLocation();
+  const [mobileMounted, setMobileMounted] = useState(false);
+  const [mobileEntered, setMobileEntered] = useState(false);
+  const mobileMountedRef = useRef(false);
+  const isClosingMobileRef = useRef(false);
+  const mobileCloseTimerRef = useRef<number | null>(null);
+
+  mobileMountedRef.current = mobileMounted;
+
+  const openMobileNav = () => {
+    isClosingMobileRef.current = false;
+    setMobileMounted(true);
+  };
 
   const closeMobileNav = () => {
-    mobileNavRef.current?.removeAttribute("open");
+    isClosingMobileRef.current = true;
+    setMobileEntered(false);
   };
 
   useEffect(() => {
+    if (!mobileMountedRef.current) return;
+    isClosingMobileRef.current = true;
+    setMobileEntered(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMounted) {
+      setMobileEntered(false);
+      return;
+    }
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setMobileEntered(true);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [mobileMounted]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMounted ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [mobileMounted]);
+
+  useEffect(() => {
+    if (!mobileMounted || mobileEntered || !isClosingMobileRef.current) return;
+    mobileCloseTimerRef.current = window.setTimeout(() => {
+      mobileCloseTimerRef.current = null;
+      setMobileMounted(false);
+      isClosingMobileRef.current = false;
+    }, MOBILE_DRAWER_MS + 80);
+    return () => {
+      if (mobileCloseTimerRef.current !== null) {
+        window.clearTimeout(mobileCloseTimerRef.current);
+        mobileCloseTimerRef.current = null;
+      }
+    };
+  }, [mobileMounted, mobileEntered]);
+
+  const finishMobileClose = () => {
+    if (mobileCloseTimerRef.current !== null) {
+      window.clearTimeout(mobileCloseTimerRef.current);
+      mobileCloseTimerRef.current = null;
+    }
+    setMobileMounted(false);
+    isClosingMobileRef.current = false;
+  };
+
+  const mobilePortal =
+    typeof document !== "undefined" && mobileMounted
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className={`fixed inset-0 z-[200] bg-black/60 transition-opacity ease-in-out md:hidden ${
+                mobileEntered ? "opacity-100" : "opacity-0"
+              }`}
+              style={{ transitionDuration: `${MOBILE_DRAWER_MS}ms` }}
+              aria-label="Tutup menu navigasi"
+              onClick={closeMobileNav}
+            />
+            <nav
+              className={`fixed inset-y-0 right-0 z-[210] flex w-[min(88vw,24rem)] flex-col border-l border-border bg-background shadow-xl transition-transform ease-in-out will-change-transform md:hidden ${
+                mobileEntered ? "translate-x-0" : "translate-x-full"
+              }`}
+              style={{ transitionDuration: `${MOBILE_DRAWER_MS}ms` }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menu navigasi"
+              onClick={(ev) => ev.stopPropagation()}
+              onTransitionEnd={(e) => {
+                if (e.propertyName !== "transform") return;
+                if (!isClosingMobileRef.current) return;
+                finishMobileClose();
+              }}
+            >
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <span className="text-sm font-semibold text-navy">Menu</span>
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-navy transition-colors hover:border-accent-orange hover:text-accent-orange"
+                  aria-label="Tutup menu"
+                  onClick={closeMobileNav}
+                >
+                  <span className="text-lg leading-none" aria-hidden>
+                    ×
+                  </span>
+                </button>
+              </div>
+              <div className="overflow-y-auto p-4 pb-8">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Navigation
+                </div>
+                <div className="mt-4 flex flex-col gap-2">
+                  {navLinks.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      end={link.to === "/"}
+                      {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
+                      onClick={closeMobileNav}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+                          isActive
+                            ? "border-accent-orange bg-accent-orange/10 text-accent-orange"
+                            : "border-border bg-card text-navy hover:border-accent-orange hover:text-accent-orange"
+                        }`
+                      }
+                    >
+                      <span>{link.label}</span>
+                      <span className="text-muted-foreground">→</span>
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            </nav>
+          </>,
+          document.body,
+        )
+      : null;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
@@ -66,57 +203,16 @@ export function Header() {
             Contact
           </Link>
 
-          {/* Mobile nav: `<details>` menggantikan Radix Sheet agar dialog/remove-scroll tidak membesarkan bundle beranda. */}
-          <details
-            ref={mobileNavRef}
-            className="relative md:hidden"
-            onToggle={(e) => {
-              document.body.style.overflow = e.currentTarget.open ? "hidden" : "";
-            }}
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
+            aria-label="Buka menu navigasi"
+            aria-expanded={mobileMounted}
+            onClick={openMobileNav}
           >
-            <summary
-              className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange [&::-webkit-details-marker]:hidden"
-              aria-label="Buka menu navigasi"
-            >
-              <Menu className="h-5 w-5" aria-hidden />
-            </summary>
-            <div
-              className="fixed inset-x-0 bottom-0 top-16 z-40 bg-black/60 md:hidden"
-              aria-hidden
-              onClick={closeMobileNav}
-            />
-            <nav
-              className="fixed right-0 top-16 z-50 flex h-[calc(100dvh-4rem)] w-[min(85vw,24rem)] flex-col border-l border-border bg-background shadow-lg md:hidden"
-              onClick={(ev) => ev.stopPropagation()}
-            >
-              <div className="overflow-y-auto p-6 pt-8">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Navigation
-                </div>
-                <div className="mt-4 flex flex-col gap-2">
-                  {navLinks.map((link) => (
-                    <NavLink
-                      key={link.to}
-                      to={link.to}
-                      end={link.to === "/"}
-                      {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
-                      onClick={closeMobileNav}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
-                          isActive
-                            ? "border-accent-orange bg-accent-orange/10 text-accent-orange"
-                            : "border-border bg-card text-navy hover:border-accent-orange hover:text-accent-orange"
-                        }`
-                      }
-                    >
-                      <span>{link.label}</span>
-                      <span className="text-muted-foreground">→</span>
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            </nav>
-          </details>
+            <Menu className="h-5 w-5" aria-hidden />
+          </button>
+          {mobilePortal}
         </div>
       </div>
     </header>
