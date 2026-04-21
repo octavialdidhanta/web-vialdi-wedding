@@ -107,7 +107,15 @@ async function formatFunctionsInvokeError(error: unknown): Promise<string> {
 /** Step 1 UPDATE: baris `id` tidak ada (session lama / DB reset / project lain). */
 function isStaleStep1LeadRowMessage(message: string): boolean {
   const m = message.trim();
-  return m.includes("Lead tidak ditemukan") || /lead not found/i.test(m);
+  return (
+    m.includes("Lead tidak ditemukan") ||
+    /lead not found/i.test(m) ||
+    // Row exists but already progressed to step 2 (locked for step 1 edits).
+    m.includes("Lead sudah tidak bisa diubah dari form ini") ||
+    // Dedupe constraint (single draft per session) can surface as a DB unique violation.
+    /uq_leads_vialdi_wedding_step1_dedupe/i.test(m) ||
+    /duplicate key value/i.test(m)
+  );
 }
 
 export async function submitWeddingPackageLead(

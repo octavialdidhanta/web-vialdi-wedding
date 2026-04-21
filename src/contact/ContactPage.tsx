@@ -241,9 +241,10 @@ export function ContactPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Jam acara</label>
                     <Input
+                      type="time"
                       value={eventTime}
                       onChange={(e) => setEventTime(e.target.value)}
-                      placeholder="Contoh: 10.00 WIB / sore / seharian"
+                      step={900}
                       className="h-9 text-sm"
                     />
                   </div>

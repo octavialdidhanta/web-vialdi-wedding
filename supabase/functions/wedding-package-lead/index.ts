@@ -126,6 +126,12 @@ const SOURCE = "Website";
 const CREATED_BY_NAME = "Vialdi Wedding";
 const ASSIGNEE = "Unassigned";
 
+function makeFunnelKey(args: { edgeFn: string; webId: string | null; code: string }) {
+  const w = (args.webId ?? "unknown").trim() || "unknown";
+  const c = args.code.trim() || "default";
+  return `${args.edgeFn}:${w}:${c}`.slice(0, 200);
+}
+
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
@@ -206,6 +212,78 @@ function parseTemplateBodyKeys(): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+type WaTemplateComponent = {
+  type: string;
+  sub_type?: string;
+  index?: string | number;
+  parameters?: Array<Record<string, unknown>>;
+  [k: string]: unknown;
+};
+
+function safeJsonParseArray(raw: string): unknown[] | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function interpolateTemplateString(input: string, ctx: Record<string, string>): string {
+  // Replace tokens like {{name}} with ctx[name]. Unknown keys become an em dash.
+  return input.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key) => {
+    const v = ctx[String(key)];
+    return nonEmptyTemplateParamText(typeof v === "string" ? v : "");
+  });
+}
+
+function deepInterpolateTemplateJson(value: unknown, ctx: Record<string, string>): unknown {
+  if (typeof value === "string") return interpolateTemplateString(value, ctx);
+  if (Array.isArray(value)) return value.map((v) => deepInterpolateTemplateJson(v, ctx));
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) out[k] = deepInterpolateTemplateJson(v, ctx);
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Optional override for template `components` to support header/button placeholders.
+ * Set `WHATSAPP_TEMPLATE_COMPONENTS_JSON` to a JSON array compatible with Meta Graph API.
+ * You may use tokens like `{{name}}` and they'll be replaced from ctx.
+ *
+ * Example:
+ * [
+ *   {"type":"header","parameters":[{"type":"text","text":"{{package_label}}"}]},
+ *   {"type":"body","parameters":[{"type":"text","text":"{{name}}"}, ...]},
+ *   {"type":"button","sub_type":"url","index":"0","parameters":[{"type":"text","text":"{{lead_id}}"}]}
+ * ]
+ */
+function buildWhatsappTemplateComponentsFromEnv(ctx: Record<string, string>): WaTemplateComponent[] | null {
+  const raw = getEnvOptional("WHATSAPP_TEMPLATE_COMPONENTS_JSON");
+  if (!raw) return null;
+  if (/^__none__$/i.test(raw.trim())) return [];
+
+  const arr = safeJsonParseArray(raw);
+  if (!arr) {
+    console.warn("wedding-package-lead: invalid WHATSAPP_TEMPLATE_COMPONENTS_JSON (not a JSON array)");
+    return null;
+  }
+  const interpolated = deepInterpolateTemplateJson(arr, ctx);
+  if (!Array.isArray(interpolated)) return null;
+  // Very light validation: ensure each element is an object with a type.
+  const out: WaTemplateComponent[] = [];
+  for (const item of interpolated) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const obj = item as Record<string, unknown>;
+    if (typeof obj.type !== "string" || !obj.type.trim()) continue;
+    out.push(obj as WaTemplateComponent);
+  }
+  return out;
 }
 
 /**
@@ -334,7 +412,10 @@ async function sendWhatsappTemplateToClient(args: {
     name: templateName,
     language: { code: templateLanguage },
   };
-  if (parameters.length > 0) {
+  const envComponents = buildWhatsappTemplateComponentsFromEnv(args.ctx);
+  if (envComponents && envComponents.length > 0) {
+    template.components = envComponents;
+  } else if (parameters.length > 0) {
     template.components = [{ type: "body", parameters }];
   }
 
@@ -356,6 +437,13 @@ async function sendWhatsappTemplateToClient(args: {
 
   const text = await res.text();
   if (!res.ok) {
+    // Return a user-friendly error upstream (UI), keep full details in server logs.
+    // Meta error payloads can be huge and very technical; leaking them to users is noisy.
+    const isTemplateParamMismatch = /(#132000|localizable_params|expected number of params)/i.test(text);
+    const safeError = isTemplateParamMismatch
+      ? "WhatsApp template param mismatch (jumlah variabel tidak sesuai template)."
+      : `WhatsApp API error (${res.status}).`;
+
     const usesNamed = Boolean(paramNames && paramNames.length === parameters.length);
     console.error("wedding-package-lead: WhatsApp Graph request failed", {
       status: res.status,
@@ -363,9 +451,10 @@ async function sendWhatsappTemplateToClient(args: {
       language: templateLanguage,
       body_key_count: keys.length,
       body_uses_parameter_name: usesNamed,
+      components_override: Boolean(envComponents),
       graph_error_preview: text.slice(0, 400),
     });
-    return { ok: false, error: `WhatsApp API error (${res.status}): ${text.slice(0, 500)}` };
+    return { ok: false, error: safeError };
   }
 
   const responseSnippet = text.slice(0, 8000);
@@ -722,29 +811,30 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  // Resolve web_id from analytics_sessions (server-trust) to build a stable funnel_key for dedupe in `public.leads`.
+  let resolvedWebId: string | null = null;
+  const sid =
+    payload.step === 1
+      ? payload.analytics_session_id
+      : payload.step === 2
+        ? payload.analytics_session_id
+        : undefined;
+  if (sid) {
+    const { data: sess, error: sessErr } = await admin
+      .from("analytics_sessions")
+      .select("web_id")
+      .eq("id", sid)
+      .maybeSingle();
+    if (!sessErr && sess?.web_id) resolvedWebId = String(sess.web_id);
+  }
+
   // Step 1: insert — atau perbarui baris + leads + profile jika `id` (autosave),
-  // atau satu baris step 1 terbuka dengan `analytics_session_id` yang sama (ganti kartu paket → hanya update).
+  // atau satu baris step 1 per `analytics_session_id` (atomic via unique index + upsert).
   if (payload.step === 1) {
     let weddingRowId: string | undefined =
       "id" in payload && payload.id && String(payload.id).trim().length > 0
         ? String(payload.id).trim()
         : undefined;
-
-    if (!weddingRowId && payload.analytics_session_id) {
-      const { data: openBySession, error: openErr } = await admin
-        .from("leads_vialdi_wedding")
-        .select("id")
-        .eq("organization_id", ORG_ID)
-        .eq("analytics_session_id", payload.analytics_session_id)
-        .eq("step", 1)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!openErr && openBySession?.id) {
-        weddingRowId = String(openBySession.id);
-      }
-    }
 
     if (weddingRowId) {
       const p1 = { ...payload, id: weddingRowId };
@@ -803,27 +893,65 @@ Deno.serve(async (req) => {
       return json({ id: p1.id, lead_id: leadId });
     }
 
-    const { data: weddingLead, error: weddingErr } = await admin
-      .from("leads_vialdi_wedding")
-      .insert({
-        organization_id: ORG_ID,
-        name: payload.name,
-        phone_number: payload.phone_number,
-        email: payload.email,
-        package_label: payload.package_label,
-        ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
-        step: 1,
-        source: SOURCE,
-        ...(attrUpdate ?? {}),
-      })
-      .select("*")
-      .single();
+    // When we have analytics_session_id, enforce single draft per session with atomic upsert.
+    const canSessionUpsert = Boolean(payload.analytics_session_id && String(payload.analytics_session_id).trim());
+
+    const weddingWrite = canSessionUpsert
+      ? await admin
+          .from("leads_vialdi_wedding")
+          .upsert(
+            {
+              organization_id: ORG_ID,
+              name: payload.name,
+              phone_number: payload.phone_number,
+              email: payload.email,
+              package_label: payload.package_label,
+              analytics_session_id: payload.analytics_session_id,
+              step: 1,
+              source: SOURCE,
+              ...(attrUpdate ?? {}),
+            },
+            // Uses generated column `step1_dedupe_key` (computed from analytics_session_id + step=1).
+            { onConflict: "organization_id,step1_dedupe_key" },
+          )
+          .select("*")
+          .single()
+      : await admin
+          .from("leads_vialdi_wedding")
+          .insert({
+            organization_id: ORG_ID,
+            name: payload.name,
+            phone_number: payload.phone_number,
+            email: payload.email,
+            package_label: payload.package_label,
+            ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
+            step: 1,
+            source: SOURCE,
+            ...(attrUpdate ?? {}),
+          })
+          .select("*")
+          .single();
+
+    const { data: weddingLead, error: weddingErr } = weddingWrite;
 
     if (weddingErr) return json({ error: weddingErr.message }, { status: 500 });
 
+    // If the draft row is already linked to a CRM lead, just return it.
+    const existingLeadId = (weddingLead as Record<string, unknown>)?.lead_id;
+    if (typeof existingLeadId === "string" && existingLeadId.trim()) {
+      return json({ id: weddingLead.id, lead_id: existingLeadId.trim() });
+    }
+
+    // Otherwise create the CRM lead + profile once, then link it.
+    const funnel_key = makeFunnelKey({
+      edgeFn: "wedding-package-lead",
+      webId: resolvedWebId,
+      code: "package",
+    });
     const { data: lead, error: leadErr } = await admin
       .from("leads")
-      .insert({
+      .upsert(
+        {
         client: payload.name,
         title: TITLE,
         category: CATEGORY,
@@ -835,9 +963,13 @@ Deno.serve(async (req) => {
         email: payload.email,
         source: SOURCE,
         services: payload.package_label,
+        web_id: resolvedWebId,
+        funnel_key,
         ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         ...(attrUpdate ?? {}),
-      })
+      },
+        { onConflict: "organization_id,dedupe_key" },
+      )
       .select("id")
       .single();
 
@@ -884,6 +1016,34 @@ Deno.serve(async (req) => {
   const leadId = existing.lead_id as string | null;
   if (!leadId) return json({ error: "Lead mapping missing (lead_id is null)" }, { status: 500 });
 
+  // Idempotency: if already submitted, do not mutate or send WhatsApp again.
+  if (existing.submitted_at || Number(existing.step) >= 2) {
+    return json({
+      id: p2.id,
+      lead_id: leadId,
+      whatsapp: { sent: false, skipped: true, skip_reason: "already_submitted" },
+    });
+  }
+
+  const effectiveSessionId = (p2.analytics_session_id ?? (existing.analytics_session_id as string | null) ?? undefined) as
+    | string
+    | undefined;
+
+  // If a final lead already exists for this session, stop early (DB unique index will also enforce this).
+  if (effectiveSessionId) {
+    const { data: otherFinal, error: otherFinalErr } = await admin
+      .from("leads_vialdi_wedding")
+      .select("id")
+      .eq("organization_id", ORG_ID)
+      .eq("analytics_session_id", effectiveSessionId)
+      .not("submitted_at", "is", null)
+      .neq("id", p2.id)
+      .limit(1)
+      .maybeSingle();
+    if (otherFinalErr) return json({ error: otherFinalErr.message }, { status: 500 });
+    if (otherFinal?.id) return badRequest("Lead sudah pernah dikirim untuk session ini");
+  }
+
   const pkg = String(existing.package_label ?? "").trim();
   const servicesLine = `${pkg} — tanggal ${p2.event_date}, jam ${p2.event_time}`;
   const notesBlock =
@@ -898,19 +1058,24 @@ Deno.serve(async (req) => {
       event_date: p2.event_date,
       event_time: p2.event_time,
       event_address: p2.event_address,
-      ...(p2.analytics_session_id ? { analytics_session_id: p2.analytics_session_id } : {}),
+      ...(effectiveSessionId ? { analytics_session_id: effectiveSessionId } : {}),
       step: 2,
       submitted_at: new Date().toISOString(),
       ...(attrUpdate ?? {}),
     })
     .eq("id", p2.id);
-  if (upErr) return json({ error: upErr.message }, { status: 500 });
+  if (upErr) {
+    // Unique violation: session already has a final row (enforced by uq_leads_vialdi_wedding_final_dedupe).
+    const anyErr = upErr as unknown as { code?: string; message: string };
+    if (anyErr?.code === "23505") return badRequest("Lead sudah pernah dikirim untuk session ini");
+    return json({ error: upErr.message }, { status: 500 });
+  }
 
   const { error: leadUpErr } = await admin
     .from("leads")
     .update({
       services: servicesLine,
-      ...(p2.analytics_session_id ? { analytics_session_id: p2.analytics_session_id } : {}),
+      ...(effectiveSessionId ? { analytics_session_id: effectiveSessionId } : {}),
       ...(attrUpdate ?? {}),
     })
     .eq("id", leadId);

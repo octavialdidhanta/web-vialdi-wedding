@@ -122,6 +122,12 @@ const CATEGORY = "Contact Form";
 const CREATED_BY_NAME = "Web Vialdi.ID";
 const ASSIGNEE = "Unassigned";
 
+function makeFunnelKey(args: { edgeFn: string; webId: string | null; code: string }) {
+  const w = (args.webId ?? "unknown").trim() || "unknown";
+  const c = args.code.trim() || "default";
+  return `${args.edgeFn}:${w}:${c}`.slice(0, 200);
+}
+
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
@@ -699,6 +705,25 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  // Resolve web_id from analytics_sessions (server-trust) to build a stable funnel_key for dedupe in `public.leads`.
+  let resolvedWebId: string | null = null;
+  const sid =
+    payload.step === 1
+      ? payload.analytics_session_id
+      : payload.step === 2
+        ? payload.analytics_session_id
+        : payload.step === 3
+          ? payload.analytics_session_id
+          : undefined;
+  if (sid) {
+    const { data: sess, error: sessErr } = await admin
+      .from("analytics_sessions")
+      .select("web_id")
+      .eq("id", sid)
+      .maybeSingle();
+    if (!sessErr && sess?.web_id) resolvedWebId = String(sess.web_id);
+  }
+
   // Step 1: insert leads_vialdiid + create leads + lead_client_profiles
   if (payload.step === 1) {
     const { data: vialdiLead, error: vialdiErr } = await admin
@@ -720,7 +745,8 @@ Deno.serve(async (req) => {
 
     const { data: lead, error: leadErr } = await admin
       .from("leads")
-      .insert({
+      .upsert(
+        {
         client: payload.name,
         title: TITLE,
         category: CATEGORY,
@@ -731,9 +757,13 @@ Deno.serve(async (req) => {
         phone_number: payload.phone_number,
         email: payload.email,
         source: "Website",
+        web_id: resolvedWebId,
+        funnel_key: makeFunnelKey({ edgeFn: "contact-lead", webId: resolvedWebId, code: "contact" }),
         ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
         ...(attrUpdate ?? {}),
-      })
+      },
+        { onConflict: "organization_id,dedupe_key" },
+      )
       .select("id")
       .single();
 
