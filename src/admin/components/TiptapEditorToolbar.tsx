@@ -37,6 +37,7 @@ import {
   Type,
   Underline,
   Undo2,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/share/ui/button";
@@ -119,6 +120,8 @@ export function TiptapEditorToolbar({
   const [packageCarouselOpen, setPackageCarouselOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [videoUrlOpen, setVideoUrlOpen] = useState(false);
+  const [videoUrlValue, setVideoUrlValue] = useState("");
   const copiedMarks = useRef<CopiedMarksState | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -183,6 +186,29 @@ export function TiptapEditorToolbar({
     setParagraphMeta(editor, { dataLabel: v });
     toast.success(v ? "Label disimpan" : "Label dihapus");
   }, [editor, renameValue]);
+
+  const openVideoUrl = useCallback(() => {
+    setVideoUrlValue("");
+    setVideoUrlOpen(true);
+  }, []);
+
+  const applyVideoUrl = useCallback(() => {
+    const src = videoUrlValue.trim();
+    setVideoUrlOpen(false);
+    if (!src) return;
+    const ok = editor
+      .chain()
+      .focus()
+      .setYoutubeVideo({
+        src,
+      })
+      .run();
+    if (!ok) {
+      toast.error("URL video tidak valid atau editor tidak mendukung embed video.");
+    } else {
+      toast.success("Video disisipkan");
+    }
+  }, [editor, videoUrlValue]);
 
   const copyBlockHtml = useCallback(async () => {
     const html = blockNodeToHtmlFragment(editor);
@@ -509,6 +535,12 @@ export function TiptapEditorToolbar({
             </DropdownMenuItem>
             <DropdownMenuItem
               onPointerDown={editorDropdownPointerDown}
+              onSelect={() => openVideoUrl()}
+            >
+              <Video className="mr-2 h-4 w-4" /> Video (URL)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onPointerDown={editorDropdownPointerDown}
               onSelect={() => editor.chain().focus().toggleKbd().run()}
             >
               <span className="mr-2 font-mono text-xs">kbd</span> Input keyboard
@@ -663,10 +695,10 @@ export function TiptapEditorToolbar({
           variant="ghost"
           className="h-8 px-2"
           onMouseDown={toolbarButtonMouseDown}
-          onClick={() => void insertImageByUrl()}
-          title="Sisipkan gambar via URL"
+          onClick={() => openVideoUrl()}
+          title="Sisipkan video via URL"
         >
-          <ImageIcon className="h-4 w-4" />
+          <Video className="h-4 w-4" />
         </Button>
         <input
           ref={uploadInputRef}
@@ -692,6 +724,39 @@ export function TiptapEditorToolbar({
           <ImageIcon className="h-4 w-4" />
           <span className="hidden sm:inline">{uploadLabel}</span>
         </Button>
+        <Dialog open={videoUrlOpen} onOpenChange={setVideoUrlOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Sisipkan video via URL</DialogTitle>
+              <DialogDescription>
+                Tempel URL YouTube (contoh: `https://www.youtube.com/watch?v=...` atau `https://youtu.be/...`).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="video-url">URL video</Label>
+              <Input
+                id="video-url"
+                value={videoUrlValue}
+                onChange={(e) => setVideoUrlValue(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyVideoUrl();
+                  }
+                }}
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setVideoUrlOpen(false)}>
+                Batal
+              </Button>
+              <Button type="button" onClick={applyVideoUrl}>
+                Sisipkan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Button
           type="button"
           size="sm"

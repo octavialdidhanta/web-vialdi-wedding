@@ -1,5 +1,6 @@
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import Youtube from "@tiptap/extension-youtube";
 import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
@@ -36,6 +37,14 @@ export const tiptapDocumentExtensions = [
     HTMLAttributes: {
       class: "blog-inline-img max-w-full rounded-lg border border-border",
     },
+  }),
+  Youtube.configure({
+    // Keep embeds responsive in prose.
+    HTMLAttributes: {
+      class: "blog-embed-video aspect-video w-full overflow-hidden rounded-lg border border-border",
+    },
+    controls: true,
+    nocookie: false,
   }),
   Underline,
   Highlight.configure({ multicolor: false }),
