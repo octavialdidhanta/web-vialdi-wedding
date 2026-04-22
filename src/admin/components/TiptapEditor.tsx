@@ -5,6 +5,7 @@ import { tiptapExtensions } from "@/admin/lib/editorExtensions";
 import { TiptapBubbleMenu } from "@/admin/components/TiptapBubbleMenu";
 import { TiptapEditorToolbar } from "@/admin/components/TiptapEditorToolbar";
 import type { InternalLinkTarget } from "@/admin/lib/siteNavLinks";
+import { isPlaceholderTiptapDoc } from "@/admin/lib/htmlToTiptapDoc";
 
 type InnerProps = {
   initialJson: JSONContent | null;
@@ -12,6 +13,7 @@ type InnerProps = {
   onChangeJson: (doc: JSONContent) => void;
   disabled?: boolean;
   internalLinkTargets: InternalLinkTarget[];
+  uploadUserId?: string | null;
 };
 
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
@@ -22,14 +24,15 @@ function TiptapEditorInner({
   onChangeJson,
   disabled,
   internalLinkTargets,
+  uploadUserId,
 }: InnerProps) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
 
   const hasJson = Boolean(
-    initialJson?.type &&
-    initialJson.content &&
-    initialJson.content.length > 0 &&
-    initialJson.content[0],
+    initialJson?.type === "doc" &&
+      initialJson.content &&
+      initialJson.content.length > 0 &&
+      !isPlaceholderTiptapDoc(initialJson),
   );
 
   const initialContent = hasJson
@@ -81,6 +84,7 @@ function TiptapEditorInner({
         internalTargets={internalLinkTargets}
         linkPopoverOpen={linkPopoverOpen}
         onLinkPopoverOpenChange={setLinkPopoverOpen}
+        uploadUserId={uploadUserId}
       />
       <EditorContent editor={editor} />
     </div>
@@ -95,6 +99,8 @@ type Props = {
   disabled?: boolean;
   /** Halaman statis + daftar artikel untuk pemilih tautan internal */
   internalLinkTargets?: InternalLinkTarget[];
+  /** userId for uploading blog media */
+  uploadUserId?: string | null;
 };
 
 export function TiptapEditor({
@@ -104,6 +110,7 @@ export function TiptapEditor({
   onChangeJson,
   disabled,
   internalLinkTargets = [],
+  uploadUserId,
 }: Props) {
   return (
     <div key={mountKey}>
@@ -113,6 +120,7 @@ export function TiptapEditor({
         onChangeJson={onChangeJson}
         disabled={disabled}
         internalLinkTargets={internalLinkTargets}
+        uploadUserId={uploadUserId}
       />
     </div>
   );

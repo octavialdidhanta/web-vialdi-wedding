@@ -126,6 +126,8 @@ const SOURCE = "Website";
 const CREATED_BY_NAME = "Vialdi Wedding";
 const ASSIGNEE = "Unassigned";
 
+const REPEAT_TTL_MS = 30 * 1000;
+
 function makeFunnelKey(args: { edgeFn: string; webId: string | null; code: string }) {
   const w = (args.webId ?? "unknown").trim() || "unknown";
   const c = args.code.trim() || "default";
@@ -186,6 +188,14 @@ function isPhone(v: string) {
   const normalized = normalizePhone(v);
   const digits = normalized.replace(/[^\d]/g, "");
   return normalized.startsWith("+") && digits.length >= 9 && digits.length <= 15;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const enc = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 type WhatsappSendResult =
@@ -845,9 +855,48 @@ Deno.serve(async (req) => {
         .single();
 
       if (rowErr || !row) return badRequest("Lead tidak ditemukan");
-      if (Number(row.step) !== 1) return badRequest("Lead sudah tidak bisa diubah dari form ini");
       if (String(row.organization_id) !== ORG_ID) return badRequest("Lead tidak valid");
 
+      const prevStep = Number(row.step);
+      const prevSubmittedAt = row.submitted_at ? new Date(String(row.submitted_at)).getTime() : null;
+      const nowMs = Date.now();
+
+      const incomingIdentity = await sha256Hex(`${p1.phone_number}|${p1.email.toLowerCase()}`);
+      const existingIdentity = typeof row.identity_hash === "string" ? String(row.identity_hash).trim() : "";
+      const identityChanged = existingIdentity.length > 0 && existingIdentity !== incomingIdentity;
+
+      // If already submitted, only allow resetting/editing after TTL and only when identity stays the same.
+      // If identity changes, create a new draft row instead (history).
+      if (prevStep >= 2 || prevSubmittedAt !== null) {
+        const withinTtl = prevSubmittedAt !== null && nowMs - prevSubmittedAt < REPEAT_TTL_MS;
+        if (withinTtl) {
+          const retryAfterSec = Math.max(1, Math.ceil((REPEAT_TTL_MS - (nowMs - prevSubmittedAt!)) / 1000));
+          return json(
+            { error: "Lead sudah pernah dikirim untuk session ini", retry_after_seconds: retryAfterSec },
+            { status: 400 },
+          );
+        }
+        if (identityChanged) {
+          // Create a new draft row: skip the update-by-id path.
+          weddingRowId = undefined;
+        } else {
+          const { error: resetErr } = await admin
+            .from("leads_vialdi_wedding")
+            .update({
+              step: 1,
+              submitted_at: null,
+              event_date: null,
+              event_time: null,
+              event_address: null,
+            })
+            .eq("id", p1.id);
+          if (resetErr) return json({ error: resetErr.message }, { status: 500 });
+        }
+      }
+
+      if (!weddingRowId) {
+        // Continue to create-new-row logic below.
+      } else {
       const leadId = row.lead_id as string | null;
       if (!leadId) return json({ error: "Lead mapping missing (lead_id is null)" }, { status: 500 });
 
@@ -857,6 +906,7 @@ Deno.serve(async (req) => {
           name: p1.name,
           phone_number: p1.phone_number,
           email: p1.email,
+          identity_hash: incomingIdentity,
           package_label: p1.package_label,
           ...(p1.analytics_session_id ? { analytics_session_id: p1.analytics_session_id } : {}),
           ...(attrUpdate ?? {}),
@@ -891,10 +941,12 @@ Deno.serve(async (req) => {
       if (pUp) return json({ error: pUp.message }, { status: 500 });
 
       return json({ id: p1.id, lead_id: leadId });
+      }
     }
 
     // When we have analytics_session_id, enforce single draft per session with atomic upsert.
     const canSessionUpsert = Boolean(payload.analytics_session_id && String(payload.analytics_session_id).trim());
+    const identityHash = await sha256Hex(`${payload.phone_number}|${payload.email.toLowerCase()}`);
 
     const weddingWrite = canSessionUpsert
       ? await admin
@@ -905,6 +957,7 @@ Deno.serve(async (req) => {
               name: payload.name,
               phone_number: payload.phone_number,
               email: payload.email,
+              identity_hash: identityHash,
               package_label: payload.package_label,
               analytics_session_id: payload.analytics_session_id,
               step: 1,
@@ -923,6 +976,7 @@ Deno.serve(async (req) => {
             name: payload.name,
             phone_number: payload.phone_number,
             email: payload.email,
+            identity_hash: identityHash,
             package_label: payload.package_label,
             ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
             step: 1,
@@ -943,11 +997,12 @@ Deno.serve(async (req) => {
     }
 
     // Otherwise create the CRM lead + profile once, then link it.
-    const funnel_key = makeFunnelKey({
+    const baseFunnelKey = makeFunnelKey({
       edgeFn: "wedding-package-lead",
       webId: resolvedWebId,
       code: "package",
     });
+    const funnel_key = `${baseFunnelKey}:${identityHash.slice(0, 16)}`.slice(0, 200);
     const { data: lead, error: leadErr } = await admin
       .from("leads")
       .upsert(
@@ -1016,26 +1071,32 @@ Deno.serve(async (req) => {
   const leadId = existing.lead_id as string | null;
   if (!leadId) return json({ error: "Lead mapping missing (lead_id is null)" }, { status: 500 });
 
-  // Idempotency: if already submitted, do not mutate or send WhatsApp again.
-  if (existing.submitted_at || Number(existing.step) >= 2) {
-    return json({
-      id: p2.id,
-      lead_id: leadId,
-      whatsapp: { sent: false, skipped: true, skip_reason: "already_submitted" },
-    });
+  const nowMs = Date.now();
+  const submittedAtMs = existing.submitted_at ? new Date(String(existing.submitted_at)).getTime() : null;
+  if (submittedAtMs !== null && Number.isFinite(submittedAtMs)) {
+    const diff = nowMs - submittedAtMs;
+    if (diff >= 0 && diff < REPEAT_TTL_MS) {
+      const retryAfterSec = Math.max(1, Math.ceil((REPEAT_TTL_MS - diff) / 1000));
+      return json(
+        { error: "Lead sudah pernah dikirim untuk session ini", retry_after_seconds: retryAfterSec },
+        { status: 400 },
+      );
+    }
   }
 
   const effectiveSessionId = (p2.analytics_session_id ?? (existing.analytics_session_id as string | null) ?? undefined) as
     | string
     | undefined;
 
-  // If a final lead already exists for this session, stop early (DB unique index will also enforce this).
+  // If a final lead already exists for this session+identity, stop early (DB unique index will also enforce this).
   if (effectiveSessionId) {
+    const thisIdentity = typeof existing.identity_hash === "string" ? String(existing.identity_hash).trim() : "";
     const { data: otherFinal, error: otherFinalErr } = await admin
       .from("leads_vialdi_wedding")
       .select("id")
       .eq("organization_id", ORG_ID)
       .eq("analytics_session_id", effectiveSessionId)
+      .eq("identity_hash", thisIdentity)
       .not("submitted_at", "is", null)
       .neq("id", p2.id)
       .limit(1)

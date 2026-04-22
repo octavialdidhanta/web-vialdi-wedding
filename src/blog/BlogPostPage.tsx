@@ -10,6 +10,7 @@ import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQue
 import { useBlogMeta } from "@/blog/useBlogMeta";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
+import { BlogPostBody } from "@/blog/BlogPostBody";
 
 function formatPostDate(iso: string) {
   return new Date(iso + "T12:00:00").toLocaleDateString("id-ID", {
@@ -251,10 +252,7 @@ export function BlogPostPage() {
 
             {/* Tengah: isi artikel */}
             <div className="order-1 min-w-0 bg-white py-6 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
-              <div
-                className="blog-post-html text-[15px] leading-[1.8] text-foreground/90 md:text-[17px] md:leading-[1.85]"
-                dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
-              />
+              <BlogPostBody bodyJson={post.bodyJson} bodyHtml={post.bodyHtml} />
             </div>
 
             {/* Kanan: informasi lainnya + daftar isi */}

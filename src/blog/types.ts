@@ -21,4 +21,6 @@ export type BlogPostPublic = {
   coverImage: string;
   toc: TocEntry[];
   bodyHtml: string;
+  /** Dokumen Tiptap (embed interaktif); jika tidak dipakai, halaman memakai `bodyHtml` saja. */
+  bodyJson?: unknown;
 };

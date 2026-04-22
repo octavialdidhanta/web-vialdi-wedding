@@ -14,6 +14,12 @@ const AdminPostsListPage = lazy(() =>
 const AdminPostEditorPage = lazy(() =>
   import("@/admin/pages/AdminPostEditorPage").then((m) => ({ default: m.AdminPostEditorPage })),
 );
+const AdminPackagesListPage = lazy(() =>
+  import("@/admin/pages/AdminPackagesListPage").then((m) => ({ default: m.AdminPackagesListPage })),
+);
+const AdminPackageEditorPage = lazy(() =>
+  import("@/admin/pages/AdminPackageEditorPage").then((m) => ({ default: m.AdminPackageEditorPage })),
+);
 
 function AdminSpinner() {
   return (
@@ -60,6 +66,30 @@ export function AdminRoutes() {
             element={
               <Suspense fallback={<AdminSpinner />}>
                 <AdminPostEditorPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="packages"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminPackagesListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="packages/new"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminPackageEditorPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="packages/:id"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminPackageEditorPage />
               </Suspense>
             }
           />

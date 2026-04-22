@@ -6,8 +6,8 @@ let queryClientSingleton: QueryClient | null = null;
 let rqModuleSingleton: typeof import("@tanstack/react-query") | null = null;
 
 /**
- * Memuat React Query hanya untuk rute yang memakainya (blog + admin),
- * sehingga bundle utama tidak menarik query-core / mutation untuk pengunjung beranda.
+ * Memuat React Query untuk rute yang memakainya (beranda carousel paket, blog, admin).
+ * Rute lain tetap di luar layout ini agar tidak memuat query-core tanpa perlu.
  */
 export function QueryRoutesLayout() {
   const [rq, setRq] = useState<typeof import("@tanstack/react-query") | null>(

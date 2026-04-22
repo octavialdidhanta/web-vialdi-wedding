@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import {
@@ -17,6 +17,7 @@ import {
   Heading3,
   Highlighter,
   Image as ImageIcon,
+  LayoutGrid,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -62,6 +63,7 @@ import { Input } from "@/share/ui/input";
 import { Label } from "@/share/ui/label";
 import type { InternalLinkTarget } from "@/admin/lib/siteNavLinks";
 import { EditorLinkPopover } from "@/admin/components/EditorLinkPopover";
+import { PackageCarouselInsertDialog } from "@/admin/components/PackageCarouselInsertDialog";
 import { getClosestDocBlockBound, isParagraphBlock } from "@/admin/lib/blockRange";
 import {
   blockNodeToHtmlFragment,
@@ -77,6 +79,7 @@ import {
   setParagraphMeta,
   type CopiedMarksState,
 } from "@/admin/lib/blockCommands";
+import { resolveBlogMediaPublicUrl, uploadBlogImage } from "@/blog/supabaseBlog";
 
 /** Radix menu item: hindari pencurian fokus dari ProseMirror agar mark/toggle bekerja pada seleksi. */
 function editorDropdownPointerDown(e: React.PointerEvent) {
@@ -94,6 +97,7 @@ type Props = {
   internalTargets: InternalLinkTarget[];
   linkPopoverOpen: boolean;
   onLinkPopoverOpenChange: (open: boolean) => void;
+  uploadUserId?: string | null;
 };
 
 export function TiptapEditorToolbar({
@@ -102,6 +106,7 @@ export function TiptapEditorToolbar({
   internalTargets,
   linkPopoverOpen,
   onLinkPopoverOpenChange,
+  uploadUserId,
 }: Props) {
   /** Re-render toolbar pada setiap transaksi tanpa `shouldRerenderOnTransaction` di parent (hindari loop dengan `onUpdate` → state → `content`). */
   useEditorState({
@@ -111,9 +116,34 @@ export function TiptapEditorToolbar({
 
   const [htmlOpen, setHtmlOpen] = useState(false);
   const [htmlValue, setHtmlValue] = useState("");
+  const [packageCarouselOpen, setPackageCarouselOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const copiedMarks = useRef<CopiedMarksState | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [pinned, setPinned] = useState(false);
+
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const el = barRef.current;
+        if (!el) return;
+        const top = el.getBoundingClientRect().top;
+        setPinned(top <= 0);
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, []);
 
   const openHtmlEditor = useCallback(() => {
     const html = blockNodeToHtmlFragment(editor);
@@ -210,6 +240,46 @@ export function TiptapEditorToolbar({
     }
   }, [editor]);
 
+  const canUpload = Boolean(uploadUserId && !uploadingImage);
+  const uploadLabel = useMemo(
+    () => (uploadingImage ? "Mengunggah…" : "Upload gambar"),
+    [uploadingImage],
+  );
+
+  const onPickUploadImage = useCallback(() => {
+    if (!uploadUserId) {
+      toast.error("Login admin diperlukan untuk upload gambar.");
+      return;
+    }
+    uploadInputRef.current?.click();
+  }, [uploadUserId]);
+
+  const onUploadImageFile = useCallback(
+    async (file: File | null | undefined) => {
+      if (!file) return;
+      if (!uploadUserId) {
+        toast.error("Login admin diperlukan untuk upload gambar.");
+        return;
+      }
+      setUploadingImage(true);
+      try {
+        const path = await uploadBlogImage(file, uploadUserId);
+        const src = resolveBlogMediaPublicUrl(path);
+        const ok = editor.chain().focus().setImage({ src }).run();
+        if (!ok) {
+          toast.error("Gambar tidak bisa disisipkan di posisi ini (coba di dalam paragraf).");
+          return;
+        }
+        toast.success("Gambar disisipkan.");
+      } catch (e) {
+        toast.error((e as Error).message || "Gagal upload gambar.");
+      } finally {
+        setUploadingImage(false);
+      }
+    },
+    [editor, uploadUserId],
+  );
+
   const insertMathPlaceholder = useCallback(() => {
     editor.chain().focus().insertContent(" \\( contoh: x^2 + y^2 = r^2 \\) ").run();
   }, [editor]);
@@ -220,7 +290,14 @@ export function TiptapEditorToolbar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 p-2">
+      <div
+        ref={barRef}
+        className={[
+          "sticky top-0 z-40",
+          pinned ? "shadow-sm" : "",
+        ].join(" ")}
+      >
+        <div className="flex flex-nowrap items-center gap-0.5 overflow-x-auto border-b border-border bg-background/95 p-2 whitespace-nowrap backdrop-blur supports-[backdrop-filter]:bg-background/80 no-scrollbar">
         <Button
           type="button"
           size="sm"
@@ -587,8 +664,45 @@ export function TiptapEditorToolbar({
           className="h-8 px-2"
           onMouseDown={toolbarButtonMouseDown}
           onClick={() => void insertImageByUrl()}
+          title="Sisipkan gambar via URL"
         >
           <ImageIcon className="h-4 w-4" />
+        </Button>
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            void onUploadImageFile(file);
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 gap-1 px-2"
+          onMouseDown={toolbarButtonMouseDown}
+          onClick={() => void onPickUploadImage()}
+          disabled={!canUpload}
+          title={uploadLabel}
+        >
+          <ImageIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">{uploadLabel}</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={editor.isActive("packageCarousel") ? "secondary" : "ghost"}
+          className="h-8 gap-1 px-2"
+          onMouseDown={toolbarButtonMouseDown}
+          onClick={() => setPackageCarouselOpen(true)}
+          title="Blok carousel paket pricelist"
+        >
+          <LayoutGrid className="h-4 w-4" />
+          <span className="hidden sm:inline">Paket</span>
         </Button>
         <Button
           type="button"
@@ -775,7 +889,14 @@ export function TiptapEditorToolbar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
+
+      <PackageCarouselInsertDialog
+        editor={editor}
+        open={packageCarouselOpen}
+        onOpenChange={setPackageCarouselOpen}
+      />
 
       <Dialog open={htmlOpen} onOpenChange={setHtmlOpen}>
         <DialogContent className="max-w-2xl">

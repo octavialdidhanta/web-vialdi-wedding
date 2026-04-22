@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FileText, LayoutDashboard, LogOut } from "lucide-react";
+import { Boxes, FileText, LayoutDashboard, LogOut } from "lucide-react";
 import { supabase } from "@/share/supabaseClient";
 import { cn } from "@/share/lib/utils";
 
@@ -28,6 +28,10 @@ export function AdminSidebar() {
         <NavLink to="/admin/posts" className={linkClass}>
           <FileText className="h-4 w-4 shrink-0" aria-hidden />
           Posts
+        </NavLink>
+        <NavLink to="/admin/packages" className={linkClass}>
+          <Boxes className="h-4 w-4 shrink-0" aria-hidden />
+          Paket
         </NavLink>
       </nav>
       <div className="border-t border-border p-3">

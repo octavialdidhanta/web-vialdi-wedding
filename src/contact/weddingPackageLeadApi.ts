@@ -38,6 +38,7 @@ export type WeddingLeadStep2 = {
 export type WeddingLeadResponse = {
   id: string;
   lead_id: string;
+  retry_after_seconds?: number;
   whatsapp?: {
     sent: boolean;
     skipped?: boolean;
@@ -64,44 +65,54 @@ function messageFromParsedBody(parsed: unknown): string | null {
   return null;
 }
 
+function retryAfterSecondsFromParsedBody(parsed: unknown): number | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const o = parsed as Record<string, unknown>;
+  const v = o.retry_after_seconds;
+  if (typeof v !== "number") return null;
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return Math.floor(v);
+}
+
 /**
  * Supabase `functions.invoke` mengembalikan `FunctionsHttpError` dengan `context` = `Response`
  * (bukan `{ body: string }`). Tanpa ini, pengguna hanya melihat "Edge Function returned a non-2xx status code".
  */
-async function formatFunctionsInvokeError(error: unknown): Promise<string> {
+async function formatFunctionsInvokeError(error: unknown): Promise<{ message: string; retryAfterSeconds?: number }> {
   if (error instanceof FunctionsHttpError) {
     const ctx = error.context as unknown;
     if (ctx && typeof ctx === "object" && typeof (ctx as Response).text === "function") {
       const res = ctx as Response;
       try {
         const text = await res.text();
-        const fromJson = messageFromParsedBody(tryParseJson(text));
-        if (fromJson) return fromJson;
+        const parsed = tryParseJson(text);
+        const fromJson = messageFromParsedBody(parsed);
+        const retryAfter = retryAfterSecondsFromParsedBody(parsed);
+        if (fromJson) return { message: fromJson, ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}) };
         const trimmed = text.trim();
-        if (trimmed) return trimmed.slice(0, 800);
-        return `Edge Function mengembalikan HTTP ${res.status} tanpa pesan. Periksa log fungsi di Supabase Dashboard.`;
+        if (trimmed) return { message: trimmed.slice(0, 800) };
+        return { message: `Edge Function mengembalikan HTTP ${res.status} tanpa pesan. Periksa log fungsi di Supabase Dashboard.` };
       } catch {
-        return `Edge Function mengembalikan HTTP ${res.status}.`;
+        return { message: `Edge Function mengembalikan HTTP ${res.status}.` };
       }
     }
   }
   if (error instanceof FunctionsRelayError) {
-    return (
-      error.message ||
-      "Edge Function tidak terjangkau (relay). Pastikan `wedding-package-lead` sudah di-deploy."
-    );
+    return { message: error.message || "Edge Function tidak terjangkau (relay). Pastikan `wedding-package-lead` sudah di-deploy." };
   }
   if (error instanceof FunctionsFetchError) {
-    return error.message || "Gagal menghubungi Edge Function (jaringan atau CORS).";
+    return { message: error.message || "Gagal menghubungi Edge Function (jaringan atau CORS)." };
   }
   const bodyText = (error as { context?: { body?: string } })?.context?.body;
   if (typeof bodyText === "string") {
-    const fromJson = messageFromParsedBody(tryParseJson(bodyText));
-    if (fromJson) return fromJson;
-    if (bodyText.trim()) return bodyText.trim().slice(0, 800);
+    const parsed = tryParseJson(bodyText);
+    const fromJson = messageFromParsedBody(parsed);
+    const retryAfter = retryAfterSecondsFromParsedBody(parsed);
+    if (fromJson) return { message: fromJson, ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}) };
+    if (bodyText.trim()) return { message: bodyText.trim().slice(0, 800) };
   }
-  if (error instanceof Error) return error.message;
-  return "Terjadi kesalahan saat menghubungi server.";
+  if (error instanceof Error) return { message: error.message };
+  return { message: "Terjadi kesalahan saat menghubungi server." };
 }
 
 /** Step 1 UPDATE: baris `id` tidak ada (session lama / DB reset / project lain). */
@@ -129,7 +140,7 @@ export async function submitWeddingPackageLead(
     return data as WeddingLeadResponse;
   }
 
-  const message = await formatFunctionsInvokeError(error);
+  const { message, retryAfterSeconds } = await formatFunctionsInvokeError(error);
 
   if (
     payload.step === 1 &&
@@ -147,10 +158,15 @@ export async function submitWeddingPackageLead(
       body: insertPayload,
     });
     if (retry.error) {
-      throw new Error(await formatFunctionsInvokeError(retry.error));
+      const formatted = await formatFunctionsInvokeError(retry.error);
+      const err = new Error(formatted.message) as Error & { retry_after_seconds?: number };
+      if (formatted.retryAfterSeconds) err.retry_after_seconds = formatted.retryAfterSeconds;
+      throw err;
     }
     return retry.data as WeddingLeadResponse;
   }
 
-  throw new Error(message);
+  const err = new Error(message) as Error & { retry_after_seconds?: number };
+  if (retryAfterSeconds) err.retry_after_seconds = retryAfterSeconds;
+  throw err;
 }

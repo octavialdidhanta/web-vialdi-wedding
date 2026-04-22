@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { usePackageCardLeadOptional } from "@/home/PackagePricingCardShell";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
-import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
+import {
+  clearWeddingPackageLeadBrowserSession,
+  readWeddingPackageLeadSubmittedAt,
+  writeWeddingPackageLeadSubmittedAt,
+} from "@/contact/weddingPackageLeadSession";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
@@ -24,6 +28,8 @@ type Props = {
   packageLabel: string;
 };
 
+const REPEAT_TTL_MS = 30 * 1000;
+
 export function PackageConsultLeadForm({ packageLabel }: Props) {
   const navigate = useNavigate();
   const cardLead = usePackageCardLeadOptional();
@@ -31,6 +37,9 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
+  const [ttlNow, setTtlNow] = useState(() => Date.now());
+  const [submittedAtMs, setSubmittedAtMs] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -55,11 +64,49 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
     step,
   });
 
+  const canStartNew = submittedAtMs ? ttlNow - submittedAtMs >= REPEAT_TTL_MS : true;
+
+  // Ensure UI flips to "canStartNew" automatically when TTL expires (no extra user interaction needed).
+  useEffect(() => {
+    if (!open) return;
+    if (!submittedAtMs) return;
+    const msLeft = REPEAT_TTL_MS - (Date.now() - submittedAtMs);
+    if (msLeft <= 0) return;
+    const t = window.setTimeout(() => setTtlNow(Date.now()), msLeft + 25);
+    return () => window.clearTimeout(t);
+  }, [open, submittedAtMs]);
+
+  // Read submittedAt from sessionStorage when dialog opens.
+  useEffect(() => {
+    if (!open) return;
+    try {
+      setSubmittedAtMs(readWeddingPackageLeadSubmittedAt(getRequiredWebId()));
+    } catch {
+      setSubmittedAtMs(null);
+    }
+  }, [open]);
+
+  const markSubmittedNow = useCallback(
+    (retryAfterSec?: number) => {
+      const now = Date.now();
+      const retryMs = typeof retryAfterSec === "number" ? Math.max(0, retryAfterSec) * 1000 : null;
+      const inferredSubmittedAt =
+        retryMs != null ? now - Math.max(0, REPEAT_TTL_MS - retryMs) : now;
+      try {
+        writeWeddingPackageLeadSubmittedAt(getRequiredWebId(), inferredSubmittedAt);
+      } catch {}
+      setSubmittedAtMs(inferredSubmittedAt);
+      setTtlNow(now);
+    },
+    [setTtlNow],
+  );
+
   const clearLeadDraft = useCallback(() => {
     setSubmitting(false);
     setStep(1);
     resetStep1Lead();
     setErrorMessage("");
+    setRetryAfterSeconds(null);
     setName("");
     setPhone("");
     setEmail("");
@@ -117,9 +164,13 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
         await ensureStep1RowId();
         setStep(2);
       } catch (e: unknown) {
-        setErrorMessage(
-          e instanceof Error ? e.message : "Tidak bisa menyimpan data. Periksa koneksi lalu coba lagi.",
-        );
+        const err = e instanceof Error ? (e as Error & { retry_after_seconds?: number }) : null;
+      if (err?.retry_after_seconds) {
+        setRetryAfterSeconds(err.retry_after_seconds);
+        // Ensure the reset panel appears even if sessionStorage wasn't set yet.
+        markSubmittedNow(err.retry_after_seconds);
+      }
+        setErrorMessage(err?.message ?? "Tidak bisa menyimpan data. Periksa koneksi lalu coba lagi.");
       } finally {
         setSubmitting(false);
       }
@@ -151,16 +202,20 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
           "Data tersimpan, tetapi notifikasi WhatsApp gagal. Hubungi tim jika perlu. Detail: " +
             res2.whatsapp.error.slice(0, 280),
         );
+        // Even if WhatsApp fails, the lead was submitted; lock the UI for TTL.
+        markSubmittedNow();
         return;
       }
-      try {
-        clearWeddingPackageLeadBrowserSession(getRequiredWebId());
-      } catch {
-        /* VITE_WEB_ID */
-      }
+      markSubmittedNow();
       navigate("/thank-you-page");
     } catch (e: unknown) {
-      setErrorMessage(e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.");
+      const err = e instanceof Error ? (e as Error & { retry_after_seconds?: number }) : null;
+      if (err?.retry_after_seconds) {
+        setRetryAfterSeconds(err.retry_after_seconds);
+        // Ensure the reset panel appears even if sessionStorage wasn't set yet.
+        markSubmittedNow(err.retry_after_seconds);
+      }
+      setErrorMessage(err?.message ?? "Terjadi kesalahan. Coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -289,6 +344,34 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
             <p className="text-center text-[0.65rem] font-medium text-destructive">
               {errorMessage}
             </p>
+          ) : null}
+
+          {submittedAtMs ? (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-center">
+              <p className="text-[0.65rem] text-muted-foreground">
+                Lead sudah pernah dikirim untuk session ini.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                disabled={!canStartNew || submitting}
+                onClick={() => {
+                  try {
+                    clearWeddingPackageLeadBrowserSession(getRequiredWebId());
+                  } catch {}
+                  clearLeadDraft();
+                }}
+              >
+                {canStartNew ? "Mulai konsultasi baru" : "Tunggu 30 detik untuk kirim ulang"}
+              </Button>
+              {retryAfterSeconds ? (
+                <p className="mt-1 text-[0.65rem] text-muted-foreground">
+                  Coba lagi dalam ~{Math.max(1, Math.ceil(retryAfterSeconds))} detik.
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

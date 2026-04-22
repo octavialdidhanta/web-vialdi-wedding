@@ -2,16 +2,16 @@ import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/html";
 import type { TocEntry } from "@/blog/types";
 import { injectHeadingIds, estimateReadMinutesFromHtml } from "@/admin/lib/htmlPostProcess";
-import { tiptapExtensions } from "@/admin/lib/editorExtensions";
+import { tiptapDocumentExtensions } from "@/admin/lib/documentExtensions";
 import { stripHiddenFromBodyHtml } from "@/admin/lib/stripHiddenHtml";
 
-export { tiptapExtensions } from "@/admin/lib/editorExtensions";
+export { tiptapDocumentExtensions } from "@/admin/lib/documentExtensions";
 
 export function docJsonToHtml(doc: JSONContent | null | undefined): string {
   if (!doc || !doc.type) {
     return "";
   }
-  return generateHTML(doc, tiptapExtensions);
+  return generateHTML(doc, tiptapDocumentExtensions);
 }
 
 export function serializeEditorDocument(doc: JSONContent | null | undefined): {

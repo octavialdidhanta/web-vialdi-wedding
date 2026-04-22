@@ -1,11 +1,16 @@
 import type { AnalyticsWebId } from "@/analytics/sendAnalyticsBatch";
 
 const ROW_KEY = "vialdi_wpkg_lead_row_v1";
+const SUBMITTED_AT_KEY = "vialdi_wpkg_lead_submitted_at_v1";
 /** @deprecated Dibersihkan saat `clearWeddingPackageLeadBrowserSession` untuk migrasi dari build lama. */
 const LEGACY_AUTOSAVE_ONCE_KEY = "vialdi_wpkg_autosave_once_v1";
 
 function rowStorageKey(webId: AnalyticsWebId): string {
   return `${ROW_KEY}_${webId}`;
+}
+
+function submittedAtStorageKey(webId: AnalyticsWebId): string {
+  return `${SUBMITTED_AT_KEY}_${webId}`;
 }
 
 function isUuidLike(v: string): boolean {
@@ -35,11 +40,44 @@ export function writePersistedWeddingPackageLeadRowId(webId: AnalyticsWebId, id:
   }
 }
 
+export function readWeddingPackageLeadSubmittedAt(webId: AnalyticsWebId): number | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(submittedAtStorageKey(webId))?.trim();
+    if (!raw) return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n;
+  } catch {
+    return null;
+  }
+}
+
+export function writeWeddingPackageLeadSubmittedAt(webId: AnalyticsWebId, submittedAtMs: number): void {
+  if (typeof sessionStorage === "undefined") return;
+  if (!Number.isFinite(submittedAtMs) || submittedAtMs <= 0) return;
+  try {
+    sessionStorage.setItem(submittedAtStorageKey(webId), String(Math.floor(submittedAtMs)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearWeddingPackageLeadSubmittedAt(webId: AnalyticsWebId): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(submittedAtStorageKey(webId));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Setelah lead selesai (step 2); konsultasi berikutnya di tab yang sama boleh INSERT baru. */
 export function clearWeddingPackageLeadBrowserSession(webId: AnalyticsWebId): void {
   if (typeof sessionStorage === "undefined") return;
   try {
     sessionStorage.removeItem(rowStorageKey(webId));
+    sessionStorage.removeItem(submittedAtStorageKey(webId));
     sessionStorage.removeItem(`${LEGACY_AUTOSAVE_ONCE_KEY}_${webId}`);
   } catch {
     /* ignore */

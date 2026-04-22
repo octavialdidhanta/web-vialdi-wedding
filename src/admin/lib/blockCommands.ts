@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html";
 import type { JSONContent } from "@tiptap/core";
-import { tiptapExtensions } from "@/admin/lib/editorExtensions";
+import { tiptapDocumentExtensions } from "@/admin/lib/documentExtensions";
 import { getClosestDocBlockBound } from "@/admin/lib/blockRange";
 
 export function duplicateDocBlock(editor: Editor): boolean {
@@ -84,7 +84,7 @@ export function blockNodeToHtmlFragment(editor: Editor): string | null {
     return null;
   }
   const json = { type: "doc", content: [node.toJSON()] } as JSONContent;
-  return generateHTML(json, tiptapExtensions);
+  return generateHTML(json, tiptapDocumentExtensions);
 }
 
 export function setParagraphMeta(
@@ -118,7 +118,7 @@ export function replaceDocBlockFromHtml(editor: Editor, html: string): boolean {
   const wrapped = html.trim().startsWith("<") ? html : `<p>${html}</p>`;
   let docJson: JSONContent;
   try {
-    docJson = generateJSON(wrapped, tiptapExtensions) as JSONContent;
+    docJson = generateJSON(wrapped, tiptapDocumentExtensions) as JSONContent;
   } catch {
     return false;
   }

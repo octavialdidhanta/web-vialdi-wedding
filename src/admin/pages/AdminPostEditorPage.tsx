@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { JSONContent } from "@tiptap/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import { mergePostTargets } from "@/admin/lib/siteNavLinks";
 import { useAdminAuth } from "@/admin/adminAuthContext";
 import { TiptapEditor } from "@/admin/components/TiptapEditor";
 import { serializeEditorDocument } from "@/admin/lib/serializePostBody";
+import { normalizePostBodyJson } from "@/admin/lib/htmlToTiptapDoc";
 import type { BlogAccent, PostStatus } from "@/blog/types";
 import { Button } from "@/share/ui/button";
 import { Input } from "@/share/ui/input";
@@ -90,6 +91,8 @@ export function AdminPostEditorPage() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [bodyJson, setBodyJson] = useState<JSONContent | null>(emptyDoc);
   const [bodyHtmlFallback, setBodyHtmlFallback] = useState("");
+  const [editorSeed, setEditorSeed] = useState(0);
+  const lastHydratedKeyRef = useRef<string | null>(null);
   const [publishedAtLocal, setPublishedAtLocal] = useState("");
   const [scheduledAtLocal, setScheduledAtLocal] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -124,6 +127,11 @@ export function AdminPostEditorPage() {
     if (!post) {
       return;
     }
+    const hydrateKey = `${post.id}|${post.updated_at ?? ""}`;
+    if (lastHydratedKeyRef.current === hydrateKey) {
+      return;
+    }
+    lastHydratedKeyRef.current = hydrateKey;
     setTitle(post.title);
     setSlug(post.slug);
     setSlugTouched(true);
@@ -140,11 +148,12 @@ export function AdminPostEditorPage() {
     setTagsInput(tagNames.join(", "));
     setCoverPath(post.cover_image_path);
     setCoverUrl(post.cover_image_url);
-    const bj = post.body_json as JSONContent | null;
-    setBodyJson(bj && bj.type ? bj : emptyDoc);
+    setBodyJson(normalizePostBodyJson(post.body_json, post.body_html ?? ""));
     setBodyHtmlFallback(post.body_html ?? "");
     setPublishedAtLocal(post.published_at ? post.published_at.slice(0, 16) : "");
     setScheduledAtLocal(post.scheduled_at ? post.scheduled_at.slice(0, 16) : "");
+    // Tiptap only reads `content` on mount. Force a remount after we hydrate body JSON from DB.
+    setEditorSeed((n) => n + 1);
   }, [post]);
 
   useEffect(() => {
@@ -154,7 +163,9 @@ export function AdminPostEditorPage() {
     setSlug(slugifyTitle(title));
   }, [title, slugTouched]);
 
-  const editorMountKey = isNew ? "new" : `${post?.id ?? id}-${post?.updated_at ?? "loading"}`;
+  const editorMountKey = isNew
+    ? "new"
+    : `${post?.id ?? id}-${post?.updated_at ?? "loading"}-${editorSeed}`;
 
   function buildPayload(nextStatus: PostStatus, opts?: BuildPayloadOpts): AdminPostPayload {
     const ser = serializeEditorDocument(bodyJson);
@@ -412,6 +423,7 @@ export function AdminPostEditorPage() {
                 onChangeJson={setBodyJson}
                 disabled={saving}
                 internalLinkTargets={internalLinkTargets}
+                uploadUserId={user?.id ?? null}
               />
             </div>
             <div className="flex flex-wrap gap-2 border-t border-border pt-6">

@@ -3,7 +3,8 @@ import type { BlogAccent, BlogPostPublic, PostStatus, TocEntry } from "@/blog/ty
 import { DEFAULT_BLOG_COVER } from "@/blog/defaultCover";
 import { randomUuidV4 } from "@/share/lib/randomUuid";
 
-const BUCKET = "blog-media";
+export const BLOG_MEDIA_BUCKET = "blog-media";
+const BUCKET = BLOG_MEDIA_BUCKET;
 
 export type TagJoin = { blog_tags: { name: string; slug: string } | null } | null;
 
@@ -18,6 +19,7 @@ type PostRow = {
   cover_image_path: string | null;
   cover_image_url: string | null;
   body_html: string;
+  body_json?: unknown;
   toc_json: TocEntry[] | null;
   read_time_minutes: number;
   published_at: string | null;
@@ -34,6 +36,11 @@ export function resolveCoverUrl(path: string | null, url: string | null): string
     return data.publicUrl;
   }
   return DEFAULT_BLOG_COVER;
+}
+
+export function resolveBlogMediaPublicUrl(path: string): string {
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
 
 function mapRowToPublic(p: PostRow): BlogPostPublic {
@@ -59,12 +66,13 @@ function mapRowToPublic(p: PostRow): BlogPostPublic {
     coverImage: resolveCoverUrl(p.cover_image_path, p.cover_image_url),
     toc,
     bodyHtml: p.body_html ?? "",
+    bodyJson: p.body_json,
   };
 }
 
 const publishedSelect = `
   id, slug, title, excerpt, status, featured, accent,
-  cover_image_path, cover_image_url, body_html, toc_json,
+  cover_image_path, cover_image_url, body_json, body_html, toc_json,
   read_time_minutes, published_at, scheduled_at,
   post_tags ( blog_tags ( name, slug ) )
 `;

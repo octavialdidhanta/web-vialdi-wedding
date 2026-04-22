@@ -107,9 +107,9 @@ export default function App() {
       <Suspense fallback={null}>
         <Routes>
           <Route element={<DeferredAnalyticsLayout />}>
-            <Route path="/" element={<HomePage />} />
             <Route path="/service" element={<OurServicesPage />} />
             <Route element={<QueryRoutesLayout />}>
+              <Route path="/" element={<HomePage />} />
               <Route path="/blog" element={<BlogPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/admin/*" element={<AdminRoutes />} />
