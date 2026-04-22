@@ -782,6 +782,33 @@ function okPayload(body: any): Payload | null {
   return null;
 }
 
+function validateWeddingPayload(body: any): { ok: true; payload: Payload } | { ok: false; error: string } {
+  const step = asWeddingStep(body?.step);
+  if (!step) return { ok: false, error: "Invalid step (expected 1 or 2)" };
+
+  if (step === 1) {
+    if (!nonEmpty(body?.name)) return { ok: false, error: "Missing name" };
+    if (!nonEmpty(body?.phone_number)) return { ok: false, error: "Missing phone_number" };
+    if (!isPhone(body.phone_number)) return { ok: false, error: "Invalid phone_number format" };
+    if (!nonEmpty(body?.email)) return { ok: false, error: "Missing email" };
+    if (!isEmail(body.email)) return { ok: false, error: "Invalid email format" };
+    if (!nonEmpty(body?.package_label)) return { ok: false, error: "Missing package_label" };
+  }
+
+  if (step === 2) {
+    if (!nonEmpty(body?.id)) return { ok: false, error: "Missing id" };
+    if (!nonEmpty(body?.event_date)) return { ok: false, error: "Missing event_date (expected YYYY-MM-DD)" };
+    if (!isIsoDateOnly(body.event_date))
+      return { ok: false, error: "Invalid event_date (expected YYYY-MM-DD)" };
+    if (!nonEmpty(body?.event_time)) return { ok: false, error: "Missing event_time" };
+    if (!nonEmpty(body?.event_address)) return { ok: false, error: "Missing event_address" };
+  }
+
+  const payload = okPayload(body);
+  if (!payload) return { ok: false, error: "Invalid payload for step (schema mismatch)" };
+  return { ok: true, payload };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
@@ -793,8 +820,9 @@ Deno.serve(async (req) => {
     return badRequest("Invalid JSON body");
   }
 
-  const payload = okPayload(payloadRaw);
-  if (!payload) return badRequest("Invalid payload for step");
+  const checked = validateWeddingPayload(payloadRaw);
+  if (!checked.ok) return badRequest(checked.error);
+  const payload = checked.payload;
 
   const rawPayload = payloadRaw as Record<string, unknown>;
   const leadAttr = parseLeadAttribution(rawPayload["attribution"]);
