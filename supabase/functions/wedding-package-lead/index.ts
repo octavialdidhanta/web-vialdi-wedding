@@ -484,6 +484,97 @@ type AdminClient = ReturnType<typeof createClient>;
 type WhatsappDbOkForSync = { conversation_id: string; message_id: string | null };
 type WhatsappDbResultForSync = WhatsappDbOkForSync | { error: string };
 
+async function ensureWeddingLeadMapping(args: {
+  admin: AdminClient;
+  systemUserId: string;
+  resolvedWebId: string | null;
+  weddingRow: any;
+  incoming: {
+    name: string;
+    phone_number: string;
+    email: string;
+    package_label: string;
+    analytics_session_id?: string;
+  };
+  attrUpdate: Record<string, unknown> | null;
+}): Promise<{ ok: true; leadId: string } | { ok: false; error: string }> {
+  const row = args.weddingRow as Record<string, unknown>;
+  const existingLeadId = row?.lead_id;
+  if (typeof existingLeadId === "string" && existingLeadId.trim()) {
+    return { ok: true, leadId: existingLeadId.trim() };
+  }
+
+  const identityHash =
+    typeof row?.identity_hash === "string" && String(row.identity_hash).trim()
+      ? String(row.identity_hash).trim()
+      : await sha256Hex(`${args.incoming.phone_number}|${args.incoming.email.toLowerCase()}`);
+
+  const baseFunnelKey = makeFunnelKey({
+    edgeFn: "wedding-package-lead",
+    webId: args.resolvedWebId,
+    code: "package",
+  });
+  const funnel_key = `${baseFunnelKey}:${identityHash.slice(0, 16)}`.slice(0, 200);
+
+  const { data: lead, error: leadErr } = await args.admin
+    .from("leads")
+    .upsert(
+      {
+        client: args.incoming.name,
+        title: TITLE,
+        category: CATEGORY,
+        created_by: args.systemUserId,
+        created_by_name: CREATED_BY_NAME,
+        assignee: ASSIGNEE,
+        organization_id: ORG_ID,
+        phone_number: args.incoming.phone_number,
+        email: args.incoming.email,
+        source: SOURCE,
+        services: args.incoming.package_label,
+        web_id: args.resolvedWebId,
+        funnel_key,
+        ...(args.incoming.analytics_session_id ? { analytics_session_id: args.incoming.analytics_session_id } : {}),
+        ...(args.attrUpdate ?? {}),
+      },
+      { onConflict: "organization_id,dedupe_key" },
+    )
+    .select("id")
+    .single();
+
+  if (leadErr || !lead?.id) return { ok: false, error: leadErr?.message ?? "Failed to create lead" };
+  const leadId = String(lead.id);
+
+  const { error: profileErr } = await args.admin.from("lead_client_profiles").insert({
+    lead_id: leadId,
+    name: args.incoming.name,
+    organization_id: ORG_ID,
+    created_by: args.systemUserId,
+    contact_person: args.incoming.name,
+    contact_email: args.incoming.email,
+    contact_phone: args.incoming.phone_number,
+    phone_number: args.incoming.phone_number,
+    email: args.incoming.email,
+  });
+
+  // If profile already exists (e.g. previous partial success), continue.
+  if (profileErr) {
+    const code = (profileErr as unknown as { code?: string })?.code;
+    const dup = code === "23505" || /duplicate key|unique constraint/i.test(profileErr.message);
+    if (!dup) return { ok: false, error: profileErr.message };
+  }
+
+  const weddingId = typeof row?.id === "string" ? String(row.id) : "";
+  if (!weddingId) return { ok: false, error: "Wedding lead row missing id" };
+
+  const { error: linkErr } = await args.admin
+    .from("leads_vialdi_wedding")
+    .update({ lead_id: leadId, identity_hash: identityHash })
+    .eq("id", weddingId);
+
+  if (linkErr) return { ok: false, error: linkErr.message };
+  return { ok: true, leadId };
+}
+
 /** Same ticket string as `public.whatsapp_conversations.ticket_id` (generated) and Leads "Open Chat". */
 function waTicketIdFromConversationUuid(convId: string): string {
   return "WA-" + String(convId).replace(/-/g, "").slice(0, 8).toUpperCase();
@@ -810,19 +901,20 @@ function validateWeddingPayload(body: any): { ok: true; payload: Payload } | { o
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return json({ ok: true });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
-
-  let payloadRaw: unknown;
   try {
-    payloadRaw = await req.json();
-  } catch {
-    return badRequest("Invalid JSON body");
-  }
+    if (req.method === "OPTIONS") return json({ ok: true });
+    if (req.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
 
-  const checked = validateWeddingPayload(payloadRaw);
-  if (!checked.ok) return badRequest(checked.error);
-  const payload = checked.payload;
+    let payloadRaw: unknown;
+    try {
+      payloadRaw = await req.json();
+    } catch {
+      return badRequest("Invalid JSON body");
+    }
+
+    const checked = validateWeddingPayload(payloadRaw);
+    if (!checked.ok) return badRequest(checked.error);
+    const payload = checked.payload;
 
   const rawPayload = payloadRaw as Record<string, unknown>;
   const leadAttr = parseLeadAttribution(rawPayload["attribution"]);
@@ -893,20 +985,13 @@ Deno.serve(async (req) => {
       const existingIdentity = typeof row.identity_hash === "string" ? String(row.identity_hash).trim() : "";
       const identityChanged = existingIdentity.length > 0 && existingIdentity !== incomingIdentity;
 
-      // If already submitted, only allow resetting/editing after TTL and only when identity stays the same.
-      // If identity changes, create a new draft row instead (history).
+      // If already submitted, allow resubmitting immediately ONLY when identity stays the same.
+      // If identity changes, reject (we never create a new row for the same id).
       if (prevStep >= 2 || prevSubmittedAt !== null) {
-        const withinTtl = prevSubmittedAt !== null && nowMs - prevSubmittedAt < REPEAT_TTL_MS;
-        if (withinTtl) {
-          const retryAfterSec = Math.max(1, Math.ceil((REPEAT_TTL_MS - (nowMs - prevSubmittedAt!)) / 1000));
-          return json(
-            { error: "Lead sudah pernah dikirim untuk session ini", retry_after_seconds: retryAfterSec },
-            { status: 400 },
-          );
-        }
         if (identityChanged) {
-          // Create a new draft row: skip the update-by-id path.
-          weddingRowId = undefined;
+          return badRequest(
+            "Lead sudah terkirim. Untuk mengubah nomor/email, silakan mulai lead baru (tidak bisa update lead lama).",
+          );
         } else {
           const { error: resetErr } = await admin
             .from("leads_vialdi_wedding")
@@ -925,8 +1010,22 @@ Deno.serve(async (req) => {
       if (!weddingRowId) {
         // Continue to create-new-row logic below.
       } else {
-      const leadId = row.lead_id as string | null;
-      if (!leadId) return json({ error: "Lead mapping missing (lead_id is null)" }, { status: 500 });
+      const ensured = await ensureWeddingLeadMapping({
+        admin,
+        systemUserId,
+        resolvedWebId,
+        weddingRow: row,
+        incoming: {
+          name: p1.name,
+          phone_number: p1.phone_number,
+          email: p1.email,
+          package_label: p1.package_label,
+          ...(p1.analytics_session_id ? { analytics_session_id: p1.analytics_session_id } : {}),
+        },
+        attrUpdate,
+      });
+      if (!ensured.ok) return json({ error: ensured.error }, { status: 500 });
+      const leadId = ensured.leadId;
 
       const { error: wUp } = await admin
         .from("leads_vialdi_wedding")
@@ -1096,21 +1195,22 @@ Deno.serve(async (req) => {
   if (existingErr) return json({ error: existingErr.message }, { status: 500 });
   if (!existing) return badRequest("Lead not found");
 
-  const leadId = existing.lead_id as string | null;
-  if (!leadId) return json({ error: "Lead mapping missing (lead_id is null)" }, { status: 500 });
-
-  const nowMs = Date.now();
-  const submittedAtMs = existing.submitted_at ? new Date(String(existing.submitted_at)).getTime() : null;
-  if (submittedAtMs !== null && Number.isFinite(submittedAtMs)) {
-    const diff = nowMs - submittedAtMs;
-    if (diff >= 0 && diff < REPEAT_TTL_MS) {
-      const retryAfterSec = Math.max(1, Math.ceil((REPEAT_TTL_MS - diff) / 1000));
-      return json(
-        { error: "Lead sudah pernah dikirim untuk session ini", retry_after_seconds: retryAfterSec },
-        { status: 400 },
-      );
-    }
-  }
+  const ensured = await ensureWeddingLeadMapping({
+    admin,
+    systemUserId,
+    resolvedWebId,
+    weddingRow: existing,
+    incoming: {
+      name: String(existing?.name ?? ""),
+      phone_number: normalizePhone(String(existing?.phone_number ?? "")),
+      email: String(existing?.email ?? ""),
+      package_label: String(existing?.package_label ?? ""),
+      ...(existing?.analytics_session_id ? { analytics_session_id: String(existing.analytics_session_id) } : {}),
+    },
+    attrUpdate,
+  });
+  if (!ensured.ok) return json({ error: ensured.error }, { status: 500 });
+  const leadId = ensured.leadId;
 
   const effectiveSessionId = (p2.analytics_session_id ?? (existing.analytics_session_id as string | null) ?? undefined) as
     | string
@@ -1293,12 +1393,21 @@ Deno.serve(async (req) => {
       }
     : { sent: false as const, error: wa.error };
 
-  return json({
-    id: p2.id,
-    lead_id: leadId,
-    whatsapp: whatsappPayload,
-    ...(whatsapp_db !== null ? { whatsapp_db } : {}),
-    ...(lead_ticket_sync !== null ? { lead_ticket_sync } : {}),
-  });
+    return json({
+      id: p2.id,
+      lead_id: leadId,
+      whatsapp: whatsappPayload,
+      ...(whatsapp_db !== null ? { whatsapp_db } : {}),
+      ...(lead_ticket_sync !== null ? { lead_ticket_sync } : {}),
+    });
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    console.error("wedding-package-lead: unhandled exception", {
+      name: err.name,
+      message: err.message,
+      stack: String(err.stack ?? "").slice(0, 1200),
+    });
+    return json({ error: "Internal error", detail: err.message }, { status: 500 });
+  }
 });
 

@@ -27,6 +27,8 @@ type Args = {
   email: string;
   /** Hanya jalankan autosave saat langkah 1 aktif. */
   step: 1 | 2;
+  /** Jika lead baru saja terkirim, hentikan autosave (TTL / dedupe). */
+  locked?: boolean;
 };
 
 /**
@@ -38,8 +40,13 @@ export function useWeddingLeadStep1Autosave(args: Args) {
   const leadRowIdRef = useRef<string | null>(null);
   const latestRequestIdRef = useRef(0);
 
-  const resetStep1Lead = useCallback(() => {
+  const resetStep1Lead = useCallback((forceClear?: boolean) => {
     latestRequestIdRef.current += 1;
+    if (forceClear) {
+      leadRowIdRef.current = null;
+      setLeadRowId(null);
+      return;
+    }
     try {
       const webId = getRequiredWebId();
       const persisted = readPersistedWeddingPackageLeadRowId(webId);
@@ -55,7 +62,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
     leadRowIdRef.current = leadRowId;
   }, [leadRowId]);
 
-  const enabled = args.step === 1;
+  const enabled = args.step === 1 && !args.locked;
   const fieldsOk =
     args.name.trim().length > 0 && isValidPhone(args.phone) && isValidEmail(args.email);
 

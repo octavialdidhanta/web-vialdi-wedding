@@ -383,6 +383,17 @@ export function getOrCreateSessionId(): string {
   }
 }
 
+export function resetAnalyticsSessionId(): void {
+  const key = sessionStorageKey();
+  try {
+    // Force a new session id immediately so subsequent calls in this tick
+    // won't recreate / reuse the old value.
+    localStorage.setItem(key, randomUuidV4());
+  } catch {
+    /* ignore */
+  }
+}
+
 function simpleUaHash(): string {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   let h = 0;

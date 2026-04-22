@@ -74,6 +74,10 @@ function retryAfterSecondsFromParsedBody(parsed: unknown): number | null {
   return Math.floor(v);
 }
 
+function isRepeatLeadMessage(message: string): boolean {
+  return message.trim().includes("Lead sudah pernah dikirim untuk session ini");
+}
+
 /**
  * Supabase `functions.invoke` mengembalikan `FunctionsHttpError` dengan `context` = `Response`
  * (bukan `{ body: string }`). Tanpa ini, pengguna hanya melihat "Edge Function returned a non-2xx status code".
@@ -168,5 +172,7 @@ export async function submitWeddingPackageLead(
 
   const err = new Error(message) as Error & { retry_after_seconds?: number };
   if (retryAfterSeconds) err.retry_after_seconds = retryAfterSeconds;
+  // Some paths return the repeat message without retry_after_seconds; fall back to TTL.
+  if (!err.retry_after_seconds && isRepeatLeadMessage(message)) err.retry_after_seconds = 30;
   throw err;
 }

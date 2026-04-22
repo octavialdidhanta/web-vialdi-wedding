@@ -15,6 +15,7 @@ import {
   getOrCreateSessionId,
   getRequiredWebId,
   readLandingAttributionForLead,
+  resetAnalyticsSessionId,
 } from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Button } from "@/share/ui/button";
@@ -62,6 +63,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
     phone,
     email,
     step,
+    locked: Boolean(submittedAtMs),
   });
 
   const canStartNew = submittedAtMs ? ttlNow - submittedAtMs >= REPEAT_TTL_MS : true;
@@ -104,9 +106,14 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   const clearLeadDraft = useCallback(() => {
     setSubmitting(false);
     setStep(1);
-    resetStep1Lead();
+    resetStep1Lead(true);
     setErrorMessage("");
     setRetryAfterSeconds(null);
+    setSubmittedAtMs(null);
+    setTtlNow(Date.now());
+    try {
+      resetAnalyticsSessionId();
+    } catch {}
     setName("");
     setPhone("");
     setEmail("");
@@ -165,11 +172,13 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
         setStep(2);
       } catch (e: unknown) {
         const err = e instanceof Error ? (e as Error & { retry_after_seconds?: number }) : null;
-      if (err?.retry_after_seconds) {
-        setRetryAfterSeconds(err.retry_after_seconds);
-        // Ensure the reset panel appears even if sessionStorage wasn't set yet.
-        markSubmittedNow(err.retry_after_seconds);
-      }
+        if (err?.retry_after_seconds) {
+          setRetryAfterSeconds(err.retry_after_seconds);
+          // Ensure the reset panel appears even if sessionStorage wasn't set yet.
+          markSubmittedNow(err.retry_after_seconds);
+        } else if (String(err?.message ?? "").includes("Lead sudah pernah dikirim untuk session ini")) {
+          markSubmittedNow();
+        }
         setErrorMessage(err?.message ?? "Tidak bisa menyimpan data. Periksa koneksi lalu coba lagi.");
       } finally {
         setSubmitting(false);
@@ -214,6 +223,8 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
         setRetryAfterSeconds(err.retry_after_seconds);
         // Ensure the reset panel appears even if sessionStorage wasn't set yet.
         markSubmittedNow(err.retry_after_seconds);
+      } else if (String(err?.message ?? "").includes("Lead sudah pernah dikirim untuk session ini")) {
+        markSubmittedNow();
       }
       setErrorMessage(err?.message ?? "Terjadi kesalahan. Coba lagi.");
     } finally {
@@ -356,15 +367,16 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
                 size="sm"
                 variant="outline"
                 className="mt-2"
-                disabled={!canStartNew || submitting}
+                disabled={submitting}
                 onClick={() => {
                   try {
                     clearWeddingPackageLeadBrowserSession(getRequiredWebId());
+                    resetAnalyticsSessionId();
                   } catch {}
                   clearLeadDraft();
                 }}
               >
-                {canStartNew ? "Mulai konsultasi baru" : "Tunggu 30 detik untuk kirim ulang"}
+                Mulai konsultasi baru
               </Button>
               {retryAfterSeconds ? (
                 <p className="mt-1 text-[0.65rem] text-muted-foreground">

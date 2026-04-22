@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
-import posterMAo from "@/home/assets/youtube/mAoEjRTJKC4-hqdefault.jpg?w=640&format=webp";
-import posterK9 from "@/home/assets/youtube/K9anWRATqdo-hqdefault.jpg?w=640&format=webp";
+import posterMAo from "./assets/youtube/mAoEjRTJKC4-hqdefault.jpg";
+import posterK9 from "./assets/youtube/K9anWRATqdo-hqdefault.jpg";
 
 /** Privacy Enhanced embed — host `youtube-nocookie.com`. */
 function embedSrc(videoId: string) {

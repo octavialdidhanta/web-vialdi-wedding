@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "eslint.config.js"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "vite.config.ts", "eslint.config.js"],
   "exclude": ["supabase/functions"],
   "compilerOptions": {
     "target": "ES2022",
@@ -10,6 +10,7 @@
 
     /* Bundler mode */
     "moduleResolution": "Bundler",
+    "allowArbitraryExtensions": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,

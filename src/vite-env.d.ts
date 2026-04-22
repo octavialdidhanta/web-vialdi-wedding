@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference path="./types/vite-imagetools-and-iframe.d.ts" />
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
