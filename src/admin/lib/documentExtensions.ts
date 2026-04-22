@@ -42,7 +42,7 @@ export const tiptapDocumentExtensions = [
     // Keep embeds responsive in prose.
     HTMLAttributes: {
       class:
-        "blog-embed-video aspect-video w-full max-w-[42rem] overflow-hidden rounded-lg border border-border mx-auto",
+        "blog-embed-video aspect-video w-full overflow-hidden rounded-lg border border-border",
     },
     controls: true,
     nocookie: false,

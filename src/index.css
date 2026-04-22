@@ -230,6 +230,7 @@ html::-webkit-scrollbar {
 iframe.blog-embed-video {
   display: block;
   width: 100%;
+  /* Mobile: jangan kebesaran; Desktop: sejajar lebar kolom teks */
   max-width: 42rem;
   margin-left: auto;
   margin-right: auto;
@@ -242,6 +243,16 @@ iframe.blog-embed-video {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+@media (min-width: 768px) {
+  .blog-post-html .blog-embed-video,
+  .tiptap-editor-root .blog-embed-video,
+  iframe.blog-embed-video {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
 }
 
 .blog-post-html section:last-child {
