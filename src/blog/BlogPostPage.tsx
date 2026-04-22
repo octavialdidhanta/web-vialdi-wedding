@@ -251,7 +251,7 @@ export function BlogPostPage() {
             </aside>
 
             {/* Tengah: isi artikel */}
-            <div className="order-1 min-w-0 bg-white py-6 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
+            <div className="order-1 min-w-0 bg-white py-6 -mx-4 px-4 md:mx-0 md:px-0 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
               <BlogPostBody bodyJson={post.bodyJson} bodyHtml={post.bodyHtml} />
             </div>
 
