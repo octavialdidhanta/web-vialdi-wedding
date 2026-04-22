@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
-import { HomePage } from "@/home/HomePage";
 
 function DeferredAnalyticsLayout() {
   const [Layout, setLayout] = useState<null | ComponentType>(null);
@@ -56,6 +55,7 @@ function DeferredAnalyticsLayout() {
 const QueryRoutesLayout = lazy(() =>
   import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
 );
+const HomePage = lazy(() => import("@/home/HomePage").then((m) => ({ default: m.HomePage })));
 const AboutUsPage = lazy(() =>
   import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
 );

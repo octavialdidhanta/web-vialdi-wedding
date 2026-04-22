@@ -36,7 +36,7 @@
     <!-- End Google Tag Manager -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta
       name="description"
@@ -44,24 +44,44 @@
     />
     <!-- Meta Pixel Code -->
     <script>
-      !(function (f, b, e, v, n, t, s) {
-        if (f.fbq) return;
-        n = f.fbq = function () {
-          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-        };
-        if (!f._fbq) f._fbq = n;
-        n.push = n;
-        n.loaded = !0;
-        n.version = "2.0";
-        n.queue = [];
-        t = b.createElement(e);
-        t.async = !0;
-        t.src = v;
-        s = b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t, s);
-      })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-      fbq("init", "490486342185584");
-      fbq("track", "PageView");
+      /**
+       * Performance: Meta Pixel is a top 3rd-party cost in Lighthouse mobile.
+       * Load it only after first user interaction (or after a long fallback delay).
+       */
+      window.__fbPixelBooted = false;
+      function loadMetaPixel() {
+        if (window.__fbPixelBooted) return;
+        window.__fbPixelBooted = true;
+        !(function (f, b, e, v, n, t, s) {
+          if (f.fbq) return;
+          n = f.fbq = function () {
+            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          };
+          if (!f._fbq) f._fbq = n;
+          n.push = n;
+          n.loaded = !0;
+          n.version = "2.0";
+          n.queue = [];
+          t = b.createElement(e);
+          t.async = !0;
+          t.src = v;
+          s = b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t, s);
+        })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+        fbq("init", "490486342185584");
+        fbq("track", "PageView");
+      }
+
+      ["scroll", "pointerdown", "keydown", "touchstart"].forEach(function (ev) {
+        window.addEventListener(ev, loadMetaPixel, { once: true, passive: true });
+      });
+      window.addEventListener(
+        "load",
+        function () {
+          setTimeout(loadMetaPixel, 15000);
+        },
+        { once: true },
+      );
     </script>
     <!-- End Meta Pixel Code -->
     <meta property="og:title" content="Vialdi Wedding — Wedding Organizer &amp; Dokumentasi" />
@@ -74,6 +94,8 @@
       `dns-prefetch` saja: stylesheet font memakai media=print + onload, jadi koneksi TLS ke Google Fonts
       sering dianggap "unused preconnect" di PSI untuk rute non-hero. Prefetch DNS tetap membantu saat CSS dimuat.
     -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <!-- Non-render-blocking: stylesheet font tidak menahan FCP (onload swap media). -->
