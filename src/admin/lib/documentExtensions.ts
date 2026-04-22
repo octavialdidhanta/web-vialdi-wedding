@@ -41,7 +41,8 @@ export const tiptapDocumentExtensions = [
   Youtube.configure({
     // Keep embeds responsive in prose.
     HTMLAttributes: {
-      class: "blog-embed-video aspect-video w-full overflow-hidden rounded-lg border border-border",
+      class:
+        "blog-embed-video aspect-video w-full max-w-[42rem] overflow-hidden rounded-lg border border-border mx-auto",
     },
     controls: true,
     nocookie: false,
