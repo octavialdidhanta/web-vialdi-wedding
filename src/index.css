@@ -224,6 +224,26 @@ html::-webkit-scrollbar {
   scroll-margin-top: 7rem;
 }
 
+/* Responsive video embeds (YouTube via TipTap). */
+.blog-post-html .blog-embed-video,
+.tiptap-editor-root .blog-embed-video,
+iframe.blog-embed-video {
+  display: block;
+  width: 100%;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+.blog-post-html .blog-embed-video iframe,
+.tiptap-editor-root .blog-embed-video iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .blog-post-html section:last-child {
   margin-bottom: 0;
 }
