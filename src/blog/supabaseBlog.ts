@@ -77,11 +77,61 @@ const publishedSelect = `
   post_tags ( blog_tags ( name, slug ) )
 `;
 
+/** Indeks blog / sidebar: tanpa isi artikel — mengurangi byte JSON (PSI: third-party transfer). */
+const publishedListSelect = `
+  id, slug, title, excerpt, status, featured, accent,
+  cover_image_path, cover_image_url,
+  read_time_minutes, published_at, scheduled_at,
+  post_tags ( blog_tags ( name, slug ) )
+`;
+
+type PostListRow = Pick<
+  PostRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "excerpt"
+  | "status"
+  | "featured"
+  | "accent"
+  | "cover_image_path"
+  | "cover_image_url"
+  | "read_time_minutes"
+  | "published_at"
+  | "scheduled_at"
+> & { post_tags?: TagJoin[] | null };
+
+function mapListRowToPublic(p: PostListRow): BlogPostPublic {
+  const dateSource = p.published_at ?? p.scheduled_at;
+  const published = dateSource ? new Date(dateSource) : new Date();
+  const date = published.toISOString().slice(0, 10);
+  const tags =
+    p.post_tags
+      ?.map((x) => x?.blog_tags?.name)
+      .filter((n): n is string => Boolean(n))
+      .sort((a, b) => a.localeCompare(b)) ?? [];
+  return {
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    excerpt: p.excerpt,
+    date,
+    readTimeMinutes: p.read_time_minutes,
+    tags,
+    featured: p.featured,
+    accent: p.accent,
+    coverImage: resolveCoverUrl(p.cover_image_path, p.cover_image_url),
+    toc: [],
+    bodyHtml: "",
+    bodyJson: undefined,
+  };
+}
+
 export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
   const now = new Date().toISOString();
   const { data: publishedRows, error: errPub } = await supabase
     .from("posts")
-    .select(publishedSelect)
+    .select(publishedListSelect)
     .eq("status", "published")
     .not("published_at", "is", null)
     .lte("published_at", now)
@@ -93,7 +143,7 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
 
   const { data: dueScheduledRows, error: errSch } = await supabase
     .from("posts")
-    .select(publishedSelect)
+    .select(publishedListSelect)
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", now)
@@ -103,10 +153,10 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
     throw errSch;
   }
 
-  const byId = new Map<string, PostRow>();
+  const byId = new Map<string, PostListRow>();
   for (const row of [
-    ...((publishedRows as PostRow[] | null) ?? []),
-    ...((dueScheduledRows as PostRow[] | null) ?? []),
+    ...((publishedRows as PostListRow[] | null) ?? []),
+    ...((dueScheduledRows as PostListRow[] | null) ?? []),
   ]) {
     byId.set(row.id, row);
   }
@@ -116,7 +166,7 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
     const tb = new Date(b.published_at ?? b.scheduled_at ?? 0).getTime();
     return tb - ta;
   });
-  return merged.map(mapRowToPublic);
+  return merged.map(mapListRowToPublic);
 }
 
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPublic | null> {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
@@ -8,6 +8,7 @@ import type { BlogPostPublic } from "@/blog/types";
 import { getRelatedPosts } from "@/blog/supabaseBlog";
 import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQueries";
 import { useBlogMeta } from "@/blog/useBlogMeta";
+import { useBlogPostCoverPreload } from "@/blog/useBlogPostCoverPreload";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
 import { BlogPostBody } from "@/blog/BlogPostBody";
@@ -25,6 +26,30 @@ function SidebarHeading({ children }: { children: React.ReactNode }) {
     <h2 className="border-b border-border pb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
       {children}
     </h2>
+  );
+}
+
+/** LCP: preload di `<head>` + `fetchpriority` di DOM (Lighthouse memeriksa literal atribut). */
+function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
+  const ref = useRef<HTMLImageElement>(null);
+  useBlogPostCoverPreload(src);
+  useLayoutEffect(() => {
+    ref.current?.setAttribute("fetchpriority", "high");
+  }, [src]);
+
+  return (
+    <img
+      ref={ref}
+      src={src}
+      alt={alt}
+      width={1920}
+      height={1080}
+      sizes="(max-width: 1024px) 100vw, 36vw"
+      className="h-full w-full object-cover"
+      loading="eager"
+      decoding="async"
+      fetchPriority="high"
+    />
   );
 }
 
@@ -152,15 +177,7 @@ export function BlogPostPage() {
               </div>
 
               <figure className="relative aspect-video w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted">
-                <img
-                  src={post.coverImage}
-                  alt=""
-                  width={1920}
-                  height={1080}
-                  className="h-full w-full object-cover"
-                  loading="eager"
-                  decoding="async"
-                />
+                <ArticleHeroCoverImage src={post.coverImage} alt="" />
               </figure>
             </div>
           </div>

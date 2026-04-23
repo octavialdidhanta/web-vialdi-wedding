@@ -90,27 +90,7 @@
       content="Wujudkan pernikahan impian: dekorasi, busana, rias, dan tim foto-video profesional."
     />
     <meta property="og:type" content="website" />
-    <!--
-      `dns-prefetch` saja: stylesheet font memakai media=print + onload, jadi koneksi TLS ke Google Fonts
-      sering dianggap "unused preconnect" di PSI untuk rute non-hero. Prefetch DNS tetap membantu saat CSS dimuat.
-    -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <!-- Non-render-blocking: stylesheet font tidak menahan FCP (onload swap media). -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;display=swap"
-      rel="stylesheet"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;display=swap"
-        rel="stylesheet"
-      />
-    </noscript>
+    <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
     <title>Vialdi Wedding — Wedding Organizer</title>
     <!-- Entry module (defer bawaan); penemuan lebih awal daripada skrip di akhir body. -->
     <script type="module" src="/src/main.tsx"></script>

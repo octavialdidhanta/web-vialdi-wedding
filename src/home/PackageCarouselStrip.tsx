@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeCarouselPackageIds } from "@/blog/weddingPackageIds";
 import {
@@ -6,7 +6,11 @@ import {
   fetchPublishedPackagesByIds,
   type WeddingPackageRow,
 } from "@/blog/weddingPackages";
-import { DynamicWeddingPackageCard } from "@/home/DynamicWeddingPackageCard";
+import { DynamicWeddingPackageCardEmbed } from "@/home/DynamicWeddingPackageCardEmbed";
+
+const DynamicWeddingPackageCard = lazy(() =>
+  import("@/home/DynamicWeddingPackageCard").then((m) => ({ default: m.DynamicWeddingPackageCard })),
+);
 
 /** Mobile: kartu sedikit lebih sempit agar terlihat “cuil” kartu berikutnya (peek) tanpa chevron. Desktop: tinggi kartu seragam. */
 export const packageCarouselCardShell =
@@ -123,20 +127,23 @@ export function PackageCarouselStrip({
       if (touchIdsStartedOnCarousel.size > 0 || document.visibilityState !== "visible") return;
       if (animPlaying) return;
 
-      const outer = carouselRef.current;
-      const inner = trackRef.current;
-      if (!outer || !inner) return;
-      if (outer.scrollWidth <= outer.clientWidth + 4) return;
-      if (outer.scrollLeft > AT_FIRST_CARD_MAX_SCROLL_PX) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const outer = carouselRef.current;
+        const inner = trackRef.current;
+        if (!outer || !inner) return;
+        if (outer.scrollWidth <= outer.clientWidth + 4) return;
+        if (outer.scrollLeft > AT_FIRST_CARD_MAX_SCROLL_PX) return;
 
-      animPlaying = true;
-      inner.classList.add("pkg-carousel-bounce-hint");
-      const onEnd = () => {
-        inner.classList.remove("pkg-carousel-bounce-hint");
-        inner.removeEventListener("animationend", onEnd);
-        animPlaying = false;
-      };
-      inner.addEventListener("animationend", onEnd, { once: true });
+        animPlaying = true;
+        inner.classList.add("pkg-carousel-bounce-hint");
+        const onEnd = () => {
+          inner.classList.remove("pkg-carousel-bounce-hint");
+          inner.removeEventListener("animationend", onEnd);
+          animPlaying = false;
+        };
+        inner.addEventListener("animationend", onEnd, { once: true });
+      });
     }
 
     function onDocumentTouchStart(e: TouchEvent) {
@@ -215,7 +222,20 @@ export function PackageCarouselStrip({
         >
           {rows.map((pkg) => (
             <div key={pkg.id} className={packageCarouselCardShell}>
-              <DynamicWeddingPackageCard pkg={pkg} />
+              {mode === "pick" ? (
+                <DynamicWeddingPackageCardEmbed pkg={pkg} />
+              ) : (
+                <Suspense
+                  fallback={
+                    <div
+                      className="h-[42rem] w-full shrink-0 animate-pulse rounded-2xl border border-border bg-muted/70 md:h-[56rem]"
+                      aria-hidden
+                    />
+                  }
+                >
+                  <DynamicWeddingPackageCard pkg={pkg} />
+                </Suspense>
+              )}
             </div>
           ))}
         </div>

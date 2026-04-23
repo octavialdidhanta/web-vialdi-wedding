@@ -7,7 +7,7 @@ import { tiptapExtensions } from "@/admin/lib/editorExtensions";
 import { TiptapBubbleMenu } from "@/admin/components/TiptapBubbleMenu";
 import { TiptapEditorToolbar } from "@/admin/components/TiptapEditorToolbar";
 import type { InternalLinkTarget } from "@/admin/lib/siteNavLinks";
-import { isPlaceholderTiptapDoc } from "@/admin/lib/htmlToTiptapDoc";
+import { isPlaceholderTiptapDoc } from "@/admin/lib/isPlaceholderTiptapDoc";
 import { resolveBlogMediaPublicUrl, uploadBlogImage } from "@/blog/supabaseBlog";
 
 function isImageFile(file: File): boolean {

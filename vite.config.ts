@@ -38,15 +38,18 @@ export default defineConfig(({ mode }) => {
 
   const originHints = [
     /**
-     * Jangan `preconnect` ke Supabase di HTML awal: beranda tidak memanggil API Supabase di rantai kritis,
-     * sehingga Lighthouse menandai preconnect sebagai tidak terpakai. `dns-prefetch` saja menghemat DNS
-     * nanti (blog, formulir, analytics batch) tanpa membuka koneksi TLS dini.
+     * Supabase: `dns-prefetch` untuk semua rute (ringan). `preconnect` TLS hanya untuk /blog/* lewat skrip
+     * setelah charset (lihat plugin `blog-supabase-preconnect`) agar PSI tidak menandai preconnect tak terpakai di beranda.
      */
     supabaseOrigin ? `<link rel="dns-prefetch" href="${supabaseOrigin}">` : "",
     `<link rel="dns-prefetch" href="https://www.googletagmanager.com">`,
   ]
     .filter(Boolean)
     .join("\n    ");
+
+  const blogSupabasePreconnectScript = supabaseOrigin
+    ? `<script>(function(){try{var p=location.pathname||"";if(p==="/blog"||p==="/blog/"||p.indexOf("/blog/")===0){var l=document.createElement("link");l.rel="preconnect";l.href=${JSON.stringify(supabaseOrigin)};l.setAttribute("crossorigin","");document.head.appendChild(l);}}catch(e){}})();<\/script>`
+    : "";
 
   return {
     plugins: [
@@ -57,6 +60,16 @@ export default defineConfig(({ mode }) => {
         name: "inject-origin-hints",
         transformIndexHtml(html) {
           return html.replace("<head>", `<head>\n    ${originHints}`);
+        },
+      },
+      {
+        name: "blog-supabase-preconnect",
+        transformIndexHtml(html) {
+          if (!blogSupabasePreconnectScript) return html;
+          return html.replace(
+            /(<meta\s+charset=["']UTF-8["']\s*\/?>)/i,
+            `$1\n    ${blogSupabasePreconnectScript}`,
+          );
         },
       },
       {
