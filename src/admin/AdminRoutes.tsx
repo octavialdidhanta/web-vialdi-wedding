@@ -18,7 +18,12 @@ const AdminPackagesListPage = lazy(() =>
   import("@/admin/pages/AdminPackagesListPage").then((m) => ({ default: m.AdminPackagesListPage })),
 );
 const AdminPackageEditorPage = lazy(() =>
-  import("@/admin/pages/AdminPackageEditorPage").then((m) => ({ default: m.AdminPackageEditorPage })),
+  import("@/admin/pages/AdminPackageEditorPage").then((m) => ({
+    default: m.AdminPackageEditorPage,
+  })),
+);
+const AdminShortLinksPage = lazy(() =>
+  import("@/admin/pages/AdminShortLinksPage").then((m) => ({ default: m.AdminShortLinksPage })),
 );
 
 function AdminSpinner() {
@@ -90,6 +95,14 @@ export function AdminRoutes() {
             element={
               <Suspense fallback={<AdminSpinner />}>
                 <AdminPackageEditorPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="links"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminShortLinksPage />
               </Suspense>
             }
           />

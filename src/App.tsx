@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { ShortLinkOutboundRedirect } from "@/share/ShortLinkOutboundRedirect";
 
 function DeferredAnalyticsLayout() {
   const [Layout, setLayout] = useState<null | ComponentType>(null);
@@ -107,6 +108,7 @@ export default function App() {
       <Suspense fallback={null}>
         <Routes>
           <Route element={<DeferredAnalyticsLayout />}>
+            <Route path="/l/:slug" element={<ShortLinkOutboundRedirect />} />
             <Route path="/service" element={<OurServicesPage />} />
             <Route element={<QueryRoutesLayout />}>
               <Route path="/" element={<HomePage />} />
