@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { useIsAgencySite } from "@/site/siteVariant";
 
 const MOBILE_DRAWER_MS = 300;
 
@@ -17,6 +18,7 @@ const navLinks = [
 
 export function Header() {
   const location = useLocation();
+  const isAgencySite = useIsAgencySite();
   const [mobileMounted, setMobileMounted] = useState(false);
   const [mobileEntered, setMobileEntered] = useState(false);
   const mobileMountedRef = useRef(false);
@@ -166,8 +168,17 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between px-6">
         <Link to="/" className="flex flex-wrap items-baseline gap-x-1 text-xl font-bold tracking-tight md:text-2xl">
-          <span className="text-navy">vialdi</span>
-          <span className="text-accent-orange">.id</span>
+          {isAgencySite ? (
+            <>
+              <span className="text-navy">vialdi</span>
+              <span className="text-accent-orange">.id</span>
+            </>
+          ) : (
+            <>
+              <span className="text-navy">Vialdi</span>
+              <span className="text-accent-orange">Wedding</span>
+            </>
+          )}
         </Link>
         <nav className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (

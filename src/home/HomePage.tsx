@@ -3,6 +3,7 @@ import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import { SectionTitle } from "@/home/SectionTitle";
 import { PaketUnggulanQuickNav, type PaketUnggulanKind } from "@/home/PaketUnggulanQuickNav";
+import { useIsAgencySite } from "@/site/siteVariant";
 import {
   PackageConsultOpenerProvider,
   usePackageConsultOpenerOptional,
@@ -96,6 +97,7 @@ export function HomePage() {
 
 function HomePageInner() {
   const packageConsultOpener = usePackageConsultOpenerOptional();
+  const isAgencySite = useIsAgencySite();
   const [blockLandscapeTouch, setBlockLandscapeTouch] = useState(false);
   const [paketKind, setPaketKind] = useState<PaketUnggulanKind>("ads");
 
@@ -174,17 +176,32 @@ function HomePageInner() {
         <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-accent-orange" />
-              Digital growth partner
+              <span
+                className={`h-2 w-2 rounded-full ${isAgencySite ? "bg-accent-orange" : "bg-[oklch(0.55_0.16_300)]"}`}
+              />
+              {isAgencySite ? "Digital growth partner" : "Wedding organizer & dokumentasi"}
             </span>
             <h1 className="mt-6 text-4xl font-bold leading-[1.12] tracking-tight text-navy md:text-5xl lg:text-[3.35rem]">
-              Tingkatkan penjualan Anda dengan{" "}
-              <span className="text-accent-orange">optimalisasi lead digital </span>
-              &amp; project management yang baik.
+              {isAgencySite ? (
+                <>
+                  Tingkatkan penjualan Anda dengan{" "}
+                  <span className="text-accent-orange">optimalisasi lead digital </span>
+                  &amp; project management yang baik.
+                </>
+              ) : (
+                <>
+                  Wujudkan pernikahan impian dengan{" "}
+                  <span className="bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] bg-clip-text text-transparent">
+                    dekorasi, busana, rias
+                  </span>
+                  , dan tim foto-video profesional.
+                </>
+              )}
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              Solusi end-to-end untuk akuisisi lead, aktivasi prospek, dan optimasi penjualan digital
-              — terbukti membantu puluhan brand bertumbuh.
+              {isAgencySite
+                ? "Solusi end-to-end untuk akuisisi lead, aktivasi prospek, dan optimasi penjualan digital — terbukti membantu puluhan brand bertumbuh."
+                : "Vialdi Wedding mendampingi Anda dari konsep, persiapan, hingga kenangan yang rapi di album dan layar — supaya hari H terasa ringan, indah, dan berkesan."}
             </p>
             <div className="mt-8">
               <a
@@ -206,8 +223,16 @@ function HomePageInner() {
           <div className="relative">
             <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
               <img
-                src="/hero-TpTHxbEx.jpg"
-                alt="Ilustrasi kolaborasi tim pemasaran digital Vialdi.ID"
+                src={
+                  isAgencySite
+                    ? "/hero-TpTHxbEx.jpg"
+                    : "https://jasafotowedding.com/wp-content/uploads/2024/02/Screenshot-2023-08-30-171354-e1707757094943.png"
+                }
+                alt={
+                  isAgencySite
+                    ? "Ilustrasi kolaborasi tim pemasaran digital Vialdi.ID"
+                    : "Pasangan pengantin dalam suasana pernikahan elegan"
+                }
                 width={720}
                 height={720}
                 sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
@@ -216,7 +241,7 @@ function HomePageInner() {
                 className="aspect-square w-full object-cover object-bottom"
               />
               <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">
-                Photo by Vialdi.ID
+                {isAgencySite ? "Photo by Vialdi.ID" : "Photo by jasafotowedding.com"}
               </p>
             </div>
             <div className="absolute -left-4 top-8 hidden rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm md:block">
