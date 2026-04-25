@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminDeleteAgencyPackage, adminListAgencyPackages } from "@/agency/agencyPackages";
+import { adminDeletePackage, adminListPackages } from "@/blog/weddingPackages";
+import { useIsWeddingSite } from "@/site/siteVariant";
 import { Button } from "@/share/ui/button";
 import {
   AlertDialog,
@@ -17,19 +19,22 @@ import { toast } from "sonner";
 
 export function AdminPackagesListPage() {
   const qc = useQueryClient();
+  const isWeddingSite = useIsWeddingSite();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ["admin", "packages", "list"],
-    queryFn: adminListAgencyPackages,
+    queryFn: isWeddingSite ? adminListPackages : adminListAgencyPackages,
   });
   const deleteRow = rows.find((r) => r.id === deleteId) ?? null;
 
   const del = useMutation({
-    mutationFn: adminDeleteAgencyPackage,
+    mutationFn: isWeddingSite ? adminDeletePackage : adminDeleteAgencyPackage,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin", "packages"] });
-      await qc.invalidateQueries({ queryKey: ["agency-packages-carousel"] });
+      await qc.invalidateQueries({
+        queryKey: [isWeddingSite ? "wedding-packages-carousel" : "agency-packages-carousel"],
+      });
       toast.success("Paket dihapus");
       setDeleteId(null);
     },
@@ -37,6 +42,7 @@ export function AdminPackagesListPage() {
   });
 
   function kindLabel(badgeLabel: string): string {
+    if (isWeddingSite) return badgeLabel.trim() || "-";
     const s = badgeLabel.trim().toLowerCase();
     if (s.includes("ads")) return "Paket Ads";
     if (s.includes("landing")) return "Paket Landing Page";
@@ -52,7 +58,9 @@ export function AdminPackagesListPage() {
           <div>
             <h1 className="text-2xl font-bold text-navy">Paket</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Kelola kartu Paket Ads (Supabase). Hanya yang terbit yang tampil di beranda.
+              {isWeddingSite
+                ? "Kelola kartu Paket Wedding (Supabase). Hanya yang terbit yang tampil di beranda."
+                : "Kelola kartu Paket Ads (Supabase). Hanya yang terbit yang tampil di beranda."}
             </p>
           </div>
           <Button asChild>
