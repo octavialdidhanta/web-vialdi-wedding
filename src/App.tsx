@@ -1,6 +1,36 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ShortLinkOutboundRedirect } from "@/share/ShortLinkOutboundRedirect";
+
+function MetaPixelRouteTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as {
+      loadMetaPixel?: () => void;
+      fbq?: (...args: unknown[]) => void;
+      __fbqLastTrackedUrl?: string | null;
+      __fbqInitialPageViewTracked?: boolean;
+    };
+
+    const url = location.pathname + location.search + location.hash;
+
+    // Ensure the Pixel library is available for all visitors (retargeting).
+    w.loadMetaPixel?.();
+
+    // Track PageView on SPA navigations (and avoid duplicates on first load).
+    if (typeof w.fbq === "function") {
+      if (w.__fbqLastTrackedUrl !== url) {
+        w.fbq("track", "PageView");
+        w.__fbqLastTrackedUrl = url;
+        w.__fbqInitialPageViewTracked = true;
+      }
+    }
+  }, [location.pathname, location.search, location.hash]);
+
+  return null;
+}
 
 function DeferredAnalyticsLayout() {
   const [Layout, setLayout] = useState<null | ComponentType>(null);
@@ -105,6 +135,7 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
+      <MetaPixelRouteTracker />
       <Suspense fallback={null}>
         <Routes>
           <Route element={<DeferredAnalyticsLayout />}>

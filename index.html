@@ -2,36 +2,25 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      name="facebook-domain-verification"
+      content="pu7w44p0mw1c59vjatomr4sypaikov"
+    />
     <!--
       GTM + tag di dalamnya (GA, Meta, TikTok, dll.) membebani main thread dan byte tidak terpakai di PSI.
       dataLayer tetap hidup; gtm.js dimuat setelah engagement pertama atau fallback setelah load (bot / bounce).
     -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      var __gtmBooted = false;
-      function loadGtm() {
-        if (__gtmBooted) return;
-        __gtmBooted = true;
-        (function (w, d, s, l, i) {
-          w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-          var f = d.getElementsByTagName(s)[0],
-            j = d.createElement(s),
-            dl = l != "dataLayer" ? "&l=" + l : "";
-          j.async = true;
-          j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
-          f.parentNode.insertBefore(j, f);
-        })(window, document, "script", "dataLayer", "GTM-N7LD8CX");
-      }
-      ["scroll", "pointerdown", "keydown", "touchstart"].forEach(function (ev) {
-        window.addEventListener(ev, loadGtm, { once: true, passive: true });
-      });
-      window.addEventListener(
-        "load",
-        function () {
-          setTimeout(loadGtm, 10000);
-        },
-        { once: true },
-      );
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != "dataLayer" ? "&l=" + l : "";
+        j.async = true;
+        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, "script", "dataLayer", "GTM-N7LD8CX");
     </script>
     <!-- End Google Tag Manager -->
     <meta
@@ -42,17 +31,16 @@
       name="description"
       content="Vialdi.ID — agensi pemasaran digital: strategi brand, iklan berbayar, konten & kreatif, website/landing page, serta pelaporan performa untuk pertumbuhan bisnis Anda."
     />
-    <meta name="facebook-domain-verification" content="83yvqt5q81ht4fug57n2225j7ny4rg" />
     <!-- Meta Pixel Code -->
     <script>
-      /**
-       * Performance: Meta Pixel is a top 3rd-party cost in Lighthouse mobile.
-       * Load it only after first user interaction (or after a long fallback delay).
-       */
       window.__fbPixelBooted = false;
+      window.__fbqLastTrackedUrl = window.__fbqLastTrackedUrl || null;
+      window.__fbqInitialPageViewTracked = window.__fbqInitialPageViewTracked || false;
+
       function loadMetaPixel() {
         if (window.__fbPixelBooted) return;
         window.__fbPixelBooted = true;
+
         !(function (f, b, e, v, n, t, s) {
           if (f.fbq) return;
           n = f.fbq = function () {
@@ -69,22 +57,19 @@
           s = b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t, s);
         })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-        fbq("init", "1609464219498099");
+
+        fbq("init", "490486342185584");
         fbq("track", "PageView");
+        window.__fbqInitialPageViewTracked = true;
+        window.__fbqLastTrackedUrl =
+          window.location.pathname + window.location.search + window.location.hash;
       }
-      // Allow app code to trigger boot on demand (SPA events).
+
+      // Expose for SPA route-change tracking (React Router) and app-triggered events.
       window.loadMetaPixel = loadMetaPixel;
 
-      ["scroll", "pointerdown", "keydown", "touchstart"].forEach(function (ev) {
-        window.addEventListener(ev, loadMetaPixel, { once: true, passive: true });
-      });
-      window.addEventListener(
-        "load",
-        function () {
-          setTimeout(loadMetaPixel, 15000);
-        },
-        { once: true },
-      );
+      // Install official pixel snippet behavior: load immediately.
+      loadMetaPixel();
     </script>
     <!-- End Meta Pixel Code -->
     <meta property="og:title" content="Vialdi.ID — Agensi Pemasaran Digital" />
@@ -116,7 +101,7 @@
         height="1"
         width="1"
         style="display: none"
-        src="https://www.facebook.com/tr?id=1609464219498099&ev=PageView&noscript=1"
+        src="https://www.facebook.com/tr?id=490486342185584&ev=PageView&noscript=1"
         alt=""
       />
     </noscript>

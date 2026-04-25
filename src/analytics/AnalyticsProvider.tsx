@@ -13,6 +13,7 @@ import {
   pushGtmVirtualPageView,
 } from "@/analytics/gtmDataLayer";
 import { Toaster } from "@/share/ui/sonner";
+import { trackMetaCustomEvent } from "@/analytics/metaPixel";
 
 const HEARTBEAT_MS = 15_000;
 const DEDUPE_MS = 30_000;
@@ -376,6 +377,15 @@ export function AnalyticsProvider() {
         is_internal_link: isInternal,
       });
 
+      trackMetaCustomEvent("user_interaction", {
+        page_path: path,
+        element_tag: tag,
+        element_label: labelForGtm(el),
+        track_key: trackKey,
+        link_url: targetUrl,
+        is_internal_link: isInternal,
+      });
+
       void sendAnalyticsBatch([evt], { deferNetwork: true });
     };
 
@@ -397,6 +407,12 @@ export function AnalyticsProvider() {
         return;
       }
       pushGtmFormSubmit({
+        page_path: path,
+        form_id: form.id || null,
+        action: form.getAttribute("action"),
+      });
+
+      trackMetaCustomEvent("form_submit", {
         page_path: path,
         form_id: form.id || null,
         action: form.getAttribute("action"),

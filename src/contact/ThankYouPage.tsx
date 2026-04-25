@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { pushGtmThankYouPageView } from "@/analytics/gtmDataLayer";
-import { metaPixelTrack } from "@/analytics/metaPixel";
+import { metaPixelTrack, trackMetaStandardEvent } from "@/analytics/metaPixel";
 import { Header } from "@/share/Header";
 
 export function ThankYouPage() {
@@ -11,6 +11,8 @@ export function ThankYouPage() {
 
   useEffect(() => {
     pushGtmThankYouPageView();
+    // Primary conversion for Meta retargeting/optimization.
+    trackMetaStandardEvent("Lead", { content_name: "thank-you-page" });
   }, []);
 
   useEffect(() => {
