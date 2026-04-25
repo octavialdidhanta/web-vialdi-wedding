@@ -19,6 +19,7 @@ import {
   Store,
   ShoppingBag,
 } from "lucide-react";
+import { isWeddingSite } from "@/site/siteVariant";
 
 /** Satu kartu layanan di halaman Service; `detailHref` opsional untuk tombol Lihat Detail. */
 export type ServiceOfferItem = {
@@ -40,14 +41,23 @@ export type ServiceSection = {
   ctaEmoji?: "👍";
 };
 
-export const servicesHero = {
+const servicesHeroAgency = {
   /** Dikosongkan agar hero mengikuti referensi (tanpa pill eyebrow). */
   eyebrow: "",
   title: "WE ARE THE DIGITAL MARKETING AND CREATIVE AGENCY",
   subtitle: "Solusi digital end-to-end untuk kembangkan bisnis Anda",
-};
+} as const;
 
-export const serviceSections: ServiceSection[] = [
+const servicesHeroWedding = {
+  eyebrow: "Vialdi Wedding — Wedding Organizer",
+  title: "KAMI MENGORGANISIR PERNIKAHAN ANDA DARI KONSEP HINGGA HARI BAHAGIA",
+  subtitle:
+    "Kami mendampingi perencanaan, menyelaraskan vendor yang relevan dengan acara Anda, dan mengawasi jalannya hari-H agar berjalan rapi sesuai kesepakatan.",
+} as const;
+
+export const servicesHero = isWeddingSite() ? servicesHeroWedding : servicesHeroAgency;
+
+const serviceSectionsAgency: ServiceSection[] = [
   {
     id: "end-to-end",
     title: "Solusi End to End Agency:",
@@ -135,6 +145,102 @@ export const serviceSections: ServiceSection[] = [
     ctaLabel: "Saya Ingin Konsultasi",
   },
 ];
+
+const serviceSectionsWedding: ServiceSection[] = [
+  {
+    id: "end-to-end",
+    title: "Perencanaan & Organisasi End-to-End:",
+    description: [
+      "Pernikahan menyatukan banyak jadwal, keluarga, dan vendor. Tanpa penataan, detail kecil bisa mengganggu momen besar.",
+      "Vialdi Wedding membantu merapikan konsep, anggaran kasar, komunikasi vendor, rundown, dan koordinasi di venue — supaya Anda tahu apa yang terjadi di setiap fase persiapan hingga resepsi.",
+    ],
+    fee: "Estimasi investasi — sesuai skala acara",
+    items: [
+      { title: "Konsultasi awal, konsep acara & gambaran anggaran", icon: Building2 },
+      { title: "Kurasi & koordinasi vendor", icon: BadgeCheck },
+      { title: "Rundown, protokol keluarga & briefing tim", icon: FileCheck2 },
+      { title: "Pelaksanaan di venue mengikuti jadwal & rundown", icon: CalendarDays },
+    ],
+    ctaLabel: "Diskusi dengan Wedding Planner",
+  },
+  {
+    id: "creative-social",
+    title: "Dokumentasi, Dekorasi & Penampilan Pengantin:",
+    description: [
+      "Layanan ini mencakup hal yang banyak pasangan butuhkan langsung: dokumentasi foto dan video, tata ruang dan pelaminan, rias, serta sewa busana — biasanya dihubungkan dengan vendor mitra yang sudah terbiasa bekerja dengan tim kami.",
+      "Rincian paket (durasi liputan, jumlah dekor, pilihan gaun, dll.) dibahas di awal agar sesuai budget dan venue Anda.",
+    ],
+    fee: "Paket disesuaikan — diskusi komponen",
+    items: [
+      { title: "Video cinematic & highlight resepsi", icon: Video },
+      { title: "Foto prewedding & dokumentasi wedding day", icon: Camera },
+      { title: "Desain undangan & stationery meja tamu", icon: PenTool },
+      { title: "Dekorasi pelaminan & tata ruang utama", icon: Flower2 },
+      { title: "Rias pengantin & penataan rambut (H+W)", icon: Sparkles },
+      { title: "Sewa gaun, beskap & aksesori pelengkap", icon: Shirt },
+      { title: "Editing video & penyusunan album digital", icon: Video },
+      { title: "Montase / tayangan video singkat di resepsi", icon: Youtube },
+    ],
+    ctaLabel: "Diskusi dengan Wedding Planner",
+  },
+  {
+    id: "ads",
+    title: "Hidangan, Hiburan & Kenyamanan Tamu:",
+    description: [
+      "Selain dekor dan dokumentasi, acara resepsi membutuhkan hidangan yang pas, alur tamu yang jelas, dan pendukung seperti MC atau musik.",
+      "Kami membantu merapatkan opsi bersama vendor mitra — bukan janji angka penjualan, melainkan penyelarasan kebutuhan porsi, waktu sajian, dan urutan acara di lapangan.",
+    ],
+    bullets: [
+      "Penyelarasan menu, jumlah pax, dan waktu sajian dengan vendor catering.",
+      "Bantuan konsep seating tamu keluarga dan meja utama sesuai protokol yang Anda inginkan.",
+      "Koordinasi cek sound, mic, dan urutan hiburan ringan di resepsi.",
+    ],
+    fee: "Komponen opsional — sesuai pilihan",
+    items: [
+      { title: "MC, host & hiburan musik ringan", icon: Mic2 },
+      { title: "Catering prasmanan & konsumsi tamu", icon: UtensilsCrossed },
+      { title: "Wedding cake & stasiun dessert", icon: Cake },
+      { title: "Saran rute, parkir & mobilitas tamu", icon: Car },
+    ],
+    ctaLabel: "Diskusi dengan Wedding Planner",
+  },
+  {
+    id: "website",
+    title: "Undangan & Informasi untuk Tamu:",
+    description: [
+      "Satu tautan undangan membantu tamu memahami jadwal, dress code, dan lokasi tanpa harus bertanya berulang ke mempelai.",
+      "Jika Anda membutuhkannya, kami bisa menghubungkan Anda dengan pembuat halaman undangan sederhana (mobile-friendly) dan daftar kehadiran; lingkup teknis disepakati di awal.",
+    ],
+    fee: "Opsional — sesuai kebutuhan",
+    items: [
+      { title: "Halaman undangan online & ringkasan acara", icon: Globe },
+      { title: "RSVP, daftar tamu & informasi praktis", icon: ClipboardList },
+    ],
+    ctaLabel: "Diskusi dengan Wedding Planner",
+  },
+  {
+    id: "marketplace",
+    title: "Koordinasi Vendor Mitra & Checklist Persiapan:",
+    description: [
+      "Pernikahan yang tenang biasanya punya satu benang merah: checklist yang jelas, siapa melakukan apa, dan kapan.",
+      "Kami membantu Anda mengurai prioritas, menyusun daftar vendor, dan memastikan koordinasi berjalan rapi menjelang hari-H.",
+    ],
+    bullets: [
+      "Checklist persiapan (H-90, H-30, H-7, H-1) yang bisa Anda ikuti.",
+      "Pemetaan kebutuhan vendor sesuai venue dan skala tamu.",
+      "Briefing singkat untuk vendor agar semua bergerak dalam alur yang sama.",
+    ],
+    fee: "Termasuk dalam pendampingan (sesuai scope)",
+    items: [
+      { title: "Checklist & timeline persiapan", icon: ClipboardList },
+      { title: "Koordinasi vendor mitra", icon: Handshake },
+      { title: "Pengingat jadwal penting", icon: CalendarDays },
+    ],
+    ctaLabel: "Diskusi dengan Wedding Planner",
+  },
+];
+
+export const serviceSections: ServiceSection[] = isWeddingSite() ? serviceSectionsWedding : serviceSectionsAgency;
 
 export const servicesCtas = {
   primaryHref: "/contact",
