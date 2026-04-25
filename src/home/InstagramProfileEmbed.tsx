@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { isWeddingSite } from "@/site/siteVariant";
 
-const PROFILE_URL = "https://www.instagram.com/vialdi.id/";
-const EMBED_URL = "https://www.instagram.com/vialdi.id/embed/";
+const IG_PROFILE_AGENCY = "vialdi.id";
+const IG_PROFILE_WEDDING = "jasafotowedding";
+
+function getIgProfileSlug(): string {
+  return isWeddingSite() ? IG_PROFILE_WEDDING : IG_PROFILE_AGENCY;
+}
+
+function buildProfileUrl(slug: string): string {
+  return `https://www.instagram.com/${slug}/`;
+}
+
+function buildEmbedUrl(slug: string): string {
+  return `https://www.instagram.com/${slug}/embed/`;
+}
 
 /** Jika iframe tidak memicu `load` (mis. koneksi macet), tampilkan ajakan muat ulang. */
 const IFRAME_LOAD_TIMEOUT_MS = 18_000;
@@ -32,6 +45,9 @@ export function InstagramProfileEmbed({
   /** `true`: gunakan wrapper max-width + padding. `false`: render konten tanpa wrapper (biar parent yang atur). */
   contained?: boolean;
 }) {
+  const profileSlug = getIgProfileSlug();
+  const PROFILE_URL = buildProfileUrl(profileSlug);
+  const EMBED_URL = buildEmbedUrl(profileSlug);
   const [iframeKey, setIframeKey] = useState(0);
   const [embedSrc, setEmbedSrc] = useState(EMBED_URL);
   const [loadStalled, setLoadStalled] = useState(false);
@@ -60,6 +76,11 @@ export function InstagramProfileEmbed({
     return () => clearLoadTimer();
   }, [iframeKey, clearLoadTimer]);
 
+  useEffect(() => {
+    setEmbedSrc(EMBED_URL);
+    setIframeKey((k) => k + 1);
+  }, [EMBED_URL]);
+
   const handleIframeLoad = useCallback(() => {
     clearLoadTimer();
     setLoadStalled(false);
@@ -72,7 +93,9 @@ export function InstagramProfileEmbed({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Ikuti kami
           </p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-navy md:text-3xl">@vialdi.id</h2>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-navy md:text-3xl">
+            @{profileSlug}
+          </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground md:mx-0 md:text-base">
             Cuplikan terbaru dari dokumentasi dan suasana di balik layar — langsung dari Instagram
             kami.
@@ -128,7 +151,7 @@ export function InstagramProfileEmbed({
         <iframe
           key={iframeKey}
           src={embedSrc}
-          title="Feed Instagram vialdi.id"
+          title={`Feed Instagram ${profileSlug}`}
           className={`block w-full max-w-full border-0 ${IFRAME_HEIGHT_MOBILE_CLASS} ${
             variant === "compact" ? IFRAME_HEIGHT_COMPACT_DESKTOP_CLASS : IFRAME_HEIGHT_DESKTOP_CLASS
           } md:w-[calc(100%+20px)] md:max-w-none md:-mr-5`}

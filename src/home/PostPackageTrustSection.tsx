@@ -13,6 +13,7 @@ import {
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
 import garansiSealImage from "@/home/assets/Untitled design (4).png";
+import { isWeddingSite } from "@/site/siteVariant";
 
 const InstagramProfileEmbed = lazy(() =>
   import("@/home/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
@@ -90,12 +91,16 @@ function CheckRow({ children }: { children: ReactNode }) {
 
 /** Kartu pembuka narasi — di mobile bisa diposisikan tepat di bawah carousel paket (lihat HomePage). */
 export function PostPackageTrustLeadCard() {
+  const wedding = isWeddingSite();
   return (
     <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card/80 px-3 py-5 text-center shadow-sm md:p-8 md:text-left">
-      <h3 className="text-lg font-bold text-navy md:text-xl">&ldquo;vialdi.id&rdquo; solusinya</h3>
+      <h3 className="text-lg font-bold text-navy md:text-xl">
+        {wedding ? "Vialdi Wedding — paketnya" : "“vialdi.id” solusinya"}
+      </h3>
       <p className="mt-4 font-wedding-serif text-base italic leading-relaxed text-muted-foreground md:text-lg">
-        Paket yang jelas deliverable-nya, optimasi yang terukur, dan komunikasi yang rapi — supaya
-        Anda bisa fokus closing, bukan bingung teknis.
+        {wedding
+          ? "Paket yang jelas deliverable-nya, tim yang paham ritme hari H, dan komunikasi yang rapi — supaya Anda bisa fokus menikmati momen."
+          : "Paket yang jelas deliverable-nya, optimasi yang terukur, dan komunikasi yang rapi — supaya Anda bisa fokus closing, bukan bingung teknis."}
       </p>
     </div>
   );
@@ -104,6 +109,7 @@ export function PostPackageTrustLeadCard() {
 /** Narasi trust & urgensi — di desktop bagian atas mengikuti blok paket; di mobile kartu pembuka dipisah ke HomePage. */
 export function PostPackageTrustSection() {
   const packageConsultOpener = usePackageConsultOpenerOptional();
+  const wedding = isWeddingSite();
 
   return (
     <div className="space-y-10 md:space-y-14">
@@ -120,16 +126,19 @@ export function PostPackageTrustSection() {
                 <h3 className="text-lg font-bold text-navy md:text-xl">Faktanya</h3>
                 <ul className="mt-4 space-y-3">
                   <CheckRow>
-                    Menjalankan iklan itu mudah — yang sulit adalah membuat hasilnya stabil dan bisa
-                    diprediksi.
+                    {wedding
+                      ? "Vendor dan jadwal itu banyak — yang sulit adalah menjaga alurnya tetap rapi di hari H."
+                      : "Menjalankan iklan itu mudah — yang sulit adalah membuat hasilnya stabil dan bisa diprediksi."}
                   </CheckRow>
                   <CheckRow>
-                    Tanpa tracking yang rapi, Anda tidak tahu apa yang benar-benar menghasilkan —
-                    budget habis tanpa insight.
+                    {wedding
+                      ? "Tanpa rundown & titik koordinasi yang jelas, momen penting mudah terlewat atau molor."
+                      : "Tanpa tracking yang rapi, Anda tidak tahu apa yang benar-benar menghasilkan — budget habis tanpa insight."}
                   </CheckRow>
                   <CheckRow>
-                    Creative dan funnel menentukan kualitas lead; budget hanya memperbesar apa yang
-                    sudah bekerja.
+                    {wedding
+                      ? "Tim yang siap dan briefing yang jelas menentukan ketenangan; dekor bagus saja tidak cukup."
+                      : "Creative dan funnel menentukan kualitas lead; budget hanya memperbesar apa yang sudah bekerja."}
                   </CheckRow>
                 </ul>
               </div>
@@ -137,15 +146,19 @@ export function PostPackageTrustSection() {
                 <h3 className="text-lg font-bold text-navy md:text-xl">Jika menunda mulai</h3>
                 <ul className="mt-4 space-y-3">
                   <CheckRow>
-                    Anda kehilangan waktu untuk fase testing dan mengumpulkan baseline data.
+                    {wedding
+                      ? "Anda kehilangan waktu untuk menyelaraskan vendor dan menutup celah kecil yang bisa jadi masalah besar."
+                      : "Anda kehilangan waktu untuk fase testing dan mengumpulkan baseline data."}
                   </CheckRow>
                   <CheckRow>
-                    Masalah yang sama cenderung berulang: budget bocor, creative cepat burn, dan lead
-                    tidak stabil.
+                    {wedding
+                      ? "Masalah yang sama cenderung muncul: jadwal molor, komunikasi simpang-siur, dan keputusan dibuat saat sudah mepet."
+                      : "Masalah yang sama cenderung berulang: budget bocor, creative cepat burn, dan lead tidak stabil."}
                   </CheckRow>
                   <CheckRow>
-                    Kompetitor yang lebih dulu optimasi biasanya mengunci audience & insight lebih
-                    cepat — biaya Anda bisa ikut naik.
+                    {wedding
+                      ? "Anda lebih rentan kena biaya tambahan atau opsi vendor semakin sempit, karena slot cepat penuh."
+                      : "Kompetitor yang lebih dulu optimasi biasanya mengunci audience & insight lebih cepat — biaya Anda bisa ikut naik."}
                   </CheckRow>
                 </ul>
               </div>
@@ -156,7 +169,7 @@ export function PostPackageTrustSection() {
         {/* Mobile: di bawah narasi; desktop: kolom kanan — grid 3×2 tanpa scroll area */}
         <div className="min-w-0 md:col-start-2 md:row-start-1">
           <h3 className="text-center text-lg font-bold text-navy md:text-left md:text-xl">
-            Risiko yang sering muncul jika optimasi ditunda
+            {wedding ? "Risiko yang sering muncul jika persiapan ditunda" : "Risiko yang sering muncul jika optimasi ditunda"}
           </h3>
           <Accordion
             type="single"
@@ -179,7 +192,7 @@ export function PostPackageTrustSection() {
         {/* Mobile: alasan dulu; desktop: kolom kanan (Tim berpengalaman di kiri area grid) */}
         <div className="min-w-0 md:col-start-2 md:row-start-1 md:flex md:h-full md:flex-col md:self-stretch">
           <h3 className="mx-auto max-w-3xl text-center text-base font-bold leading-tight text-navy md:mx-0 md:text-left md:text-lg">
-            Alasan memilih vialdi.id
+            {wedding ? "Alasan memilih Vialdi Wedding" : "Alasan memilih vialdi.id"}
           </h3>
           <div className="mx-auto mt-3 grid max-w-3xl grid-cols-2 gap-2 sm:max-w-4xl sm:grid-cols-4 sm:gap-2 md:mx-0 md:max-w-none md:gap-2.5">
             {alasanItems.map(({ label, Icon }) => (
@@ -220,9 +233,9 @@ export function PostPackageTrustSection() {
               Garansi kepuasan &amp; transparansi
             </h3>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">
-              Jika layanan tidak memenuhi kesepakatan tertulis yang disetujui bersama, kami diskusikan
-              solusi adil — termasuk opsi pengembalian dana sesuai kontrak. vialdi.id
-              mengutamakan kepercayaan jangka panjang, bukan janji kosong.
+              {wedding
+                ? "Jika layanan tidak memenuhi kesepakatan tertulis yang disetujui bersama, kami diskusikan solusi adil — termasuk opsi pengembalian dana sesuai kontrak. Vialdi Wedding mengutamakan kepercayaan jangka panjang, bukan janji kosong."
+                : "Jika layanan tidak memenuhi kesepakatan tertulis yang disetujui bersama, kami diskusikan solusi adil — termasuk opsi pengembalian dana sesuai kontrak. vialdi.id mengutamakan kepercayaan jangka panjang, bukan janji kosong."}
             </p>
             <p className="mt-4 text-xs text-muted-foreground">
               Detail garansi dan syarat pembatalan tercantum di proposal &amp; kontrak resmi.
