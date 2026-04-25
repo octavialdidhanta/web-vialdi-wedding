@@ -100,7 +100,7 @@ export function HeroAlbumKolaseVideo() {
           </p>
           <AutoplayYoutubeSlot
             videoId="mAoEjRTJKC4"
-            iframeTitle="Contoh album kolase untuk klien Vialdi Wedding"
+            iframeTitle="Contoh album kolase untuk klien Vialdi.ID"
             placeholder="Ketuk tombol putar untuk menonton cuplikan album (memuat pemutar YouTube)."
           />
         </div>
@@ -110,7 +110,7 @@ export function HeroAlbumKolaseVideo() {
           </p>
           <AutoplayYoutubeSlot
             videoId="K9anWRATqdo"
-            iframeTitle="Cuplikan video album Vialdi Wedding"
+            iframeTitle="Cuplikan video album Vialdi.ID"
             placeholder="Ketuk putar untuk cuplikan berikutnya (memuat pemutar YouTube)."
           />
         </div>

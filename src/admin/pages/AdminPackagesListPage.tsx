@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminDeletePackage, adminListPackages } from "@/blog/weddingPackages";
+import { adminDeleteAgencyPackage, adminListAgencyPackages } from "@/agency/agencyPackages";
 import { Button } from "@/share/ui/button";
 import {
   AlertDialog,
@@ -21,20 +21,29 @@ export function AdminPackagesListPage() {
 
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ["admin", "packages", "list"],
-    queryFn: adminListPackages,
+    queryFn: adminListAgencyPackages,
   });
   const deleteRow = rows.find((r) => r.id === deleteId) ?? null;
 
   const del = useMutation({
-    mutationFn: adminDeletePackage,
+    mutationFn: adminDeleteAgencyPackage,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin", "packages"] });
-      await qc.invalidateQueries({ queryKey: ["wedding-packages-carousel"] });
+      await qc.invalidateQueries({ queryKey: ["agency-packages-carousel"] });
       toast.success("Paket dihapus");
       setDeleteId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  function kindLabel(badgeLabel: string): string {
+    const s = badgeLabel.trim().toLowerCase();
+    if (s.includes("ads")) return "Paket Ads";
+    if (s.includes("landing")) return "Paket Landing Page";
+    if (s.includes("content")) return "Paket Content";
+    if (s.includes("full funnel")) return "Paket Full Funnel";
+    return badgeLabel.trim() || "-";
+  }
 
   return (
     <div className="p-6 md:p-8">
@@ -43,8 +52,7 @@ export function AdminPackagesListPage() {
           <div>
             <h1 className="text-2xl font-bold text-navy">Paket</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Kelola kartu pricelist (Supabase). Hanya yang terbit yang tampil di beranda & embed
-              blog.
+              Kelola kartu Paket Ads (Supabase). Hanya yang terbit yang tampil di beranda.
             </p>
           </div>
           <Button asChild>
@@ -60,8 +68,10 @@ export function AdminPackagesListPage() {
           <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Urutan</th>
+              <th className="px-4 py-3 font-medium">Jenis</th>
               <th className="px-4 py-3 font-medium">Slug</th>
               <th className="px-4 py-3 font-medium">Judul</th>
+              <th className="px-4 py-3 font-medium">Harga</th>
               <th className="px-4 py-3 font-medium">Terbit</th>
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
@@ -69,13 +79,13 @@ export function AdminPackagesListPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   Memuat…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   Belum ada paket. Jalankan migrasi Supabase atau buat paket baru.
                 </td>
               </tr>
@@ -83,8 +93,23 @@ export function AdminPackagesListPage() {
               rows.map((p) => (
                 <tr key={p.id} className="border-b border-border/60 last:border-0">
                   <td className="px-4 py-3 tabular-nums">{p.sort_order}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex rounded-full border border-border/60 bg-muted/30 px-2 py-1 text-[0.7rem] font-semibold text-navy">
+                      {kindLabel(p.badge_label)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{p.slug}</td>
                   <td className="px-4 py-3 font-medium text-navy">{p.title}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col items-start leading-tight">
+                      {p.strikethrough_price ? (
+                        <span className="text-xs text-muted-foreground line-through">{p.strikethrough_price}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                      <span className="font-semibold text-navy">{p.price}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">{p.is_published ? "Ya" : "Tidak"}</td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" asChild>

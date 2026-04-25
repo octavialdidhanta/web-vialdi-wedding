@@ -44,14 +44,14 @@ export function TermsPage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Daftar isi
             </p>
-            <ol className="mt-3 space-y-2 text-sm">
+            <ol className="mt-4 list-decimal space-y-2.5 pl-5 text-sm font-bold text-navy md:text-base">
               {termsSections.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="marker:font-bold">
                   <a
                     href={`#${s.id}`}
-                    className="font-medium text-navy underline-offset-4 transition-colors hover:text-accent-orange hover:underline"
+                    className="underline-offset-4 transition-colors hover:text-accent-orange hover:underline"
                   >
-                    {s.title}
+                    {s.title.replace(/^\d+\.\s*/, "")}
                   </a>
                 </li>
               ))}

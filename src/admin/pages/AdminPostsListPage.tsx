@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminDeletePost, adminFetchPosts } from "@/blog/supabaseBlog";
+import { adminDeletePost, adminFetchPosts } from "@/blog/agencySupabaseBlog";
 import type { PostStatus } from "@/blog/types";
 import { Button } from "@/share/ui/button";
 import {

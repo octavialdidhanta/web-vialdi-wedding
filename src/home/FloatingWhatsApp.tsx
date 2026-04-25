@@ -1,15 +1,10 @@
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import { buildSessionTouchEvent, getOrCreateSessionId, getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
-
-function toWaMeNumber(input: string): string {
-  return input.replace(/[^\d]/g, "");
-}
 
 /** `public/whatsapp logo.png` — space encoded for URL. */
 const WHATSAPP_LOGO_PNG = `${import.meta.env.BASE_URL}whatsapp%20logo.png`;
 
 export function FloatingWhatsApp() {
-  // Always route to /contact (dev + prod) so leads go through the form.
+  // Semua properti: arahkan ke form kontak → Edge Function → WhatsApp Cloud API (bukan wa.me).
   const href = "/contact";
 
   return (
@@ -35,4 +30,3 @@ export function FloatingWhatsApp() {
     </a>
   );
 }
-

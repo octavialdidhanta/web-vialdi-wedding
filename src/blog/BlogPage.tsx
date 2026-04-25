@@ -12,7 +12,7 @@ import {
   blogSearch,
 } from "@/blog/content";
 import { PostCard } from "@/blog/PostCard";
-import { getAllTagsFromPosts, getFeaturedPost } from "@/blog/supabaseBlog";
+import { getAllTagsFromPosts, getFeaturedPost } from "@/blog/agencySupabaseBlog";
 import { usePublishedPostsQuery } from "@/blog/useBlogQueries";
 import { useBlogMeta } from "@/blog/useBlogMeta";
 import { Footer } from "@/share/Footer";

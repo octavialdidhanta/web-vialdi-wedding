@@ -26,12 +26,20 @@ export type WeddingLeadStep1 = {
 export type WeddingLeadStep2 = {
   step: 2;
   id: string;
-  event_date: string;
+  /** Hanya untuk `web_id: vialdi-wedding` (tanggal acara). */
+  event_date?: string;
   event_time: string;
   event_address: string;
   attribution?: LeadAttributionPayload;
   analytics_session_id?: string;
   web_id?: AnalyticsWebId;
+  /** Wajib untuk `web_id: vialdi` — disimpan di `leads_vialdiid`. */
+  industry?: string;
+  business_type?: "B2B" | "B2C";
+  job_title?: string;
+  needs?: string;
+  office_address?: string;
+  ringkasan_kebutuhan?: string;
 };
 
 /** Step 1 & step 2 both return id + lead_id; step 2 adds whatsapp status from Edge Function. */
@@ -129,6 +137,7 @@ function isStaleStep1LeadRowMessage(message: string): boolean {
     m.includes("Lead sudah tidak bisa diubah dari form ini") ||
     // Dedupe constraint (single draft per session) can surface as a DB unique violation.
     /uq_leads_vialdi_wedding_step1_dedupe/i.test(m) ||
+    /uq_leads_vialdiid_step1_dedupe/i.test(m) ||
     /duplicate key value/i.test(m)
   );
 }

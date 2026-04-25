@@ -3,6 +3,7 @@ import { supabase } from "@/share/supabaseClient";
 export type MarketingShortLinkRow = {
   id: string;
   slug: string;
+  site_origin: string | null;
   pathname: string;
   utm_source: string | null;
   utm_medium: string | null;
@@ -18,6 +19,7 @@ export type MarketingShortLinkRow = {
 
 export type MarketingShortLinkInput = {
   slug: string;
+  site_origin?: string | null;
   pathname: string;
   utm_source?: string | null;
   utm_medium?: string | null;
@@ -48,15 +50,17 @@ export function isValidPathname(pathname: string): boolean {
 }
 
 /** Base URL for short links shown in admin (no trailing slash). */
-export function getPublicSiteOrigin(): string {
+export function getPublicSiteOrigin(override?: string | null | undefined): string {
+  const o0 = override?.trim();
+  if (o0) return o0.replace(/\/+$/, "");
   const o = (import.meta.env.VITE_PUBLIC_SITE_ORIGIN as string | undefined)?.trim();
   if (o) return o.replace(/\/+$/, "");
   if (typeof window !== "undefined") return window.location.origin;
   return "";
 }
 
-export function shortLinkPublicUrl(slug: string): string {
-  const base = getPublicSiteOrigin();
+export function shortLinkPublicUrl(slug: string, overrideOrigin?: string | null): string {
+  const base = getPublicSiteOrigin(overrideOrigin);
   return base ? `${base}/l/${encodeURIComponent(slug)}` : `/l/${encodeURIComponent(slug)}`;
 }
 
@@ -73,6 +77,7 @@ function clipUtmPreview(s: string | null | undefined): string | null {
  * Pratinjau URL panjang setelah redirect (sama struktur dengan Edge `link-redirect` + PUBLIC_SITE_ORIGIN).
  */
 export function buildLongUrlPreview(parts: {
+  site_origin?: string | null;
   pathname: string;
   utm_source?: string | null;
   utm_medium?: string | null;
@@ -80,7 +85,7 @@ export function buildLongUrlPreview(parts: {
   utm_content?: string | null;
   utm_term?: string | null;
 }): string {
-  const origin = getPublicSiteOrigin();
+  const origin = getPublicSiteOrigin(parts.site_origin);
   const pathname = (parts.pathname ?? "").trim() || "/";
   const params = new URLSearchParams();
   const pairs: [string, string | null | undefined][] = [
@@ -104,7 +109,7 @@ export async function adminListMarketingShortLinks(): Promise<MarketingShortLink
   const { data, error } = await supabase
     .from("marketing_short_links")
     .select(
-      "id, slug, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active, click_count, created_at, updated_at, created_by",
+      "id, slug, site_origin, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active, click_count, created_at, updated_at, created_by",
     )
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -126,6 +131,7 @@ export async function adminInsertMarketingShortLink(input: MarketingShortLinkInp
 
   const { error } = await supabase.from("marketing_short_links").insert({
     slug,
+    site_origin: emptyToNull(input.site_origin),
     pathname: input.pathname.trim(),
     utm_source: emptyToNull(input.utm_source),
     utm_medium: emptyToNull(input.utm_medium),
@@ -155,6 +161,7 @@ export async function adminUpdateMarketingShortLink(
     .from("marketing_short_links")
     .update({
       slug,
+      site_origin: emptyToNull(input.site_origin),
       pathname: input.pathname.trim(),
       utm_source: emptyToNull(input.utm_source),
       utm_medium: emptyToNull(input.utm_medium),

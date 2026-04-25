@@ -28,14 +28,16 @@ export function OurServicesPage() {
 
         <div className="relative mx-auto max-w-[90rem] px-4 py-8 md:px-6 md:py-20">
           <div className="max-w-4xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-accent-orange" />
-              {servicesHero.eyebrow}
-            </p>
-            <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-navy md:text-5xl lg:text-6xl">
+            {servicesHero.eyebrow ? (
+              <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-accent-orange" />
+                {servicesHero.eyebrow}
+              </p>
+            ) : null}
+            <h1 className="mt-6 text-4xl font-bold leading-[1.12] tracking-tight text-navy md:text-5xl lg:text-[3.35rem]">
               {servicesHero.title}
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
               {servicesHero.subtitle}
             </p>
 
@@ -114,7 +116,7 @@ export function OurServicesPage() {
                           : {})}
                         className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
                       >
-                        👉 {sec.ctaLabel}
+                        {sec.ctaEmoji === "👍" ? "👍" : "👉"} {sec.ctaLabel}
                       </Link>
                     </div>
                   </div>

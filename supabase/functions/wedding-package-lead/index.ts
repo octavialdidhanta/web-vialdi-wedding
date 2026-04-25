@@ -113,18 +113,31 @@ type Payload =
   | {
       step: 2;
       id: string;
-      event_date: string;
+      /** Hanya `leads_vialdi_wedding` — baris agensi tidak punya kolom ini. */
+      event_date?: string;
       event_time: string;
       event_address: string;
       analytics_session_id?: string;
+      /** Hanya `web_id=vialdi` (`leads_vialdiid`): isian form 3 langkah. */
+      industry?: string;
+      business_type?: string;
+      job_title?: string;
+      needs?: string;
+      office_address?: string;
+      ringkasan_kebutuhan?: string;
     };
 
 const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
 const TITLE = "Lead Website";
 const CATEGORY = "Wedding package card";
 const SOURCE = "Website";
-const CREATED_BY_NAME = "Vialdi Wedding";
+const CREATED_BY_NAME = "Vialdi.ID";
 const ASSIGNEE = "Unassigned";
+
+const AGENCY_TITLE = "Lead Website - Vialdi.ID";
+const AGENCY_CATEGORY = "Agency package card";
+const AGENCY_DB_SOURCE = "Agency package card";
+const AGENCY_CREATED_BY_NAME = "Web Vialdi.ID";
 
 const REPEAT_TTL_MS = 30 * 1000;
 
@@ -198,6 +211,76 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
+/**
+ * Peta analytics `web_id` → digit internasional 62… untuk cocok dengan `display_phone_number` di
+ * `organization_whatsapp_accounts` (tabel ini tidak punya kolom `web_id`).
+ */
+const WA_ORG_LINE_DIGITS: Record<string, string> = {
+  vialdi: "6281118891308",
+  "vialdi-wedding": "6281281714855",
+};
+
+function digitsOnly(s: unknown): string {
+  if (typeof s !== "string") return "";
+  return s.replace(/\D/g, "");
+}
+
+function normalizeIndonesiaMarketingDigits(raw: string): string {
+  const d = digitsOnly(raw);
+  if (!d) return "";
+  if (d.startsWith("62")) return d;
+  if (d.startsWith("0")) return `62${d.slice(1)}`;
+  if (d.startsWith("8")) return `62${d}`;
+  return d;
+}
+
+function pickPhoneNumberIdFromAccountRow(row: Record<string, unknown>): string {
+  for (const k of ["phone_number_id", "whatsapp_phone_number_id", "meta_phone_number_id"] as const) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function orgWhatsappRowIsActive(row: Record<string, unknown>): boolean {
+  const a = row["is_active"];
+  return a === null || a === undefined || a === true;
+}
+
+async function resolveWhatsappPhoneNumberIdFromOrgTable(
+  admin: ReturnType<typeof createClient>,
+  organizationId: string,
+  webId: string | null,
+): Promise<string | null> {
+  const wid = webId && String(webId).trim() ? String(webId).trim() : null;
+  const targetDigits = wid ? WA_ORG_LINE_DIGITS[wid] : null;
+  if (!targetDigits) return null;
+
+  try {
+    const { data: rows, error } = await admin
+      .from("organization_whatsapp_accounts")
+      .select("phone_number_id, display_phone_number, is_active")
+      .eq("organization_id", organizationId);
+    if (error) {
+      console.warn("wedding-package-lead: organization_whatsapp_accounts lookup failed", error.message);
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+    for (const raw of rows) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const row = raw as Record<string, unknown>;
+      if (!orgWhatsappRowIsActive(row)) continue;
+      const disp = normalizeIndonesiaMarketingDigits(String(row["display_phone_number"] ?? ""));
+      const pid = pickPhoneNumberIdFromAccountRow(row);
+      if (!pid || !disp) continue;
+      if (disp === targetDigits) return pid;
+    }
+  } catch (e) {
+    console.warn("wedding-package-lead: organization_whatsapp_accounts exception", e);
+  }
+  return null;
+}
+
 type WhatsappSendResult =
   | { ok: true; skipped?: boolean; skip_reason?: string; message_id?: string; response_text?: string }
   | { ok: false; skipped?: boolean; error: string; skip_reason?: string };
@@ -207,10 +290,125 @@ function getEnvOptional(name: string) {
   return v && v.trim().length ? v.trim() : null;
 }
 
-function parseTemplateBodyKeys(): string[] {
-  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_KEYS");
+/** `web_id` → suffix untuk env opsional `BASIS__SUFFIX` (mis. `WHATSAPP_TEMPLATE_NAME__VIALDI_WEDDING`). */
+function webIdToEnvSuffix(webId: string): string {
+  return webId
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/** Resolves `BASIS__SUFFIX` then `BASIS`; jika `webId` kosong hanya global (perilaku lama). */
+function getWhatsappTemplateEnvForWeb(baseName: string, webId: string | null): string | null {
+  const wid = webId && String(webId).trim() ? String(webId).trim() : null;
+  if (!wid) return getEnvOptional(baseName);
+  const suffix = webIdToEnvSuffix(wid);
+  if (!suffix) return getEnvOptional(baseName);
+  const specific = getEnvOptional(`${baseName}__${suffix}`);
+  if (specific) return specific;
+  return getEnvOptional(baseName);
+}
+
+type ResolvedWhatsappTemplateEnv = {
+  templateName: string;
+  templateLanguage: string;
+  bodyKeysRaw: string | null;
+  parameterNamesRaw: string | null;
+  componentsJsonRaw: string | null;
+};
+
+function resolveWhatsappTemplateEnv(webId: string | null): ResolvedWhatsappTemplateEnv {
+  const name = getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_NAME", webId) ?? "hello_world";
+  const lang = getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_LANGUAGE", webId) ?? "en_US";
+  return {
+    templateName: name.trim(),
+    templateLanguage: lang.trim(),
+    bodyKeysRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_BODY_KEYS", webId),
+    parameterNamesRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES", webId),
+    componentsJsonRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_COMPONENTS_JSON", webId),
+  };
+}
+
+/** Kolom DB non-kosong mengganti field env yang sesuai; tanpa baris DB = hanya env. */
+function mergeResolvedWhatsappTemplateEnv(
+  db: Partial<ResolvedWhatsappTemplateEnv> | null,
+  env: ResolvedWhatsappTemplateEnv,
+): ResolvedWhatsappTemplateEnv {
+  if (!db) return env;
+  const pick = (dbVal: string | undefined, fallback: string) => {
+    const t = typeof dbVal === "string" ? dbVal.trim() : "";
+    return t.length > 0 ? t : fallback;
+  };
+  const pickNull = (dbVal: string | null | undefined, fallback: string | null) => {
+    if (dbVal === undefined || dbVal === null) return fallback;
+    const t = String(dbVal).trim();
+    return t.length > 0 ? t : fallback;
+  };
+  return {
+    templateName: pick(db.templateName, env.templateName),
+    templateLanguage: pick(db.templateLanguage, env.templateLanguage),
+    bodyKeysRaw: pickNull(db.bodyKeysRaw, env.bodyKeysRaw),
+    parameterNamesRaw: pickNull(db.parameterNamesRaw, env.parameterNamesRaw),
+    componentsJsonRaw: pickNull(db.componentsJsonRaw, env.componentsJsonRaw),
+  };
+}
+
+async function loadOrganizationWhatsappTemplateFromDb(
+  admin: ReturnType<typeof createClient>,
+  organizationId: string,
+  webId: string,
+): Promise<Partial<ResolvedWhatsappTemplateEnv> | null> {
+  try {
+    const { data, error } = await admin
+      .from("organization_whatsapp_templates")
+      .select("template_name,template_language,body_keys,body_parameter_names,components_json")
+      .eq("organization_id", organizationId)
+      .eq("web_id", webId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) {
+      console.warn("wedding-package-lead: organization_whatsapp_templates read failed", error.message);
+      return null;
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    const d = data as Record<string, unknown>;
+    const out: Partial<ResolvedWhatsappTemplateEnv> = {};
+    if (typeof d.template_name === "string" && d.template_name.trim()) out.templateName = d.template_name.trim();
+    if (typeof d.template_language === "string" && d.template_language.trim()) {
+      out.templateLanguage = d.template_language.trim();
+    }
+    if (typeof d.body_keys === "string" && d.body_keys.trim()) out.bodyKeysRaw = d.body_keys.trim();
+    if (typeof d.body_parameter_names === "string" && d.body_parameter_names.trim()) {
+      out.parameterNamesRaw = d.body_parameter_names.trim();
+    }
+    if (typeof d.components_json === "string" && d.components_json.trim()) {
+      out.componentsJsonRaw = d.components_json.trim();
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch (e) {
+    console.warn("wedding-package-lead: organization_whatsapp_templates exception", e);
+    return null;
+  }
+}
+
+async function resolveWhatsappTemplateEnvWithDb(
+  admin: ReturnType<typeof createClient> | null | undefined,
+  organizationId: string | null | undefined,
+  webId: string | null,
+): Promise<ResolvedWhatsappTemplateEnv> {
+  const env = resolveWhatsappTemplateEnv(webId);
+  const org = organizationId?.trim();
+  const wid = webId?.trim();
+  if (!admin || !org || !wid) return env;
+  const partial = await loadOrganizationWhatsappTemplateFromDb(admin, org, wid);
+  return mergeResolvedWhatsappTemplateEnv(partial, env);
+}
+
+function parseTemplateBodyKeysFromResolved(resolved: ResolvedWhatsappTemplateEnv): string[] {
+  const raw = resolved.bodyKeysRaw;
   if (!raw) {
-    const name = (getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world").trim().toLowerCase();
+    const name = resolved.templateName.trim().toLowerCase();
     // `hello_world` (Meta sample) has no body placeholders — sending default `["name"]` triggers (#100).
     if (name === "hello_world") return [];
     // Default project template expects:
@@ -273,8 +471,11 @@ function deepInterpolateTemplateJson(value: unknown, ctx: Record<string, string>
  *   {"type":"button","sub_type":"url","index":"0","parameters":[{"type":"text","text":"{{lead_id}}"}]}
  * ]
  */
-function buildWhatsappTemplateComponentsFromEnv(ctx: Record<string, string>): WaTemplateComponent[] | null {
-  const raw = getEnvOptional("WHATSAPP_TEMPLATE_COMPONENTS_JSON");
+function buildWhatsappTemplateComponentsFromEnv(
+  ctx: Record<string, string>,
+  resolved: ResolvedWhatsappTemplateEnv,
+): WaTemplateComponent[] | null {
+  const raw = resolved.componentsJsonRaw;
   if (!raw) return null;
   if (/^__none__$/i.test(raw.trim())) return [];
 
@@ -301,8 +502,11 @@ function buildWhatsappTemplateComponentsFromEnv(ctx: Record<string, string>): Wa
  * `parameter_name` per entri. Daftar ini harus sejajar urutannya dengan `WHATSAPP_TEMPLATE_BODY_KEYS`.
  * Contoh: KEYS=name,email NAMES=nama_klien,email_klien
  */
-function parseTemplateBodyParameterNames(expectedCount: number): string[] | null {
-  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES");
+function parseTemplateBodyParameterNamesFromResolved(
+  expectedCount: number,
+  resolved: ResolvedWhatsappTemplateEnv,
+): string[] | null {
+  const raw = resolved.parameterNamesRaw;
   if (!raw) return null;
   const names = raw
     .split(",")
@@ -381,19 +585,31 @@ function formatTemplateMessageBody(args: {
 async function sendWhatsappTemplateToClient(args: {
   toE164: string;
   ctx: Record<string, string>;
+  /** Dari `public.organization_whatsapp_accounts`; jika kosong dipakai secret `WHATSAPP_PHONE_NUMBER_ID`. */
+  graphPhoneNumberId?: string | null;
+  /** Untuk env opsional `WHATSAPP_TEMPLATE_*__SUFFIX`; jika null hanya secret global (perilaku lama). */
+  webId?: string | null;
+  /** Jika ada: merge `public.organization_whatsapp_templates` di atas env. */
+  admin?: ReturnType<typeof createClient> | null;
+  organizationId?: string | null;
 }): Promise<WhatsappSendResult> {
+  const resolved = await resolveWhatsappTemplateEnvWithDb(
+    args.admin ?? null,
+    args.organizationId ?? null,
+    args.webId ?? null,
+  );
   const token = getEnvOptional("WHATSAPP_ACCESS_TOKEN");
-  const phoneNumberId = getEnvOptional("WHATSAPP_PHONE_NUMBER_ID");
-  const templateName = getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world";
-  const templateLanguage = getEnvOptional("WHATSAPP_TEMPLATE_LANGUAGE") ?? "en_US";
+  const phoneNumberId = (args.graphPhoneNumberId?.trim() || getEnvOptional("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
+  const templateName = resolved.templateName;
+  const templateLanguage = resolved.templateLanguage;
   const graphVersion = getEnvOptional("WHATSAPP_GRAPH_VERSION") ?? "v21.0";
 
   if (!token || !phoneNumberId) {
     const skip_reason = !token && !phoneNumberId
-      ? "missing_WHATSAPP_ACCESS_TOKEN_and_WHATSAPP_PHONE_NUMBER_ID"
+      ? "missing_WHATSAPP_ACCESS_TOKEN_and_WHATSAPP_PHONE_NUMBER_ID_or_org_whatsapp_account"
       : !token
         ? "missing_WHATSAPP_ACCESS_TOKEN"
-        : "missing_WHATSAPP_PHONE_NUMBER_ID";
+        : "missing_WHATSAPP_PHONE_NUMBER_ID_or_org_whatsapp_account";
     console.warn(`wedding-package-lead: WhatsApp API not called — ${skip_reason}`);
     return { ok: true, skipped: true, skip_reason };
   }
@@ -403,8 +619,8 @@ async function sendWhatsappTemplateToClient(args: {
     return { ok: false, error: "Invalid phone for WhatsApp (empty after normalization)" };
   }
 
-  const keys = parseTemplateBodyKeys();
-  const paramNames = parseTemplateBodyParameterNames(keys.length);
+  const keys = parseTemplateBodyKeysFromResolved(resolved);
+  const paramNames = parseTemplateBodyParameterNamesFromResolved(keys.length, resolved);
   const parameters = keys.map((k, i) => {
     const p: Record<string, unknown> = {
       type: "text",
@@ -422,7 +638,7 @@ async function sendWhatsappTemplateToClient(args: {
     name: templateName,
     language: { code: templateLanguage },
   };
-  const envComponents = buildWhatsappTemplateComponentsFromEnv(args.ctx);
+  const envComponents = buildWhatsappTemplateComponentsFromEnv(args.ctx, resolved);
   if (envComponents && envComponents.length > 0) {
     template.components = envComponents;
   } else if (parameters.length > 0) {
@@ -484,10 +700,67 @@ type AdminClient = ReturnType<typeof createClient>;
 type WhatsappDbOkForSync = { conversation_id: string; message_id: string | null };
 type WhatsappDbResultForSync = WhatsappDbOkForSync | { error: string };
 
+type PackageLeadTable = "leads_vialdi_wedding" | "leads_vialdiid";
+
+const _ALLOWED_CLIENT_WEB_IDS = new Set(["vialdi", "vialdi-wedding"]);
+
+function packageLeadTableForWebId(webId: string | null): PackageLeadTable {
+  const w = (webId ?? "").trim();
+  if (w === "vialdi") return "leads_vialdiid";
+  return "leads_vialdi_wedding";
+}
+
+function crmLeadUpsertShapeForTable(table: PackageLeadTable): {
+  title: string;
+  category: string;
+  created_by_name: string;
+} {
+  if (table === "leads_vialdiid") {
+    return { title: AGENCY_TITLE, category: AGENCY_CATEGORY, created_by_name: AGENCY_CREATED_BY_NAME };
+  }
+  return { title: TITLE, category: CATEGORY, created_by_name: CREATED_BY_NAME };
+}
+
+function dbSourceForPackageTable(table: PackageLeadTable): string {
+  return table === "leads_vialdiid" ? AGENCY_DB_SOURCE : SOURCE;
+}
+
+async function loadPackageLeadRowById(args: {
+  admin: AdminClient;
+  id: string;
+}): Promise<
+  | { ok: true; table: PackageLeadTable; row: Record<string, unknown> }
+  | { ok: false; error: string }
+> {
+  const { data: vRow, error: vErr } = await args.admin
+    .from("leads_vialdiid")
+    .select("*")
+    .eq("id", args.id)
+    .maybeSingle();
+  if (vErr) return { ok: false, error: vErr.message };
+
+  const { data: wRow, error: wErr } = await args.admin
+    .from("leads_vialdi_wedding")
+    .select("*")
+    .eq("id", args.id)
+    .maybeSingle();
+  if (wErr) return { ok: false, error: wErr.message };
+
+  const hasV = Boolean(vRow && typeof vRow === "object");
+  const hasW = Boolean(wRow && typeof wRow === "object");
+  if (hasV && hasW) {
+    return { ok: false, error: "Ambiguous lead id (exists in multiple tables)" };
+  }
+  if (hasV) return { ok: true, table: "leads_vialdiid", row: vRow as Record<string, unknown> };
+  if (hasW) return { ok: true, table: "leads_vialdi_wedding", row: wRow as Record<string, unknown> };
+  return { ok: false, error: "Lead not found" };
+}
+
 async function ensureWeddingLeadMapping(args: {
   admin: AdminClient;
   systemUserId: string;
   resolvedWebId: string | null;
+  packageTable: PackageLeadTable;
   weddingRow: any;
   incoming: {
     name: string;
@@ -515,16 +788,17 @@ async function ensureWeddingLeadMapping(args: {
     code: "package",
   });
   const funnel_key = `${baseFunnelKey}:${identityHash.slice(0, 16)}`.slice(0, 200);
+  const crm = crmLeadUpsertShapeForTable(args.packageTable);
 
   const { data: lead, error: leadErr } = await args.admin
     .from("leads")
     .upsert(
       {
         client: args.incoming.name,
-        title: TITLE,
-        category: CATEGORY,
+        title: crm.title,
+        category: crm.category,
         created_by: args.systemUserId,
-        created_by_name: CREATED_BY_NAME,
+        created_by_name: crm.created_by_name,
         assignee: ASSIGNEE,
         organization_id: ORG_ID,
         phone_number: args.incoming.phone_number,
@@ -567,7 +841,7 @@ async function ensureWeddingLeadMapping(args: {
   if (!weddingId) return { ok: false, error: "Wedding lead row missing id" };
 
   const { error: linkErr } = await args.admin
-    .from("leads_vialdi_wedding")
+    .from(args.packageTable)
     .update({ lead_id: leadId, identity_hash: identityHash })
     .eq("id", weddingId);
 
@@ -854,19 +1128,44 @@ function okPayload(body: any): Payload | null {
 
   if (step === 2) {
     if (!nonEmpty(body?.id)) return null;
-    if (!nonEmpty(body?.event_date) || !isIsoDateOnly(body.event_date)) return null;
+    const webRaw = typeof body?.web_id === "string" ? body.web_id.trim() : "";
+    const isVialdiAgency = webRaw === "vialdi";
+    if (!isVialdiAgency) {
+      if (!nonEmpty(body?.event_date) || !isIsoDateOnly(body.event_date)) return null;
+    }
     if (!nonEmpty(body?.event_time)) return null;
     if (!nonEmpty(body?.event_address)) return null;
     const sidRaw = body?.analytics_session_id;
     const analytics_session_id =
       typeof sidRaw === "string" && sidRaw.trim().length > 0 && isUuid(sidRaw.trim()) ? sidRaw.trim() : undefined;
+    const industry = isVialdiAgency && nonEmpty(body?.industry) ? body.industry.trim().slice(0, 500) : undefined;
+    const business_type =
+      isVialdiAgency && (body?.business_type === "B2B" || body?.business_type === "B2C")
+        ? body.business_type
+        : undefined;
+    const job_title = isVialdiAgency && nonEmpty(body?.job_title) ? body.job_title.trim().slice(0, 500) : undefined;
+    const needs = isVialdiAgency && nonEmpty(body?.needs) ? body.needs.trim().slice(0, 500) : undefined;
+    const office_address =
+      isVialdiAgency && nonEmpty(body?.office_address) ? body.office_address.trim().slice(0, 2000) : undefined;
+    const ringkasan_kebutuhan =
+      isVialdiAgency && nonEmpty(body?.ringkasan_kebutuhan)
+        ? body.ringkasan_kebutuhan.trim().slice(0, 8000)
+        : undefined;
     return {
       step: 2,
       id: body.id.trim(),
-      event_date: body.event_date.trim(),
+      ...(!isVialdiAgency && nonEmpty(body?.event_date) && isIsoDateOnly(body.event_date)
+        ? { event_date: body.event_date.trim() }
+        : {}),
       event_time: body.event_time.trim().slice(0, 200),
       event_address: body.event_address.trim().slice(0, 8000),
       ...(analytics_session_id ? { analytics_session_id } : {}),
+      ...(industry ? { industry } : {}),
+      ...(business_type ? { business_type } : {}),
+      ...(job_title ? { job_title } : {}),
+      ...(needs ? { needs } : {}),
+      ...(office_address ? { office_address } : {}),
+      ...(ringkasan_kebutuhan ? { ringkasan_kebutuhan } : {}),
     };
   }
 
@@ -888,11 +1187,28 @@ function validateWeddingPayload(body: any): { ok: true; payload: Payload } | { o
 
   if (step === 2) {
     if (!nonEmpty(body?.id)) return { ok: false, error: "Missing id" };
-    if (!nonEmpty(body?.event_date)) return { ok: false, error: "Missing event_date (expected YYYY-MM-DD)" };
-    if (!isIsoDateOnly(body.event_date))
-      return { ok: false, error: "Invalid event_date (expected YYYY-MM-DD)" };
+    const webFromBody =
+      typeof body?.web_id === "string" && _ALLOWED_CLIENT_WEB_IDS.has(body.web_id.trim())
+        ? body.web_id.trim()
+        : null;
+    if (webFromBody !== "vialdi") {
+      if (!nonEmpty(body?.event_date)) return { ok: false, error: "Missing event_date (expected YYYY-MM-DD)" };
+      if (!isIsoDateOnly(body.event_date))
+        return { ok: false, error: "Invalid event_date (expected YYYY-MM-DD)" };
+    }
     if (!nonEmpty(body?.event_time)) return { ok: false, error: "Missing event_time" };
     if (!nonEmpty(body?.event_address)) return { ok: false, error: "Missing event_address" };
+
+    if (webFromBody === "vialdi") {
+      if (!nonEmpty(body?.industry)) return { ok: false, error: "Missing industry (bidang usaha)" };
+      if (body?.business_type !== "B2B" && body?.business_type !== "B2C") {
+        return { ok: false, error: "Invalid business_type (expected B2B or B2C)" };
+      }
+      if (!nonEmpty(body?.job_title)) return { ok: false, error: "Missing job_title" };
+      if (!nonEmpty(body?.needs)) return { ok: false, error: "Missing needs" };
+      if (!nonEmpty(body?.office_address)) return { ok: false, error: "Missing office_address" };
+      if (!nonEmpty(body?.ringkasan_kebutuhan)) return { ok: false, error: "Missing ringkasan_kebutuhan" };
+    }
   }
 
   const payload = okPayload(body);
@@ -958,6 +1274,18 @@ Deno.serve(async (req) => {
     if (!sessErr && sess?.web_id) resolvedWebId = String(sess.web_id);
   }
 
+  // Fallback routing when the session row isn't available yet (should be rare):
+  // the browser still sends `web_id` alongside the payload for observability.
+  if (!resolvedWebId) {
+    const rawWeb = rawPayload["web_id"];
+    if (typeof rawWeb === "string") {
+      const w = rawWeb.trim();
+      if (_ALLOWED_CLIENT_WEB_IDS.has(w)) resolvedWebId = w;
+    }
+  }
+
+  let packageTable: PackageLeadTable = packageLeadTableForWebId(resolvedWebId);
+
   // Step 1: insert — atau perbarui baris + leads + profile jika `id` (autosave),
   // atau satu baris step 1 per `analytics_session_id` (atomic via unique index + upsert).
   if (payload.step === 1) {
@@ -969,7 +1297,7 @@ Deno.serve(async (req) => {
     if (weddingRowId) {
       const p1 = { ...payload, id: weddingRowId };
       const { data: row, error: rowErr } = await admin
-        .from("leads_vialdi_wedding")
+        .from(packageTable)
         .select("*")
         .eq("id", p1.id)
         .single();
@@ -993,15 +1321,27 @@ Deno.serve(async (req) => {
             "Lead sudah terkirim. Untuk mengubah nomor/email, silakan mulai lead baru (tidak bisa update lead lama).",
           );
         } else {
+          const baseReset = {
+            step: 1,
+            submitted_at: null,
+            event_time: null,
+            event_address: null,
+            ...(packageTable === "leads_vialdi_wedding" ? { event_date: null } : {}),
+          };
+          const vialdiAgencyReset =
+            packageTable === "leads_vialdiid"
+              ? {
+                  industry: null,
+                  business_type: null,
+                  job_title: null,
+                  needs: null,
+                  office_address: null,
+                  ringkasan_kebutuhan: null,
+                }
+              : {};
           const { error: resetErr } = await admin
-            .from("leads_vialdi_wedding")
-            .update({
-              step: 1,
-              submitted_at: null,
-              event_date: null,
-              event_time: null,
-              event_address: null,
-            })
+            .from(packageTable)
+            .update({ ...baseReset, ...vialdiAgencyReset })
             .eq("id", p1.id);
           if (resetErr) return json({ error: resetErr.message }, { status: 500 });
         }
@@ -1014,6 +1354,7 @@ Deno.serve(async (req) => {
         admin,
         systemUserId,
         resolvedWebId,
+        packageTable,
         weddingRow: row,
         incoming: {
           name: p1.name,
@@ -1028,7 +1369,7 @@ Deno.serve(async (req) => {
       const leadId = ensured.leadId;
 
       const { error: wUp } = await admin
-        .from("leads_vialdi_wedding")
+        .from(packageTable)
         .update({
           name: p1.name,
           phone_number: p1.phone_number,
@@ -1077,7 +1418,7 @@ Deno.serve(async (req) => {
 
     const weddingWrite = canSessionUpsert
       ? await admin
-          .from("leads_vialdi_wedding")
+          .from(packageTable)
           .upsert(
             {
               organization_id: ORG_ID,
@@ -1088,7 +1429,7 @@ Deno.serve(async (req) => {
               package_label: payload.package_label,
               analytics_session_id: payload.analytics_session_id,
               step: 1,
-              source: SOURCE,
+              source: dbSourceForPackageTable(packageTable),
               ...(attrUpdate ?? {}),
             },
             // Uses generated column `step1_dedupe_key` (computed from analytics_session_id + step=1).
@@ -1097,7 +1438,7 @@ Deno.serve(async (req) => {
           .select("*")
           .single()
       : await admin
-          .from("leads_vialdi_wedding")
+          .from(packageTable)
           .insert({
             organization_id: ORG_ID,
             name: payload.name,
@@ -1107,7 +1448,7 @@ Deno.serve(async (req) => {
             package_label: payload.package_label,
             ...(payload.analytics_session_id ? { analytics_session_id: payload.analytics_session_id } : {}),
             step: 1,
-            source: SOURCE,
+            source: dbSourceForPackageTable(packageTable),
             ...(attrUpdate ?? {}),
           })
           .select("*")
@@ -1130,20 +1471,21 @@ Deno.serve(async (req) => {
       code: "package",
     });
     const funnel_key = `${baseFunnelKey}:${identityHash.slice(0, 16)}`.slice(0, 200);
+    const crm = crmLeadUpsertShapeForTable(packageTable);
     const { data: lead, error: leadErr } = await admin
       .from("leads")
       .upsert(
         {
         client: payload.name,
-        title: TITLE,
-        category: CATEGORY,
+        title: crm.title,
+        category: crm.category,
         created_by: systemUserId,
-        created_by_name: CREATED_BY_NAME,
+        created_by_name: crm.created_by_name,
         assignee: ASSIGNEE,
         organization_id: ORG_ID,
         phone_number: payload.phone_number,
         email: payload.email,
-        source: SOURCE,
+        source: dbSourceForPackageTable(packageTable),
         services: payload.package_label,
         web_id: resolvedWebId,
         funnel_key,
@@ -1174,7 +1516,7 @@ Deno.serve(async (req) => {
     if (profileErr) return json({ error: profileErr.message }, { status: 500 });
 
     const { error: linkErr } = await admin
-      .from("leads_vialdi_wedding")
+      .from(packageTable)
       .update({ lead_id: leadId })
       .eq("id", weddingLead.id);
 
@@ -1186,19 +1528,32 @@ Deno.serve(async (req) => {
   // Step 2 (final): detail acara + WhatsApp / tiket (setara step 3 contact-lead)
   const p2 = payload;
 
-  const { data: existing, error: existingErr } = await admin
-    .from("leads_vialdi_wedding")
-    .select("*")
-    .eq("id", p2.id)
-    .single();
+  const located = await loadPackageLeadRowById({ admin, id: p2.id });
+  if (!located.ok) return badRequest(located.error === "Lead not found" ? "Lead tidak ditemukan" : located.error);
+  const existing = located.row;
+  packageTable = located.table;
 
-  if (existingErr) return json({ error: existingErr.message }, { status: 500 });
-  if (!existing) return badRequest("Lead not found");
+  // If the client didn't send a session id on step 2, recover web_id from the stored session for CRM consistency.
+  if (!resolvedWebId) {
+    const sidMaybe =
+      typeof existing.analytics_session_id === "string" && isUuid(String(existing.analytics_session_id))
+        ? String(existing.analytics_session_id)
+        : undefined;
+    if (sidMaybe) {
+      const { data: sess, error: sessErr } = await admin
+        .from("analytics_sessions")
+        .select("web_id")
+        .eq("id", sidMaybe)
+        .maybeSingle();
+      if (!sessErr && sess?.web_id) resolvedWebId = String(sess.web_id);
+    }
+  }
 
   const ensured = await ensureWeddingLeadMapping({
     admin,
     systemUserId,
     resolvedWebId,
+    packageTable,
     weddingRow: existing,
     incoming: {
       name: String(existing?.name ?? ""),
@@ -1220,7 +1575,7 @@ Deno.serve(async (req) => {
   if (effectiveSessionId) {
     const thisIdentity = typeof existing.identity_hash === "string" ? String(existing.identity_hash).trim() : "";
     const { data: otherFinal, error: otherFinalErr } = await admin
-      .from("leads_vialdi_wedding")
+      .from(packageTable)
       .select("id")
       .eq("organization_id", ORG_ID)
       .eq("analytics_session_id", effectiveSessionId)
@@ -1234,19 +1589,79 @@ Deno.serve(async (req) => {
   }
 
   const pkg = String(existing.package_label ?? "").trim();
-  const servicesLine = `${pkg} — tanggal ${p2.event_date}, jam ${p2.event_time}`;
+  const agencyIndustry =
+    packageTable === "leads_vialdiid" && "industry" in p2 && typeof p2.industry === "string"
+      ? p2.industry.trim()
+      : "";
+  const agencyNeeds =
+    packageTable === "leads_vialdiid" && "needs" in p2 && typeof p2.needs === "string"
+      ? p2.needs.trim()
+      : "";
+  const p2EventDateWedding =
+    packageTable === "leads_vialdi_wedding" && "event_date" in p2 && typeof p2.event_date === "string"
+      ? p2.event_date.trim()
+      : "";
+  const servicesLine =
+    packageTable === "leads_vialdiid"
+      ? agencyIndustry && agencyNeeds
+        ? `${pkg} — ${agencyIndustry} · ${agencyNeeds} · kontak: ${p2.event_time}`
+        : `${pkg} — preferensi kontak: ${p2.event_time}`
+      : `${pkg} — tanggal ${p2EventDateWedding}, jam ${p2.event_time}`;
+  const ringkasan =
+    packageTable === "leads_vialdiid" &&
+    "ringkasan_kebutuhan" in p2 &&
+    typeof p2.ringkasan_kebutuhan === "string"
+      ? p2.ringkasan_kebutuhan.trim()
+      : "";
+  const officeAddr =
+    packageTable === "leads_vialdiid" &&
+    "office_address" in p2 &&
+    typeof p2.office_address === "string"
+      ? p2.office_address.trim()
+      : "";
   const notesBlock =
-    `Paket: ${pkg}\n` +
-    `Tanggal acara: ${p2.event_date}\n` +
-    `Jam acara: ${p2.event_time}\n` +
-    `Alamat lengkap:\n${p2.event_address}`;
+    packageTable === "leads_vialdiid"
+      ? `Paket: ${pkg}\n` +
+        `Bidang usaha: ${agencyIndustry || "—"}\n` +
+        `Jenis usaha: ${"business_type" in p2 ? String(p2.business_type ?? "") : "—"}\n` +
+        `Jabatan: ${"job_title" in p2 ? String(p2.job_title ?? "").trim() : "—"}\n` +
+        `Kebutuhan utama: ${agencyNeeds || "—"}\n` +
+        `Preferensi kontak: ${p2.event_time}\n` +
+        `Alamat kantor / domisili:\n${officeAddr || "—"}\n\n` +
+        `Ringkasan kebutuhan:\n${ringkasan || "—"}\n\n` +
+        `Detail tambahan (form):\n${p2.event_address}`
+      : `Paket: ${pkg}\n` +
+        `Tanggal acara: ${p2EventDateWedding}\n` +
+        `Jam acara: ${p2.event_time}\n` +
+        `Alamat lengkap:\n${p2.event_address}`;
+
+  const vialdiAgencyUpdate =
+    packageTable === "leads_vialdiid" &&
+    "industry" in p2 &&
+    typeof p2.industry === "string" &&
+    (p2.business_type === "B2B" || p2.business_type === "B2C")
+      ? {
+          industry: p2.industry.trim().slice(0, 500),
+          business_type: p2.business_type,
+          job_title: String(p2.job_title ?? "").trim().slice(0, 500),
+          needs: String(p2.needs ?? "").trim().slice(0, 500),
+          office_address: String(p2.office_address ?? "").trim().slice(0, 2000),
+          ringkasan_kebutuhan: String(p2.ringkasan_kebutuhan ?? "").trim().slice(0, 8000),
+        }
+      : {};
+
+  const weddingDateUpdate =
+    packageTable === "leads_vialdi_wedding" && typeof p2.event_date === "string" && isIsoDateOnly(p2.event_date)
+      ? { event_date: p2.event_date.trim() }
+      : {};
 
   const { error: upErr } = await admin
-    .from("leads_vialdi_wedding")
+    .from(packageTable)
     .update({
-      event_date: p2.event_date,
+      ...weddingDateUpdate,
       event_time: p2.event_time,
       event_address: p2.event_address,
+      ...vialdiAgencyUpdate,
       ...(effectiveSessionId ? { analytics_session_id: effectiveSessionId } : {}),
       step: 2,
       submitted_at: new Date().toISOString(),
@@ -1270,17 +1685,24 @@ Deno.serve(async (req) => {
     .eq("id", leadId);
   if (leadUpErr) return json({ error: leadUpErr.message }, { status: 500 });
 
+  const agencyJob =
+    packageTable === "leads_vialdiid" && "job_title" in p2 ? String(p2.job_title ?? "").trim() : "";
   const { error: profileUpErr } = await admin
     .from("lead_client_profiles")
     .update({
-      occupation: `Acara: ${p2.event_date} (${p2.event_time})`,
+      occupation:
+        packageTable === "leads_vialdiid"
+          ? agencyJob
+            ? `${agencyJob} · preferensi kontak: ${p2.event_time}`
+            : `Kampanye: kontak ${p2.event_time}`
+          : `Acara: ${p2EventDateWedding} (${p2.event_time})`,
       notes: notesBlock,
     })
     .eq("lead_id", leadId);
   if (profileUpErr) return json({ error: profileUpErr.message }, { status: 500 });
 
   const { data: finalRow, error: finalErr } = await admin
-    .from("leads_vialdi_wedding")
+    .from(packageTable)
     .select("*")
     .eq("id", p2.id)
     .single();
@@ -1288,31 +1710,66 @@ Deno.serve(async (req) => {
 
   const to = normalizePhone(String(finalRow?.phone_number ?? ""));
   const pkgLabel = String(finalRow?.package_label ?? "").trim();
-  const evDate = String(finalRow?.event_date ?? "").trim();
+  const evDateWedding =
+    packageTable === "leads_vialdi_wedding"
+      ? String((finalRow as Record<string, unknown>)?.event_date ?? "").trim()
+      : "";
   const evTime = String(finalRow?.event_time ?? "").trim();
   const evAddr = String(finalRow?.event_address ?? "").trim();
-  const jobLine = [evDate && `Tanggal ${evDate}`, evTime && `Jam ${evTime}`].filter(Boolean).join(" · ");
+  const jobLine =
+    packageTable === "leads_vialdiid"
+      ? [evTime && `Kontak: ${evTime}`].filter(Boolean).join(" · ")
+      : [evDateWedding && `Tanggal ${evDateWedding}`, evTime && `Jam ${evTime}`].filter(Boolean).join(" · ");
+
+  const rowIndustry = String(finalRow?.industry ?? "").trim();
+  const rowBusinessType = String(finalRow?.business_type ?? "").trim();
+  const rowNeeds = String(finalRow?.needs ?? "").trim();
+  const rowJobTitle = String(finalRow?.job_title ?? "").trim();
+  const rowOffice = String(finalRow?.office_address ?? "").trim();
 
   // Samakan kunci dengan contact-lead agar WHATSAPP_TEMPLATE_BODY_KEYS (template Vialdi.ID) terisi semua
   const ctx: Record<string, string> = {
     name: String(finalRow?.name ?? ""),
     email: String(finalRow?.email ?? ""),
     phone_number: String(finalRow?.phone_number ?? ""),
-    industry: pkgLabel || "Wedding",
-    business_type: "B2C",
-    job_title: jobLine || "Calon pengantin",
-    needs: pkgLabel || "Konsultasi paket wedding",
-    office_address: evAddr || "\u2014",
+    industry:
+      packageTable === "leads_vialdiid" && rowIndustry
+        ? rowIndustry
+        : pkgLabel || (packageTable === "leads_vialdiid" ? "Digital marketing" : "Wedding"),
+    business_type:
+      packageTable === "leads_vialdiid" && (rowBusinessType === "B2B" || rowBusinessType === "B2C")
+        ? rowBusinessType
+        : packageTable === "leads_vialdiid"
+          ? "B2B/B2C"
+          : "B2C",
+    job_title:
+      packageTable === "leads_vialdiid" && rowJobTitle
+        ? rowJobTitle
+        : jobLine || (packageTable === "leads_vialdiid" ? "Kontak utama" : "Calon pengantin"),
+    needs:
+      packageTable === "leads_vialdiid" && rowNeeds
+        ? rowNeeds
+        : pkgLabel || (packageTable === "leads_vialdiid" ? "Konsultasi paket pemasaran digital" : "Konsultasi paket wedding"),
+    office_address: (packageTable === "leads_vialdiid" && rowOffice ? rowOffice : evAddr) || "\u2014",
     lead_id: String(leadId),
     lead_vialdiid_id: String(p2.id),
     package_label: pkgLabel,
-    event_date: evDate,
+    event_date: packageTable === "leads_vialdiid" ? "\u2014" : evDateWedding,
     event_time: evTime,
     event_address: evAddr,
     leads_vialdi_wedding_id: String(p2.id),
+    ringkasan_kebutuhan: String((finalRow as Record<string, unknown>)?.ringkasan_kebutuhan ?? "").trim(),
   };
 
-  const wa = await sendWhatsappTemplateToClient({ toE164: to, ctx });
+  const graphPhoneNumberId = await resolveWhatsappPhoneNumberIdFromOrgTable(admin, ORG_ID, resolvedWebId);
+  const wa = await sendWhatsappTemplateToClient({
+    toE164: to,
+    ctx,
+    graphPhoneNumberId,
+    webId: resolvedWebId,
+    admin,
+    organizationId: ORG_ID,
+  });
   if (wa.ok && wa.skipped && "skip_reason" in wa && wa.skip_reason) {
     console.warn(`wedding-package-lead: lead ${leadId} saved; WhatsApp skipped: ${wa.skip_reason}`);
   }
@@ -1320,9 +1777,10 @@ Deno.serve(async (req) => {
     console.error(`wedding-package-lead: WhatsApp API error for lead ${leadId}:`, wa.error);
   }
 
-  const templateName = getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world";
-  const templateLanguage = getEnvOptional("WHATSAPP_TEMPLATE_LANGUAGE") ?? "en_US";
-  const phoneNumberId = getEnvOptional("WHATSAPP_PHONE_NUMBER_ID");
+  const waTemplateResolved = await resolveWhatsappTemplateEnvWithDb(admin, ORG_ID, resolvedWebId);
+  const templateName = waTemplateResolved.templateName;
+  const templateLanguage = waTemplateResolved.templateLanguage;
+  const phoneNumberId = (graphPhoneNumberId?.trim() || getEnvOptional("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
 
   let whatsapp_db:
     | { conversation_id: string; message_id: string | null }
@@ -1330,7 +1788,7 @@ Deno.serve(async (req) => {
     | null = null;
 
   if (wa.ok && !wa.skipped && phoneNumberId) {
-    const keys = parseTemplateBodyKeys();
+    const keys = parseTemplateBodyKeysFromResolved(waTemplateResolved);
     const messagePreview = formatTemplateMessageBody({
       templateName,
       keys,
@@ -1350,7 +1808,9 @@ Deno.serve(async (req) => {
       template: { name: templateName, language: templateLanguage },
       template_body_keys: keys,
       lead_id: leadId,
-      leads_vialdi_wedding_id: p2.id,
+      package_lead_table: packageTable,
+      leads_vialdi_wedding_id: packageTable === "leads_vialdi_wedding" ? p2.id : null,
+      leads_vialdiid_id: packageTable === "leads_vialdiid" ? p2.id : null,
       customer_e164: to,
       graph_wamid: effectiveWamid || null,
       parameters: Object.fromEntries(keys.map((k) => [k, getLeadField(ctx, k)])),

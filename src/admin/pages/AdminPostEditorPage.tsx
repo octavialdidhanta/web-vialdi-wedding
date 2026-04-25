@@ -15,7 +15,7 @@ import {
   adminDeletePost,
   uploadBlogImage,
   type AdminPostPayload,
-} from "@/blog/supabaseBlog";
+} from "@/blog/agencySupabaseBlog";
 import { mergePostTargets } from "@/admin/lib/siteNavLinks";
 import { useAdminAuth } from "@/admin/adminAuthContext";
 import { TiptapEditor } from "@/admin/components/TiptapEditor";

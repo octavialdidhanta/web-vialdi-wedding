@@ -2,25 +2,23 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import { SectionTitle } from "@/home/SectionTitle";
-import { PaketUnggulanQuickNav } from "@/home/PaketUnggulanQuickNav";
+import { PaketUnggulanQuickNav, type PaketUnggulanKind } from "@/home/PaketUnggulanQuickNav";
 import {
   PackageConsultOpenerProvider,
   usePackageConsultOpenerOptional,
 } from "@/home/PackageConsultOpenerContext";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
-import heroImage from "@/home/assets/hero/DSC00768_11zon.webp?w=720&format=webp";
-import heroImageSrcset from "@/home/assets/hero/DSC00768_11zon.webp?w=480;640;720;960;1280&format=webp&as=srcset";
 import type { ComponentType } from "react";
 
-const HeroAlbumKolaseVideo = lazy(() =>
-  import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
-);
-const WeddingPackageHighlight = lazy(() =>
-  import("@/home/WeddingPackageHighlight").then((m) => ({ default: m.WeddingPackageHighlight })),
+const AgencyPackageHighlight = lazy(() =>
+  import("@/home/AgencyPackageHighlight").then((m) => ({ default: m.AgencyPackageHighlight })),
 );
 const InstagramProfileEmbed = lazy(() =>
   import("@/home/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
+);
+const IndustryExperienceSection = lazy(() =>
+  import("@/home/IndustryExperienceSection").then((m) => ({ default: m.IndustryExperienceSection })),
 );
 const JanjiCompanionColumn = lazy(() =>
   import("@/home/JanjiCompanionColumn").then((m) => ({ default: m.JanjiCompanionColumn })),
@@ -99,6 +97,7 @@ export function HomePage() {
 function HomePageInner() {
   const packageConsultOpener = usePackageConsultOpenerOptional();
   const [blockLandscapeTouch, setBlockLandscapeTouch] = useState(false);
+  const [paketKind, setPaketKind] = useState<PaketUnggulanKind>("ads");
 
   useEffect(() => {
     let cancelled = false;
@@ -175,19 +174,17 @@ function HomePageInner() {
         <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-[oklch(0.55_0.16_300)]" />
-              Wedding organizer &amp; dokumentasi
+              <span className="h-2 w-2 rounded-full bg-accent-orange" />
+              Digital growth partner
             </span>
             <h1 className="mt-6 text-4xl font-bold leading-[1.12] tracking-tight text-navy md:text-5xl lg:text-[3.35rem]">
-              Wujudkan pernikahan impian dengan{" "}
-              <span className="bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] bg-clip-text text-transparent">
-                dekorasi, busana, rias
-              </span>
-              , dan tim foto-video profesional.
+              Tingkatkan penjualan Anda dengan{" "}
+              <span className="text-accent-orange">optimalisasi lead digital </span>
+              &amp; project management yang baik.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              Vialdi Wedding mendampingi Anda dari konsep, persiapan, hingga kenangan yang rapi di
-              album dan layar — supaya hari H terasa ringan, indah, dan berkesan.
+              Solusi end-to-end untuk akuisisi lead, aktivasi prospek, dan optimasi penjualan digital
+              — terbukti membantu puluhan brand bertumbuh.
             </p>
             <div className="mt-8">
               <a
@@ -209,9 +206,8 @@ function HomePageInner() {
           <div className="relative">
             <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
               <img
-                src={heroImage}
-                srcSet={heroImageSrcset}
-                alt="Pasangan pengantin dalam suasana pernikahan elegan"
+                src="/hero-TpTHxbEx.jpg"
+                alt="Ilustrasi kolaborasi tim pemasaran digital Vialdi.ID"
                 width={720}
                 height={720}
                 sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
@@ -220,7 +216,7 @@ function HomePageInner() {
                 className="aspect-square w-full object-cover object-bottom"
               />
               <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">
-                Photo by Vialdi Wedding
+                Photo by Vialdi.ID
               </p>
             </div>
             <div className="absolute -left-4 top-8 hidden rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm md:block">
@@ -236,15 +232,7 @@ function HomePageInner() {
           </div>
         </div>
 
-        <DeferUntilNearViewport placeholderClassName="min-h-[26rem] sm:min-h-[28rem] lg:min-h-[22rem]">
-          <Suspense
-            fallback={
-              <LazySectionFallback className="min-h-[26rem] sm:min-h-[28rem] lg:min-h-[22rem]" />
-            }
-          >
-            <HeroAlbumKolaseVideo />
-          </Suspense>
-        </DeferUntilNearViewport>
+        {/* HeroAlbumKolaseVideo removed */}
       </section>
 
       {/* Mobile: kategori → layanan → paket → kartu "solusinya" → janji + before/after → kutipan dokumentasi → sisa narasi post-paket → Instagram. Md+: kutipan tetap sebelum blok janji seperti desktop. */}
@@ -281,8 +269,8 @@ function HomePageInner() {
               className="text-left"
               align="left"
               title="Paket unggulan"
-              subtitle="Pilihan paket foto &amp; video + album, termasuk opsi foto only — detail final mengikuti tanggal, lokasi, dan add-on yang Anda pilih."
-              belowTitle={<PaketUnggulanQuickNav />}
+              subtitle="Pilih paket sesuai goal Anda — dari iklan, landing page, sampai full funnel. Detail final menyesuaikan budget, target, dan timeline."
+              belowTitle={<PaketUnggulanQuickNav active={paketKind} onChange={setPaketKind} />}
             />
           </div>
           <DeferUntilNearViewport
@@ -294,7 +282,17 @@ function HomePageInner() {
                 <LazySectionFallback className="min-h-[300px] w-full pb-3 md:min-h-[56rem] md:pb-4" />
               }
             >
-              <WeddingPackageHighlight />
+              <AgencyPackageHighlight
+                kind={
+                  paketKind === "landing"
+                    ? "landing"
+                    : paketKind === "content"
+                      ? "content"
+                      : paketKind === "fullfunnel"
+                        ? "fullfunnel"
+                        : "ads"
+                }
+              />
             </Suspense>
           </DeferUntilNearViewport>
           <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
@@ -304,7 +302,7 @@ function HomePageInner() {
               </Suspense>
             </DeferUntilNearViewport>
           </div>
-          <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 md:mt-10 md:block md:px-6 md:pt-10">
+          <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 pb-8 md:mt-10 md:block md:px-6 md:pt-10 md:pb-10">
             <DeferUntilNearViewport placeholderClassName="min-h-[12rem]">
               <Suspense fallback={<LazySectionFallback className="min-h-[12rem]" />}>
                 <PostPackageTrustSection />
@@ -317,8 +315,8 @@ function HomePageInner() {
         <section className="order-5 bg-background py-14 md:order-3 md:py-20">
           <div className="mx-auto max-w-4xl px-2.5 text-center md:px-6">
             <p className="font-wedding-serif text-xl font-bold leading-snug text-navy md:text-2xl lg:text-[1.65rem]">
-              Dokumentasi jernih, komunikasi transparan, dan tim yang paham ritme hari H — dari rumah
-              sederhana hingga venue hotel &amp; gedung.
+              Strategi jelas, eksekusi rapi, dan laporan transparan — dari setup awal sampai
+              optimasi yang terukur.
             </p>
           </div>
         </section>
@@ -342,7 +340,7 @@ function HomePageInner() {
         </section>
 
         {/* Narasi post-paket (tanpa kartu pembuka di mobile — kartu itu sudah di atas): di mobile setelah janji + before/after; di desktop sisi atas tetap di dalam blok paket. */}
-        <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-8 md:hidden">
+        <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-14 md:hidden">
           <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
             <DeferUntilNearViewport placeholderClassName="min-h-[16rem]">
               <Suspense fallback={<LazySectionFallback className="min-h-[16rem]" />}>
@@ -352,24 +350,23 @@ function HomePageInner() {
           </div>
         </section>
 
-        {/* Instagram */}
-        <section className="order-7 border-t border-border/60 bg-background py-10 md:order-6 md:py-14">
-          <DeferUntilNearViewport placeholderClassName="min-h-[440px] md:min-h-[1120px]">
-            <Suspense
-              fallback={<LazySectionFallback className="min-h-[440px] md:min-h-[1120px]" />}
-            >
-              <InstagramProfileEmbed />
-            </Suspense>
-          </DeferUntilNearViewport>
-        </section>
       </div>
+
+      {/* Pengalaman lintas industri */}
+      <section className="bg-background py-10 md:py-14">
+        <DeferUntilNearViewport placeholderClassName="min-h-[36rem] md:min-h-[30rem]">
+          <Suspense fallback={<LazySectionFallback className="min-h-[36rem] md:min-h-[30rem]" />}>
+            <IndustryExperienceSection />
+          </Suspense>
+        </DeferUntilNearViewport>
+      </section>
 
       {/* CTA */}
       <section className="bg-background">
         <div className="mx-auto max-w-4xl px-2.5 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
           <SectionTitle
             title="Mulai dari obrolan singkat"
-            subtitle="Ceritakan tanggal, venue, dan impian Anda. Kami bantu susun paket yang masuk akal dan menyenangkan."
+            subtitle="Ceritakan goal, target KPI, dan budget Anda. Kami bantu susun strategi dan eksekusi yang realistis—jelas deliverable, jelas next action."
           />
           <div className="mt-10 flex justify-start">
             <a
@@ -383,7 +380,7 @@ function HomePageInner() {
                 }
               }}
             >
-              Hubungi kami
+              Konsultasi gratis
             </a>
           </div>
         </div>

@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  adminFetchPackage,
-  adminUpsertPackage,
-  uploadPackageMedia,
-  weddingPackageSectionZ,
-  type WeddingPackageSection,
-  type WeddingPackageUpsert,
-} from "@/blog/weddingPackages";
+  adminFetchAgencyPackage,
+  adminUpsertAgencyPackage,
+  agencyPackageSectionZ,
+  uploadAgencyPackageMedia,
+  type AgencyPackageSection,
+  type AgencyPackageUpsert,
+} from "@/agency/agencyPackages";
 import { useAdminAuth } from "@/admin/adminAuthContext";
 import { Button } from "@/share/ui/button";
 import { Input } from "@/share/ui/input";
@@ -67,7 +67,7 @@ function addDaysLocal(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const defaultSections: WeddingPackageSection[] = [
+const defaultSections: AgencyPackageSection[] = [
   {
     id: "detail",
     title: "Detail",
@@ -78,7 +78,7 @@ const defaultSections: WeddingPackageSection[] = [
 
 type SectionKind = "bullets" | "bullet_items" | "bonus_lines";
 
-function kindOfSection(s: WeddingPackageSection): SectionKind {
+function kindOfSection(s: AgencyPackageSection): SectionKind {
   if (s.bullet_items?.length) return "bullet_items";
   if (s.bonus_lines?.length) return "bonus_lines";
   return "bullets";
@@ -99,7 +99,7 @@ export function AdminPackageEditorPage() {
 
   const { data: existing, isLoading } = useQuery({
     queryKey: ["admin", "packages", id],
-    queryFn: () => adminFetchPackage(id!),
+    queryFn: () => adminFetchAgencyPackage(id!),
     enabled: Boolean(!isNew && id),
   });
 
@@ -122,7 +122,13 @@ export function AdminPackageEditorPage() {
   const [badgeUrlOverride, setBadgeUrlOverride] = useState("");
   const [bestSellerPath, setBestSellerPath] = useState<string | null>(null);
   const [bestSellerUrlOverride, setBestSellerUrlOverride] = useState("");
-  const [sections, setSections] = useState<WeddingPackageSection[]>(defaultSections);
+  const [summary, setSummary] = useState("");
+  const [spentMin, setSpentMin] = useState<number>(0);
+  const [spentMax, setSpentMax] = useState<number>(0);
+  const [spentCurrency, setSpentCurrency] = useState("IDR");
+  const [spentPeriod, setSpentPeriod] = useState("per bulan");
+  const [feePercent, setFeePercent] = useState<number>(10);
+  const [sections, setSections] = useState<AgencyPackageSection[]>(defaultSections);
   const [advancedJsonOpen, setAdvancedJsonOpen] = useState(false);
   const [sectionsJson, setSectionsJson] = useState(() => JSON.stringify(defaultSections, null, 2));
 
@@ -136,6 +142,7 @@ export function AdminPackageEditorPage() {
     setBadgeLabel(existing.badge_label);
     setTitle(existing.title);
     setPackageLabel(existing.package_label);
+    setSummary(existing.summary ?? "");
     setStrikethroughPrice(existing.strikethrough_price ?? "");
     setPrice(existing.price);
     setPromoMarquee(existing.promo_marquee_text ?? "");
@@ -149,6 +156,11 @@ export function AdminPackageEditorPage() {
     setBadgeUrlOverride(existing.badge_image_url ?? "");
     setBestSellerPath(existing.best_seller_image_path);
     setBestSellerUrlOverride(existing.best_seller_image_url ?? "");
+    setSpentMin(Number(existing.spent_budget_min ?? 0));
+    setSpentMax(Number(existing.spent_budget_max ?? 0));
+    setSpentCurrency(existing.spent_budget_currency ?? "IDR");
+    setSpentPeriod(existing.spent_budget_period ?? "per bulan");
+    setFeePercent(Number(existing.fee_percent ?? 10));
     setSections(existing.sections);
     setSectionsJson(JSON.stringify(existing.sections, null, 2));
   }, [existing]);
@@ -162,10 +174,16 @@ export function AdminPackageEditorPage() {
     setSlug("paket-baru");
     setSortOrder(0);
     setIsPublished(false);
-    setBadgeLabel("Foto & video");
+    setBadgeLabel("Paket Ads");
     setTitle("");
     setPackageLabel("");
+    setSummary("");
     setPrice("");
+    setSpentMin(0);
+    setSpentMax(0);
+    setSpentCurrency("IDR");
+    setSpentPeriod("per bulan");
+    setFeePercent(10);
   }, [isNew, existing]);
 
   useEffect(() => {
@@ -180,9 +198,9 @@ export function AdminPackageEditorPage() {
         throw new Error("Tidak ada pengguna");
       }
       // Validate sections built from UI.
-      const parsed: WeddingPackageSection[] = [];
+      const parsed: AgencyPackageSection[] = [];
       for (const item of sections) {
-        const p = weddingPackageSectionZ.safeParse(item);
+        const p = agencyPackageSectionZ.safeParse(item);
         if (!p.success) {
           throw new Error(`Section tidak valid: ${JSON.stringify(item)}`);
         }
@@ -194,7 +212,7 @@ export function AdminPackageEditorPage() {
         throw new Error("Pilih tanggal & jam akhir promo untuk hitung mundur.");
       }
 
-      const payload: WeddingPackageUpsert = {
+      const payload: AgencyPackageUpsert = {
         id: isNew ? undefined : id,
         slug: slug.trim() || slugify(title) || "paket",
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -202,6 +220,7 @@ export function AdminPackageEditorPage() {
         badge_label: badgeLabel,
         title: title.trim(),
         package_label: packageLabel.trim() || title.trim(),
+        summary: summary.trim() || null,
         strikethrough_price: strikethroughPrice.trim() || null,
         price: price.trim(),
         promo_marquee_text: promoMarquee.trim() || null,
@@ -215,14 +234,19 @@ export function AdminPackageEditorPage() {
         promo_countdown_ends_at: promoEndsAt,
         footer_countdown_label: footerCountdownLabel.trim() || null,
         show_footer_countdown: showFooterCountdown,
+        spent_budget_min: Number.isFinite(spentMin) && spentMin > 0 ? spentMin : null,
+        spent_budget_max: Number.isFinite(spentMax) && spentMax > 0 ? spentMax : null,
+        spent_budget_currency: spentCurrency.trim() || "IDR",
+        spent_budget_period: spentPeriod.trim() || "per bulan",
+        fee_percent: Number.isFinite(feePercent) && feePercent > 0 ? feePercent : 10,
         sections: parsed,
       };
-      return adminUpsertPackage(payload, user.id);
+      return adminUpsertAgencyPackage(payload, user.id);
     },
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: ["admin", "packages"] });
       await qc.invalidateQueries({ queryKey: ["admin", "packages", row.id] });
-      await qc.invalidateQueries({ queryKey: ["wedding-packages-carousel"] });
+      await qc.invalidateQueries({ queryKey: ["agency-packages-carousel"] });
       toast.success("Paket disimpan");
       if (isNew) {
         navigate(`/admin/packages/${row.id}`, { replace: true });
@@ -243,7 +267,7 @@ export function AdminPackageEditorPage() {
     e.target.value = "";
     if (!f || !user?.id) return;
     try {
-      const path = await uploadPackageMedia(f, user.id);
+      const path = await uploadAgencyPackageMedia(f, user.id);
       setBadgePath(path);
       toast.success("Gambar badge diunggah");
     } catch (err) {
@@ -256,7 +280,7 @@ export function AdminPackageEditorPage() {
     e.target.value = "";
     if (!f || !user?.id) return;
     try {
-      const path = await uploadPackageMedia(f, user.id);
+      const path = await uploadAgencyPackageMedia(f, user.id);
       setBestSellerPath(path);
       toast.success("Gambar best seller diunggah");
     } catch (err) {
@@ -327,7 +351,17 @@ export function AdminPackageEditorPage() {
             Label badge (pill)
             <ReqMark />
           </Label>
-          <Input id="badge" value={badgeLabel} onChange={(e) => setBadgeLabel(e.target.value)} required />
+          <Select value={badgeLabel} onValueChange={(v) => setBadgeLabel(v)}>
+            <SelectTrigger id="badge" className="w-full">
+              <SelectValue placeholder="Pilih jenis paket" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Paket Ads">Paket Ads</SelectItem>
+              <SelectItem value="Paket Landing Page">Paket Landing Page</SelectItem>
+              <SelectItem value="Paket Content">Paket Content</SelectItem>
+              <SelectItem value="Paket Full Funnel">Paket Full Funnel</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -352,6 +386,52 @@ export function AdminPackageEditorPage() {
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="summary">Ringkasan (summary)</Label>
+          <Textarea
+            id="summary"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="1 kalimat padat untuk menjelaskan paket."
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="spentMin">Spent min (IDR)</Label>
+            <Input id="spentMin" type="number" value={spentMin} onChange={(e) => setSpentMin(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spentMax">Spent max (IDR)</Label>
+            <Input id="spentMax" type="number" value={spentMax} onChange={(e) => setSpentMax(Number(e.target.value))} />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="spentCurrency">Mata uang</Label>
+            <Input id="spentCurrency" value={spentCurrency} onChange={(e) => setSpentCurrency(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spentPeriod">Periode</Label>
+            <Input id="spentPeriod" value={spentPeriod} onChange={(e) => setSpentPeriod(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="feePercent">
+            Fee percent (%)
+            <ReqMark />
+          </Label>
+          <Input
+            id="feePercent"
+            type="number"
+            value={feePercent}
+            onChange={(e) => setFeePercent(Number(e.target.value))}
+            required
+          />
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="strike">Harga coret</Label>
@@ -363,7 +443,7 @@ export function AdminPackageEditorPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="price">
-              Harga utama
+              Label harga (mis. "Fee 10%")
               <ReqMark />
             </Label>
             <Input id="price" value={price} onChange={(e) => setPrice(e.target.value)} required />

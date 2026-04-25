@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import founderPhoto from "@/about-us/assets/founder.jpg";
 import {
   cta,
   founder,
@@ -131,7 +130,7 @@ export function AboutUsPage() {
           <div className="order-1 flex justify-center md:order-2 md:justify-end">
             <div className="rounded-full border-2 border-accent-orange p-1.5 shadow-sm">
               <img
-                src={founderPhoto}
+                src="/octa.jpeg"
                 alt={founder.imageAlt}
                 loading="lazy"
                 width={200}

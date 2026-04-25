@@ -80,7 +80,7 @@ import {
   setParagraphMeta,
   type CopiedMarksState,
 } from "@/admin/lib/blockCommands";
-import { resolveBlogMediaPublicUrl, uploadBlogImage } from "@/blog/supabaseBlog";
+import { resolveBlogMediaPublicUrl, uploadBlogImage } from "@/blog/agencySupabaseBlog";
 
 /** Radix menu item: hindari pencurian fokus dari ProseMirror agar mark/toggle bekerja pada seleksi. */
 function editorDropdownPointerDown(e: React.PointerEvent) {

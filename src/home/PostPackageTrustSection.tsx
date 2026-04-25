@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { usePackageConsultOpenerOptional } from "@/home/PackageConsultOpenerContext";
 import {
   Camera,
@@ -14,8 +14,12 @@ import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
 import garansiSealImage from "@/home/assets/Untitled design (4).png";
 
+const InstagramProfileEmbed = lazy(() =>
+  import("@/home/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
+);
+
 const triggerPurple =
-  "rounded-lg bg-[var(--package-purple-solid)] px-3 py-3.5 text-sm font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-[var(--package-purple-open)] md:px-4 [&>svg]:text-white";
+  "rounded-lg bg-accent-orange px-3 py-3.5 text-sm font-bold text-white hover:no-underline data-[state=open]:rounded-b-none data-[state=open]:bg-accent-orange md:px-4 [&>svg]:text-white";
 
 const contentMuted =
   "rounded-b-lg border border-t-0 border-border bg-[oklch(0.97_0.01_90)] px-3 pb-4 pt-3 text-[0.8125rem] leading-relaxed text-muted-foreground data-[state=closed]:border-0 md:px-4";
@@ -23,39 +27,39 @@ const contentMuted =
 const bookingRisks = [
   {
     id: "tanggal",
-    title: "Ketersediaan tanggal",
+    title: "Budget cepat habis",
     body:
-      "Fotografer wedding berkualitas jadwalnya padat. Menunda booking berarti risiko tanggal favorit sudah terisi klien lain — sehingga Anda perlu berkompromi pada waktu atau pilihan vendor.",
+      "Tanpa optimasi rutin, budget mudah “bocor” ke placement/audience yang kurang efektif. Akhirnya CPA/CPL naik dan learning susah stabil.",
   },
   {
     id: "kualitas",
-    title: "Kualitas fotografer",
+    title: "Tracking tidak rapi",
     body:
-      "Vendor terbukti biasanya habis lebih dulu. Jika booking mepet, Anda mungkin terpaksa memilih tim yang belum Anda riset mendalam, atau gaya kerjanya belum selaras dengan visi Anda.",
+      "Tanpa event/pixel/UTM yang benar, Anda tidak tahu apa yang sebenarnya menghasilkan. Keputusan jadi berdasarkan feeling, bukan data.",
   },
   {
     id: "rencana",
-    title: "Rencana kurang matang",
+    title: "Creative cepat burn",
     body:
-      "Pra-wedding meeting, rundown, dan konsep butuh waktu. Menunda berarti ruang diskusi lebih sempit — risiko miskomunikasi detail yang berujung pada hasil yang kurang optimal.",
+      "Kalau tidak ada cadence testing kreatif, performa biasanya turun pelan-pelan. CTR turun, CPM naik, hasil ikut melemah.",
   },
   {
     id: "biaya",
-    title: "Biaya tambahan",
+    title: "Funnel bocor",
     body:
-      "Beberapa vendor menerapkan biaya penahanan tanggal atau perubahan jadwal. Semakin dekat hari H, semakin tinggi potensi biaya mendadak yang sebenarnya bisa dihindari dengan booking lebih awal.",
+      "Iklan sudah jalan, tapi landing page/WA/form tidak siap. Prospek drop di tengah jalan dan cost per lead jadi mahal.",
   },
   {
     id: "stres",
-    title: "Stres persiapan",
+    title: "Kejar-kejaran deadline",
     body:
-      "Pernikahan sudah penuh checklist. Menunda dokumentasi menambah beban mental: mencari slot, membandingkan portofolio, dan cemas tidak dapat tim yang cocok di waktu yang tersisa.",
+      "Mulai terburu-buru membuat setup tidak rapi dan banyak revisi mendadak. Tim habis waktu di teknis, bukan di optimasi hasil.",
   },
   {
     id: "review",
-    title: "Review & referensi",
+    title: "Tidak ada playbook",
     body:
-      "Tanpa ulasan klien atau referensi jelas, sulit memprediksi chemistry dan profesionalisme di lapangan. Booking lebih awal memberi waktu untuk cek portofolio, testimoni, dan konsultasi tanpa terburu-buru.",
+      "Tanpa dokumentasi insight, masalah yang sama terulang. Padahal yang Anda butuh: pola yang bisa dipakai ulang untuk scale.",
   },
 ] as const;
 
@@ -74,7 +78,7 @@ function CheckRow({ children }: { children: ReactNode }) {
   return (
     <li className="flex gap-3 text-sm leading-relaxed text-foreground/90 md:text-[0.9375rem]">
       <span
-        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--package-purple-solid)] text-white"
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-orange text-white"
         aria-hidden
       >
         <Check className="h-3 w-3" strokeWidth={3} />
@@ -88,11 +92,10 @@ function CheckRow({ children }: { children: ReactNode }) {
 export function PostPackageTrustLeadCard() {
   return (
     <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card/80 px-3 py-5 text-center shadow-sm md:p-8 md:text-left">
-      <h3 className="text-lg font-bold text-navy md:text-xl">&ldquo;Vialdi Wedding&rdquo; solusinya</h3>
+      <h3 className="text-lg font-bold text-navy md:text-xl">&ldquo;vialdi.id&rdquo; solusinya</h3>
       <p className="mt-4 font-wedding-serif text-base italic leading-relaxed text-muted-foreground md:text-lg">
-        Dengan paket di bawah 10 juta, kami berkomitmen menghadirkan standar foto, komunikasi, dan
-        pengalaman layanan yang setara spirit vendor dokumentasi papan atas — tanpa melewati
-        transparansi harga di awal.
+        Paket yang jelas deliverable-nya, optimasi yang terukur, dan komunikasi yang rapi — supaya
+        Anda bisa fokus closing, bukan bingung teknis.
       </p>
     </div>
   );
@@ -108,7 +111,7 @@ export function PostPackageTrustSection() {
         <PostPackageTrustLeadCard />
       </div>
 
-      <div className="flex flex-col gap-8 md:grid md:grid-cols-[minmax(24rem,38rem)_minmax(0,1fr)] md:items-stretch md:gap-8 lg:grid-cols-[minmax(26rem,42rem)_minmax(0,1fr)] lg:gap-10">
+      <div className="flex flex-col gap-8 md:grid md:grid-cols-[minmax(24rem,38rem)_minmax(0,1fr)] md:items-start md:gap-8 lg:grid-cols-[minmax(26rem,42rem)_minmax(0,1fr)] lg:gap-10">
         {/* Mobile: narasi dulu; desktop: kolom kiri (kartu lebar seperti Garansi) */}
         <div className="min-w-0 md:col-start-1 md:row-start-1 md:self-stretch">
           <div className="flex h-full flex-col rounded-2xl border border-border bg-card px-4 py-5 shadow-md md:px-6 md:py-8">
@@ -117,27 +120,33 @@ export function PostPackageTrustSection() {
                 <h3 className="text-lg font-bold text-navy md:text-xl">Faktanya</h3>
                 <ul className="mt-4 space-y-3">
                   <CheckRow>
-                    Kita tidak pernah tahu kapan bisa kembali ke tempat yang sama dengan suasana yang
-                    sama.
+                    Menjalankan iklan itu mudah — yang sulit adalah membuat hasilnya stabil dan bisa
+                    diprediksi.
                   </CheckRow>
                   <CheckRow>
-                    Momen berharga tidak mengulang sendiri — merekalah yang membuat hari ini berarti
-                    untuk esok hari.
+                    Tanpa tracking yang rapi, Anda tidak tahu apa yang benar-benar menghasilkan —
+                    budget habis tanpa insight.
                   </CheckRow>
                   <CheckRow>
-                    Mengabadikan pernikahan secara profesional adalah cara menghormati cerita Anda:
-                    agar bisa dikenang jelas, jujur, dan indah ketika rambut sudah memutih.
+                    Creative dan funnel menentukan kualitas lead; budget hanya memperbesar apa yang
+                    sudah bekerja.
                   </CheckRow>
                 </ul>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-navy md:text-xl">Jika melewatkan promo terbuka</h3>
+                <h3 className="text-lg font-bold text-navy md:text-xl">Jika menunda mulai</h3>
                 <ul className="mt-4 space-y-3">
                   <CheckRow>
-                    Harga dan bundling bonus dapat berubah setelah periode promo ditutup.
+                    Anda kehilangan waktu untuk fase testing dan mengumpulkan baseline data.
                   </CheckRow>
-                  <CheckRow>Benefit promo yang sedang berjalan tidak otomatis diperpanjang.</CheckRow>
-                  <CheckRow>Kami tidak menjamin promo serupa tersedia di musim berikutnya.</CheckRow>
+                  <CheckRow>
+                    Masalah yang sama cenderung berulang: budget bocor, creative cepat burn, dan lead
+                    tidak stabil.
+                  </CheckRow>
+                  <CheckRow>
+                    Kompetitor yang lebih dulu optimasi biasanya mengunci audience & insight lebih
+                    cepat — biaya Anda bisa ikut naik.
+                  </CheckRow>
                 </ul>
               </div>
             </div>
@@ -147,7 +156,7 @@ export function PostPackageTrustSection() {
         {/* Mobile: di bawah narasi; desktop: kolom kanan — grid 3×2 tanpa scroll area */}
         <div className="min-w-0 md:col-start-2 md:row-start-1">
           <h3 className="text-center text-lg font-bold text-navy md:text-left md:text-xl">
-            Risiko yang sering muncul jika booking tanggal ditunda
+            Risiko yang sering muncul jika optimasi ditunda
           </h3>
           <Accordion
             type="single"
@@ -168,9 +177,9 @@ export function PostPackageTrustSection() {
 
       <div className="flex flex-col gap-8 md:grid md:grid-cols-[minmax(24rem,38rem)_minmax(0,1fr)] md:items-stretch md:gap-8 lg:grid-cols-[minmax(26rem,42rem)_minmax(0,1fr)] lg:gap-10">
         {/* Mobile: alasan dulu; desktop: kolom kanan (Tim berpengalaman di kiri area grid) */}
-        <div className="min-w-0 md:col-start-2 md:row-start-1">
+        <div className="min-w-0 md:col-start-2 md:row-start-1 md:flex md:h-full md:flex-col md:self-stretch">
           <h3 className="mx-auto max-w-3xl text-center text-base font-bold leading-tight text-navy md:mx-0 md:text-left md:text-lg">
-            Alasan memilih dokumentasi di Vialdi Wedding
+            Alasan memilih vialdi.id
           </h3>
           <div className="mx-auto mt-3 grid max-w-3xl grid-cols-2 gap-2 sm:max-w-4xl sm:grid-cols-4 sm:gap-2 md:mx-0 md:max-w-none md:gap-2.5">
             {alasanItems.map(({ label, Icon }) => (
@@ -179,10 +188,7 @@ export function PostPackageTrustSection() {
                 className="flex flex-col items-center rounded-lg border border-border/60 bg-card px-2 py-2.5 text-center shadow-sm md:rounded-xl md:px-2.5 md:py-3"
               >
                 <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white shadow-sm md:h-11 md:w-11 md:rounded-xl"
-                  style={{
-                    background: "linear-gradient(165deg, oklch(0.68 0.055 302), var(--package-purple-solid))",
-                  }}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-accent-orange shadow-sm md:h-11 md:w-11 md:rounded-xl"
                 >
                   <Icon className="h-5 w-5" aria-hidden strokeWidth={1.75} />
                 </div>
@@ -195,12 +201,12 @@ export function PostPackageTrustSection() {
         </div>
 
         {/* Mobile: di bawah alasan; desktop: kolom kiri, sejajar kartu Tim berpengalaman */}
-        <div className="mx-auto w-full max-w-lg md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none md:self-stretch">
+        <div className="mx-auto w-full max-w-lg md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
           <blockquote className="mx-auto mb-6 max-w-3xl text-center font-wedding-serif text-lg italic leading-relaxed text-muted-foreground md:mb-8 md:text-xl">
-            &ldquo;Bayangkan setiap kali merayakan anniversary, Anda dapat menyaksikan kembali keajaiban
-            pernikahan melalui koleksi foto yang kami abadikan dengan penuh perhatian.&rdquo;
+            &ldquo;Bayangkan setiap minggu Anda tahu apa yang bekerja, apa yang tidak, dan langkah apa
+            yang harus dilakukan untuk menaikkan leads.&rdquo;
           </blockquote>
-          <div className="flex h-full flex-col rounded-2xl border border-border bg-card px-3 py-5 text-center shadow-md md:p-8">
+          <div className="flex flex-col rounded-2xl border border-border bg-card px-4 py-6 text-center shadow-md md:p-8">
             <img
               src={garansiSealImage}
               alt="Garansi 100% uang kembali"
@@ -208,18 +214,20 @@ export function PostPackageTrustSection() {
               height={320}
               loading="lazy"
               decoding="async"
-              className="mx-auto h-auto w-52 max-w-full object-contain sm:w-60 md:w-72 lg:w-80"
+              className="mx-auto h-auto w-36 max-w-full object-contain sm:w-44 md:w-60"
             />
-            <h3 className="mt-6 text-lg font-bold text-navy md:text-xl">Garansi kepuasan &amp; transparansi</h3>
+            <h3 className="mt-5 text-lg font-bold text-navy md:mt-6 md:text-xl">
+              Garansi kepuasan &amp; transparansi
+            </h3>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">
               Jika layanan tidak memenuhi kesepakatan tertulis yang disetujui bersama, kami diskusikan
-              solusi adil — termasuk opsi pengembalian dana sesuarkan kontrak. Vialdi Wedding
+              solusi adil — termasuk opsi pengembalian dana sesuai kontrak. vialdi.id
               mengutamakan kepercayaan jangka panjang, bukan janji kosong.
             </p>
             <p className="mt-4 text-xs text-muted-foreground">
               Detail garansi dan syarat pembatalan tercantum di proposal &amp; kontrak resmi.
             </p>
-            <div className="mt-6 md:mt-auto md:pt-4">
+            <div className="mt-6">
               <a
                 href="#paket-dokumentasi"
                 data-track={TRACK_KEYS.contactCta}
@@ -236,6 +244,20 @@ export function PostPackageTrustSection() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Instagram (full width, sejajar header) */}
+      <div className="md:col-span-2">
+        <Suspense
+          fallback={
+            <div
+              className="min-h-[440px] animate-pulse rounded-2xl border border-border bg-muted/35 motion-reduce:animate-none md:min-h-[680px]"
+              aria-hidden
+            />
+          }
+        >
+          <InstagramProfileEmbed variant="compact" contained={false} />
+        </Suspense>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ type Args = {
   phone: string;
   email: string;
   /** Hanya jalankan autosave saat langkah 1 aktif. */
-  step: 1 | 2;
+  step: 1 | 2 | 3;
   /** Jika lead baru saja terkirim, hentikan autosave (TTL / dedupe). */
   locked?: boolean;
 };

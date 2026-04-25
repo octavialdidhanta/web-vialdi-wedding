@@ -1,0 +1,5 @@
+-- `public.organization_whatsapp_accounts` already exists in this project (see live schema).
+-- Edge Functions resolve Meta `phone_number_id` by matching `organization_id` + `display_phone_number`
+-- to the analytics `web_id` (vialdi vs vialdi-wedding), then fall back to `WHATSAPP_PHONE_NUMBER_ID`.
+--
+-- Do not recreate the table here — avoids conflicting DDL (e.g. missing whatsapp_business_account_id, web_id, …).

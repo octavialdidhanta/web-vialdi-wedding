@@ -7,7 +7,7 @@
  * Secrets:
  * - SUPABASE_URL
  * - SUPABASE_SERVICE_ROLE_KEY
- * - PUBLIC_SITE_ORIGIN (e.g. https://jasafotowedding.com, no trailing slash)
+ * - PUBLIC_SITE_ORIGIN (optional fallback; e.g. https://jasafotowedding.com, no trailing slash)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -18,6 +18,7 @@ const MAX_UTM_LEN = 200;
 type LinkRow = {
   id: string;
   slug: string;
+  site_origin: string | null;
   pathname: string;
   utm_source: string | null;
   utm_medium: string | null;
@@ -31,6 +32,11 @@ function mustGetEnv(name: string): string {
   const v = Deno.env.get(name);
   if (!v?.trim()) throw new Error(`Missing env: ${name}`);
   return v.trim();
+}
+
+function tryGetEnv(name: string): string | null {
+  const v = Deno.env.get(name);
+  return v?.trim() ? v.trim() : null;
 }
 
 function normalizeOrigin(raw: string): string {
@@ -110,13 +116,6 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  let origin: string;
-  try {
-    origin = normalizeOrigin(mustGetEnv("PUBLIC_SITE_ORIGIN"));
-  } catch {
-    return new Response("Server misconfiguration", { status: 500 });
-  }
-
   const slug = extractSlug(req.url);
   if (!slug) return notFound();
 
@@ -128,7 +127,7 @@ Deno.serve(async (req) => {
 
   const { data, error } = await supabase
     .from("marketing_short_links")
-    .select("id, slug, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active")
+    .select("id, slug, site_origin, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -137,6 +136,19 @@ Deno.serve(async (req) => {
 
   const row = data as LinkRow;
   if (!isValidPathname(row.pathname)) return notFound();
+
+  let origin = row.site_origin?.trim() || null;
+  if (!origin) {
+    origin = tryGetEnv("PUBLIC_SITE_ORIGIN");
+  }
+  if (!origin) {
+    return new Response("Server misconfiguration", { status: 500 });
+  }
+  try {
+    origin = normalizeOrigin(origin);
+  } catch {
+    return new Response("Server misconfiguration", { status: 500 });
+  }
 
   const location = buildLocation(origin, row);
 

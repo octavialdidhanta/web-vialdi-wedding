@@ -35,10 +35,6 @@ export function Footer() {
       </div>
       <div className="border-t border-white/15">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-6 py-4 text-xs text-primary-foreground/70 sm:flex-row sm:items-start sm:justify-between">
-          <p className="max-w-xl text-center sm:text-left">
-            Kami mencatat kunjungan anonim (tanpa fingerprint) untuk memperbaiki situs. Tidak
-            menyimpan data formulir kontak di analytics.
-          </p>
           <div className="flex flex-col items-center gap-2 sm:items-end">
             <span>©2025 All Rights Reserved.</span>
             <Link

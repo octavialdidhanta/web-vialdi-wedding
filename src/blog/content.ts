@@ -1,26 +1,21 @@
-/** Copy halaman blog indeks & label terkait artikel (Vialdi Wedding). */
+/** Copy halaman blog indeks & label terkait artikel (Vialdi.ID). */
 
 export const blogIndexSeo = {
-  title: "Blog — Vialdi Wedding | Inspirasi & tips pernikahan",
+  title: "Blog — Vialdi.ID | Insight pemasaran digital & studi kasus",
   description:
-    "Artikel ringan seputar persiapan pernikahan: organisasi acara, vendor, rundown, dokumentasi, dan ide dekor. Saring topik, cari judul, baca nyaman di ponsel maupun desktop.",
+    "Artikel singkat tentang strategi brand, iklan berbayar, konten, dan pengukuran performa — untuk tim pemasaran dan pemilik bisnis.",
 } as const;
 
 export const blogHero = {
-  eyebrow: "Jurnal Vialdi Wedding",
-  title: "Baca pelan-pelan—tiap artikel bisa jadi referensi saat Anda merencanakan hari bahagia.",
+  eyebrow: "Jurnal Vialdi.ID",
+  title: "Insight praktis untuk pertumbuhan bisnis Anda",
   subtitle:
-    "Saring topik, cari kata kunci, atau mulai dari tulisan sorotan kami. Halaman ini tetap ringan di layar lebar maupun di genggaman.",
-} as const;
-
-export const blogSearch = {
-  placeholder: "Cari judul, topik, atau ringkasan…",
-  ariaLabel: "Cari artikel blog",
+    "Dari framework strategi hingga eksekusi kampanye — kami rangkum pembelajaran lapangan agar Anda bisa mengambil keputusan lebih cepat.",
 } as const;
 
 export const blogFeatured = {
-  heading: "Sorotan",
-  badge: "Mulai dari sini",
+  heading: "Sorotan editor",
+  badge: "Pilihan tim",
 } as const;
 
 export const blogList = {
@@ -28,32 +23,36 @@ export const blogList = {
 } as const;
 
 export const blogEmpty = {
-  title: "Belum ada artikel yang cocok.",
-  hint: "Coba hapus filter atau kata kunci lain.",
-  resetLabel: "Reset pencarian & filter",
+  title: "Tidak ada artikel yang cocok",
+  hint: "Coba ubah kata kunci atau hapus filter topik.",
+  resetLabel: "Tampilkan semua artikel",
+} as const;
+
+export const blogSearch = {
+  placeholder: "Cari judul, ringkasan, atau topik…",
+  ariaLabel: "Cari artikel blog",
 } as const;
 
 export const blogCta = {
-  title: "Ingin merencanakan pernikahan bersama kami?",
+  title: "Butuh pendampingan eksekusi pemasaran?",
   subtitle:
-    "Ceritakan tanggal, gambaran venue, dan hal yang membuat Anda gelisah—tim kami membantu menyambungkan wawasan di blog dengan langkah nyata di lapangan.",
-  buttonLabel: "Jadwalkan konsultasi",
+    "Ceritakan target bisnis dan saluran yang ingin Anda perkuat — tim Vialdi.ID membantu merancang langkah terukur dari strategi hingga optimasi.",
+  buttonLabel: "Hubungi kami",
 } as const;
 
 export const blogPostMeta = {
-  /** Judul tab saat artikel ditemukan. */
-  documentTitle: (postTitle: string) => `${postTitle} — Blog Vialdi Wedding`,
-  notFoundDocumentTitle: "Artikel tidak ditemukan — Vialdi Wedding",
-  notFoundDescription: "Artikel blog tidak ditemukan.",
+  documentTitle: (postTitle: string) => `${postTitle} — Blog Vialdi.ID`,
+  notFoundDocumentTitle: "Artikel tidak ditemukan — Vialdi.ID",
+  notFoundDescription: "Artikel tidak ditemukan atau tautan sudah tidak berlaku.",
 } as const;
 
 export const blogPostUi = {
-  backToBlog: "Kembali ke arsip blog",
-  backToBlogShort: "← Kembali ke blog",
-  loadErrorHeading: "Gagal memuat",
+  loadErrorHeading: "Tidak dapat memuat artikel",
+  backToBlogShort: "Kembali ke blog",
   notFoundHeading: "Artikel tidak ditemukan",
-  notFoundSlugHint: "Slug tidak cocok dengan arsip kami.",
-  relatedEmpty: "Belum ada rekomendasi artikel lain.",
+  notFoundSlugHint: "Periksa penulisan tautan atau kembali ke daftar artikel.",
+  backToBlog: "Kembali ke daftar artikel",
+  relatedEmpty: "Belum ada artikel terkait untuk ditampilkan.",
   allPostsLink: "Lihat semua artikel",
-  contactCta: "Hubungi Vialdi Wedding",
+  contactCta: "Hubungi Vialdi.ID",
 } as const;

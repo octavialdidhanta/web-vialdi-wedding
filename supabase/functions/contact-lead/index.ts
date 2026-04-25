@@ -197,10 +197,124 @@ function getEnvOptional(name: string) {
   return v && v.trim().length ? v.trim() : null;
 }
 
-function parseTemplateBodyKeys(): string[] {
-  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_KEYS");
+/** `web_id` → suffix untuk env opsional `BASIS__SUFFIX` (mis. `WHATSAPP_TEMPLATE_NAME__VIALDI_WEDDING`). */
+function webIdToEnvSuffix(webId: string): string {
+  return webId
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/** Resolves `BASIS__SUFFIX` then `BASIS`; jika `webId` kosong hanya global (perilaku lama). */
+function getWhatsappTemplateEnvForWeb(baseName: string, webId: string | null): string | null {
+  const wid = webId && String(webId).trim() ? String(webId).trim() : null;
+  if (!wid) return getEnvOptional(baseName);
+  const suffix = webIdToEnvSuffix(wid);
+  if (!suffix) return getEnvOptional(baseName);
+  const specific = getEnvOptional(`${baseName}__${suffix}`);
+  if (specific) return specific;
+  return getEnvOptional(baseName);
+}
+
+type ResolvedWhatsappTemplateEnv = {
+  templateName: string;
+  templateLanguage: string;
+  bodyKeysRaw: string | null;
+  parameterNamesRaw: string | null;
+  componentsJsonRaw: string | null;
+};
+
+function resolveWhatsappTemplateEnv(webId: string | null): ResolvedWhatsappTemplateEnv {
+  const name = getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_NAME", webId) ?? "hello_world";
+  const lang = getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_LANGUAGE", webId) ?? "en_US";
+  return {
+    templateName: name.trim(),
+    templateLanguage: lang.trim(),
+    bodyKeysRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_BODY_KEYS", webId),
+    parameterNamesRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES", webId),
+    componentsJsonRaw: getWhatsappTemplateEnvForWeb("WHATSAPP_TEMPLATE_COMPONENTS_JSON", webId),
+  };
+}
+
+function mergeResolvedWhatsappTemplateEnv(
+  db: Partial<ResolvedWhatsappTemplateEnv> | null,
+  env: ResolvedWhatsappTemplateEnv,
+): ResolvedWhatsappTemplateEnv {
+  if (!db) return env;
+  const pick = (dbVal: string | undefined, fallback: string) => {
+    const t = typeof dbVal === "string" ? dbVal.trim() : "";
+    return t.length > 0 ? t : fallback;
+  };
+  const pickNull = (dbVal: string | null | undefined, fallback: string | null) => {
+    if (dbVal === undefined || dbVal === null) return fallback;
+    const t = String(dbVal).trim();
+    return t.length > 0 ? t : fallback;
+  };
+  return {
+    templateName: pick(db.templateName, env.templateName),
+    templateLanguage: pick(db.templateLanguage, env.templateLanguage),
+    bodyKeysRaw: pickNull(db.bodyKeysRaw, env.bodyKeysRaw),
+    parameterNamesRaw: pickNull(db.parameterNamesRaw, env.parameterNamesRaw),
+    componentsJsonRaw: pickNull(db.componentsJsonRaw, env.componentsJsonRaw),
+  };
+}
+
+async function loadOrganizationWhatsappTemplateFromDb(
+  admin: ReturnType<typeof createClient>,
+  organizationId: string,
+  webId: string,
+): Promise<Partial<ResolvedWhatsappTemplateEnv> | null> {
+  try {
+    const { data, error } = await admin
+      .from("organization_whatsapp_templates")
+      .select("template_name,template_language,body_keys,body_parameter_names,components_json")
+      .eq("organization_id", organizationId)
+      .eq("web_id", webId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) {
+      console.warn("contact-lead: organization_whatsapp_templates read failed", error.message);
+      return null;
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    const d = data as Record<string, unknown>;
+    const out: Partial<ResolvedWhatsappTemplateEnv> = {};
+    if (typeof d.template_name === "string" && d.template_name.trim()) out.templateName = d.template_name.trim();
+    if (typeof d.template_language === "string" && d.template_language.trim()) {
+      out.templateLanguage = d.template_language.trim();
+    }
+    if (typeof d.body_keys === "string" && d.body_keys.trim()) out.bodyKeysRaw = d.body_keys.trim();
+    if (typeof d.body_parameter_names === "string" && d.body_parameter_names.trim()) {
+      out.parameterNamesRaw = d.body_parameter_names.trim();
+    }
+    if (typeof d.components_json === "string" && d.components_json.trim()) {
+      out.componentsJsonRaw = d.components_json.trim();
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch (e) {
+    console.warn("contact-lead: organization_whatsapp_templates exception", e);
+    return null;
+  }
+}
+
+async function resolveWhatsappTemplateEnvWithDb(
+  admin: ReturnType<typeof createClient> | null | undefined,
+  organizationId: string | null | undefined,
+  webId: string | null,
+): Promise<ResolvedWhatsappTemplateEnv> {
+  const env = resolveWhatsappTemplateEnv(webId);
+  const org = organizationId?.trim();
+  const wid = webId?.trim();
+  if (!admin || !org || !wid) return env;
+  const partial = await loadOrganizationWhatsappTemplateFromDb(admin, org, wid);
+  return mergeResolvedWhatsappTemplateEnv(partial, env);
+}
+
+function parseTemplateBodyKeysFromResolved(resolved: ResolvedWhatsappTemplateEnv): string[] {
+  const raw = resolved.bodyKeysRaw;
   if (!raw) {
-    const name = (getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world").trim().toLowerCase();
+    const name = resolved.templateName.trim().toLowerCase();
     if (name === "hello_world") return [];
     // Default project template expects:
     // 1) greeting name, 2) Nama, 3) Tanggal Acara, 4) Jam Acara, 5) Paket
@@ -213,9 +327,73 @@ function parseTemplateBodyKeys(): string[] {
     .filter(Boolean);
 }
 
+type WaTemplateComponent = {
+  type: string;
+  sub_type?: string;
+  index?: string | number;
+  parameters?: Array<Record<string, unknown>>;
+  [k: string]: unknown;
+};
+
+function safeJsonParseArray(raw: string): unknown[] | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function interpolateTemplateString(input: string, ctx: Record<string, string>): string {
+  return input.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key) => {
+    const v = ctx[String(key)];
+    return nonEmptyTemplateParamText(typeof v === "string" ? v : "");
+  });
+}
+
+function deepInterpolateTemplateJson(value: unknown, ctx: Record<string, string>): unknown {
+  if (typeof value === "string") return interpolateTemplateString(value, ctx);
+  if (Array.isArray(value)) return value.map((v) => deepInterpolateTemplateJson(v, ctx));
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) out[k] = deepInterpolateTemplateJson(v, ctx);
+    return out;
+  }
+  return value;
+}
+
+function buildWhatsappTemplateComponentsFromEnv(
+  ctx: Record<string, string>,
+  resolved: ResolvedWhatsappTemplateEnv,
+): WaTemplateComponent[] | null {
+  const raw = resolved.componentsJsonRaw;
+  if (!raw) return null;
+  if (/^__none__$/i.test(raw.trim())) return [];
+
+  const arr = safeJsonParseArray(raw);
+  if (!arr) {
+    console.warn("contact-lead: invalid WHATSAPP_TEMPLATE_COMPONENTS_JSON (not a JSON array)");
+    return null;
+  }
+  const interpolated = deepInterpolateTemplateJson(arr, ctx);
+  if (!Array.isArray(interpolated)) return null;
+  const out: WaTemplateComponent[] = [];
+  for (const item of interpolated) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const obj = item as Record<string, unknown>;
+    if (typeof obj.type !== "string" || !obj.type.trim()) continue;
+    out.push(obj as WaTemplateComponent);
+  }
+  return out;
+}
+
 /** Sejajar urutan dengan `WHATSAPP_TEMPLATE_BODY_KEYS` untuk template body bernama (Meta). */
-function parseTemplateBodyParameterNames(expectedCount: number): string[] | null {
-  const raw = getEnvOptional("WHATSAPP_TEMPLATE_BODY_PARAMETER_NAMES");
+function parseTemplateBodyParameterNamesFromResolved(
+  expectedCount: number,
+  resolved: ResolvedWhatsappTemplateEnv,
+): string[] | null {
+  const raw = resolved.parameterNamesRaw;
   if (!raw) return null;
   const names = raw
     .split(",")
@@ -228,6 +406,12 @@ function parseTemplateBodyParameterNames(expectedCount: number): string[] | null
     return null;
   }
   return names;
+}
+
+/** Meta (#131008) menolak parameter body berteks kosong — wajib ada nilai. */
+function nonEmptyTemplateParamText(value: string): string {
+  const t = value.trim().slice(0, 1024);
+  return t.length > 0 ? t : "\u2014";
 }
 
 function getLeadField(ctx: Record<string, string>, key: string) {
@@ -285,14 +469,90 @@ function formatTemplateMessageBody(args: {
   return body.slice(0, 8000);
 }
 
+const WA_ORG_LINE_DIGITS: Record<string, string> = {
+  vialdi: "6281118891308",
+  "vialdi-wedding": "6281281714855",
+};
+
+function digitsOnly(s: unknown): string {
+  if (typeof s !== "string") return "";
+  return s.replace(/\D/g, "");
+}
+
+function normalizeIndonesiaMarketingDigits(raw: string): string {
+  const d = digitsOnly(raw);
+  if (!d) return "";
+  if (d.startsWith("62")) return d;
+  if (d.startsWith("0")) return `62${d.slice(1)}`;
+  if (d.startsWith("8")) return `62${d}`;
+  return d;
+}
+
+function pickPhoneNumberIdFromAccountRow(row: Record<string, unknown>): string {
+  for (const k of ["phone_number_id", "whatsapp_phone_number_id", "meta_phone_number_id"] as const) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function orgWhatsappRowIsActive(row: Record<string, unknown>): boolean {
+  const a = row["is_active"];
+  return a === null || a === undefined || a === true;
+}
+
+async function resolveWhatsappPhoneNumberIdFromOrgTable(
+  admin: ReturnType<typeof createClient>,
+  organizationId: string,
+  webId: string | null,
+): Promise<string | null> {
+  const wid = webId && String(webId).trim() ? String(webId).trim() : null;
+  const targetDigits = wid ? WA_ORG_LINE_DIGITS[wid] : null;
+  if (!targetDigits) return null;
+
+  try {
+    const { data: rows, error } = await admin
+      .from("organization_whatsapp_accounts")
+      .select("phone_number_id, display_phone_number, is_active")
+      .eq("organization_id", organizationId);
+    if (error) {
+      console.warn("contact-lead: organization_whatsapp_accounts lookup failed", error.message);
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+    for (const raw of rows) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const row = raw as Record<string, unknown>;
+      if (!orgWhatsappRowIsActive(row)) continue;
+      const disp = normalizeIndonesiaMarketingDigits(String(row["display_phone_number"] ?? ""));
+      const pid = pickPhoneNumberIdFromAccountRow(row);
+      if (!pid || !disp) continue;
+      if (disp === targetDigits) return pid;
+    }
+  } catch (e) {
+    console.warn("contact-lead: organization_whatsapp_accounts exception", e);
+  }
+  return null;
+}
+
 async function sendWhatsappTemplateToClient(args: {
   toE164: string;
   ctx: Record<string, string>;
+  graphPhoneNumberId?: string | null;
+  /** Untuk env opsional `WHATSAPP_TEMPLATE_*__SUFFIX`; jika null hanya secret global (perilaku lama). */
+  webId?: string | null;
+  admin?: ReturnType<typeof createClient> | null;
+  organizationId?: string | null;
 }): Promise<WhatsappSendResult> {
+  const resolved = await resolveWhatsappTemplateEnvWithDb(
+    args.admin ?? null,
+    args.organizationId ?? null,
+    args.webId ?? null,
+  );
   const token = getEnvOptional("WHATSAPP_ACCESS_TOKEN");
-  const phoneNumberId = getEnvOptional("WHATSAPP_PHONE_NUMBER_ID");
-  const templateName = getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world";
-  const templateLanguage = getEnvOptional("WHATSAPP_TEMPLATE_LANGUAGE") ?? "en_US";
+  const phoneNumberId = (args.graphPhoneNumberId?.trim() || getEnvOptional("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
+  const templateName = resolved.templateName;
+  const templateLanguage = resolved.templateLanguage;
   const graphVersion = getEnvOptional("WHATSAPP_GRAPH_VERSION") ?? "v21.0";
 
   if (!token || !phoneNumberId) {
@@ -304,11 +564,10 @@ async function sendWhatsappTemplateToClient(args: {
     return { ok: false, error: "Invalid phone for WhatsApp (empty after normalization)" };
   }
 
-  const keys = parseTemplateBodyKeys();
-  const paramNames = parseTemplateBodyParameterNames(keys.length);
+  const keys = parseTemplateBodyKeysFromResolved(resolved);
+  const paramNames = parseTemplateBodyParameterNamesFromResolved(keys.length, resolved);
   const parameters = keys.map((k, i) => {
-    const t = getLeadField(args.ctx, k).trim().slice(0, 1024);
-    const text = t.length > 0 ? t : "\u2014";
+    const text = nonEmptyTemplateParamText(getLeadField(args.ctx, k));
     const p: Record<string, unknown> = { type: "text", text };
     if (paramNames?.[i]) {
       p.parameter_name = paramNames[i];
@@ -321,7 +580,10 @@ async function sendWhatsappTemplateToClient(args: {
     name: templateName,
     language: { code: templateLanguage },
   };
-  if (parameters.length > 0) {
+  const envComponents = buildWhatsappTemplateComponentsFromEnv(args.ctx, resolved);
+  if (envComponents && envComponents.length > 0) {
+    template.components = envComponents;
+  } else if (parameters.length > 0) {
     template.components = [{ type: "body", parameters }];
   }
 
@@ -350,6 +612,7 @@ async function sendWhatsappTemplateToClient(args: {
       language: templateLanguage,
       body_key_count: keys.length,
       body_uses_parameter_name: usesNamed,
+      components_override: Boolean(envComponents),
       graph_error_preview: text.slice(0, 400),
     });
     return { ok: false, error: `WhatsApp API error (${res.status}): ${text.slice(0, 500)}` };
@@ -903,13 +1166,23 @@ Deno.serve(async (req) => {
     package_label: pkgLabel,
     event_date: "",
     event_time: "",
+    ringkasan_kebutuhan: String((finalRow as Record<string, unknown>)?.ringkasan_kebutuhan ?? "").trim(),
   };
 
-  const wa = await sendWhatsappTemplateToClient({ toE164: to, ctx });
+  const graphPhoneNumberId = await resolveWhatsappPhoneNumberIdFromOrgTable(admin, ORG_ID, resolvedWebId);
+  const wa = await sendWhatsappTemplateToClient({
+    toE164: to,
+    ctx,
+    graphPhoneNumberId,
+    webId: resolvedWebId,
+    admin,
+    organizationId: ORG_ID,
+  });
 
-  const templateName = getEnvOptional("WHATSAPP_TEMPLATE_NAME") ?? "hello_world";
-  const templateLanguage = getEnvOptional("WHATSAPP_TEMPLATE_LANGUAGE") ?? "en_US";
-  const phoneNumberId = getEnvOptional("WHATSAPP_PHONE_NUMBER_ID");
+  const waTemplateResolved = await resolveWhatsappTemplateEnvWithDb(admin, ORG_ID, resolvedWebId);
+  const templateName = waTemplateResolved.templateName;
+  const templateLanguage = waTemplateResolved.templateLanguage;
+  const phoneNumberId = (graphPhoneNumberId?.trim() || getEnvOptional("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
 
   let whatsapp_db:
     | { conversation_id: string; message_id: string | null }
@@ -917,7 +1190,7 @@ Deno.serve(async (req) => {
     | null = null;
 
   if (wa.ok && !wa.skipped && phoneNumberId) {
-    const keys = parseTemplateBodyKeys();
+    const keys = parseTemplateBodyKeysFromResolved(waTemplateResolved);
     const messagePreview = formatTemplateMessageBody({
       templateName,
       keys,

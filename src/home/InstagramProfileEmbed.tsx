@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
-const PROFILE_URL = "https://www.instagram.com/vialdi_wedding/";
-const EMBED_URL = "https://www.instagram.com/vialdi_wedding/embed/";
+const PROFILE_URL = "https://www.instagram.com/vialdi.id/";
+const EMBED_URL = "https://www.instagram.com/vialdi.id/embed/";
 
 /** Jika iframe tidak memicu `load` (mis. koneksi macet), tampilkan ajakan muat ulang. */
 const IFRAME_LOAD_TIMEOUT_MS = 18_000;
@@ -13,6 +13,7 @@ const IFRAME_LOAD_TIMEOUT_MS = 18_000;
  */
 const IFRAME_HEIGHT_MOBILE_CLASS = "h-[440px]";
 const IFRAME_HEIGHT_DESKTOP_CLASS = "md:h-[1120px]";
+const IFRAME_HEIGHT_COMPACT_DESKTOP_CLASS = "md:h-[620px] lg:h-[680px]";
 
 /**
  * Feed profil Instagram (embed Meta). Mobile: lebar penuh tanpa margin negatif (grid utuh).
@@ -23,7 +24,14 @@ const IFRAME_HEIGHT_DESKTOP_CLASS = "md:h-[1120px]";
  * ikon tetap terlihat (termasuk saat iframe menampilkan "refused to connect") agar pengguna
  * bisa memuat ulang embed tanpa refresh seluruh halaman.
  */
-export function InstagramProfileEmbed() {
+export function InstagramProfileEmbed({
+  variant = "default",
+  contained = true,
+}: {
+  variant?: "default" | "compact";
+  /** `true`: gunakan wrapper max-width + padding. `false`: render konten tanpa wrapper (biar parent yang atur). */
+  contained?: boolean;
+}) {
   const [iframeKey, setIframeKey] = useState(0);
   const [embedSrc, setEmbedSrc] = useState(EMBED_URL);
   const [loadStalled, setLoadStalled] = useState(false);
@@ -57,14 +65,14 @@ export function InstagramProfileEmbed() {
     setLoadStalled(false);
   }, [clearLoadTimer]);
 
-  return (
-    <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
+  const content = (
+    <>
       <div className="flex flex-col items-center gap-2 text-center md:flex-row md:items-end md:justify-between md:text-left">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Ikuti kami
           </p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-navy md:text-3xl">@vialdi_wedding</h2>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-navy md:text-3xl">@vialdi.id</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground md:mx-0 md:text-base">
             Cuplikan terbaru dari dokumentasi dan suasana di balik layar — langsung dari Instagram
             kami.
@@ -80,7 +88,12 @@ export function InstagramProfileEmbed() {
         </a>
       </div>
 
-      <div className="relative mt-8 isolate overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-elegant)]">
+      <div
+        className={[
+          "relative mt-8 isolate overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-elegant)]",
+          variant === "compact" ? "md:max-h-[680px]" : "",
+        ].join(" ")}
+      >
         <button
           type="button"
           onClick={reloadEmbed}
@@ -115,13 +128,21 @@ export function InstagramProfileEmbed() {
         <iframe
           key={iframeKey}
           src={embedSrc}
-          title="Feed Instagram Vialdi Wedding"
-          className={`block w-full max-w-full border-0 ${IFRAME_HEIGHT_MOBILE_CLASS} ${IFRAME_HEIGHT_DESKTOP_CLASS} md:w-[calc(100%+20px)] md:max-w-none md:-mr-5`}
+          title="Feed Instagram vialdi.id"
+          className={`block w-full max-w-full border-0 ${IFRAME_HEIGHT_MOBILE_CLASS} ${
+            variant === "compact" ? IFRAME_HEIGHT_COMPACT_DESKTOP_CLASS : IFRAME_HEIGHT_DESKTOP_CLASS
+          } md:w-[calc(100%+20px)] md:max-w-none md:-mr-5`}
           loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
           onLoad={handleIframeLoad}
         />
       </div>
-    </div>
+    </>
+  );
+
+  return contained ? (
+    <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">{content}</div>
+  ) : (
+    content
   );
 }

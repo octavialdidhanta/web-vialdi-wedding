@@ -39,6 +39,7 @@ import {
 
 const emptyForm: MarketingShortLinkInput = {
   slug: "",
+  site_origin: "",
   pathname: "/",
   utm_source: "",
   utm_medium: "",
@@ -91,6 +92,7 @@ export function AdminShortLinksPage() {
     if (editing) {
       setForm({
         slug: editing.slug,
+        site_origin: editing.site_origin ?? "",
         pathname: editing.pathname,
         utm_source: editing.utm_source ?? "",
         utm_medium: editing.utm_medium ?? "",
@@ -100,7 +102,11 @@ export function AdminShortLinksPage() {
         active: editing.active,
       });
     } else {
-      setForm({ ...emptyForm, slug: generateRandomSlug(8) });
+      setForm({
+        ...emptyForm,
+        slug: generateRandomSlug(8),
+        site_origin: (import.meta.env.VITE_PUBLIC_SITE_ORIGIN as string | undefined)?.trim() || "",
+      });
       setCreateStep(1);
     }
   }, [dialogOpen, editing]);
@@ -221,7 +227,7 @@ export function AdminShortLinksPage() {
                       size="sm"
                       onClick={async () => {
                         try {
-                          await navigator.clipboard.writeText(shortLinkPublicUrl(r.slug));
+                          await navigator.clipboard.writeText(shortLinkPublicUrl(r.slug, r.site_origin));
                           toast.success("URL disalin");
                         } catch {
                           toast.error("Gagal menyalin");
@@ -273,7 +279,7 @@ export function AdminShortLinksPage() {
             <DialogDescription>
               {editing
                 ? "Ubah halaman, UTM, atau slug. Pathname harus internal; tidak boleh /admin."
-                : "Langkah 1: pilih halaman & isi UTM. Langkah 2: slug pendek. Pratinjau mengikuti secret PUBLIC_SITE_ORIGIN di server."}
+                : "Langkah 1: pilih domain + halaman & isi UTM. Langkah 2: slug pendek."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 py-2">
@@ -293,6 +299,22 @@ export function AdminShortLinksPage() {
                   <code className="rounded bg-muted px-0.5 font-mono text-[10px]">/</code>, bukan{" "}
                   <code className="rounded bg-muted px-0.5 font-mono text-[10px]">/admin</code>.
                 </p>
+                <div className="grid gap-2">
+                  <Label htmlFor="msl-origin">Domain</Label>
+                  <Input
+                    id="msl-origin"
+                    value={form.site_origin ?? ""}
+                    readOnly
+                    disabled
+                    className="font-mono text-sm"
+                    placeholder="https://vialdi.id"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Domain dikunci dari konfigurasi aplikasi (
+                    <code className="font-mono">VITE_PUBLIC_SITE_ORIGIN</code>) agar short link di project ini
+                    selalu mengarah ke domain yang benar.
+                  </p>
+                </div>
                 <div className="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {QUICK_PATHS.map((q) => (
                     <Button
@@ -425,7 +447,7 @@ export function AdminShortLinksPage() {
                   <p className="text-[11px] text-muted-foreground">
                     URL pendek:{" "}
                     <span className="font-mono text-foreground">
-                      {shortLinkPublicUrl(form.slug || "slug")}
+                      {shortLinkPublicUrl(form.slug || "slug", form.site_origin ?? null)}
                     </span>
                   </p>
                 </div>

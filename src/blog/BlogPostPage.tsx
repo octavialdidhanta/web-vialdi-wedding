@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from
 import { ReadingProgress } from "@/blog/ReadingProgress";
 import { blogPostMeta, blogPostUi } from "@/blog/content";
 import type { BlogPostPublic } from "@/blog/types";
-import { getRelatedPosts } from "@/blog/supabaseBlog";
+import { getRelatedPosts } from "@/blog/agencySupabaseBlog";
 import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQueries";
 import { useBlogMeta } from "@/blog/useBlogMeta";
 import { useBlogPostCoverPreload } from "@/blog/useBlogPostCoverPreload";

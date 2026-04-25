@@ -7,6 +7,7 @@ export type TimelineItem = {
   title: string;
   subtitle?: string;
   image: string;
+  imageClassName?: string;
   caption: string;
 };
 
@@ -94,7 +95,10 @@ export function TimelineCarousel({ items }: { items: TimelineItem[] }) {
                     loading="lazy"
                     width={800}
                     height={600}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className={cn(
+                      "h-full w-full object-cover transition-transform duration-500 group-hover:scale-105",
+                      item.imageClassName,
+                    )}
                   />
                   <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-card/95 text-sm font-bold text-navy shadow-md backdrop-blur-sm">
                     {String(idx + 1).padStart(2, "0")}

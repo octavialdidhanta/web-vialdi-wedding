@@ -11,11 +11,12 @@
  *
  * WhatsApp Cloud API (reuses same WABA credentials as lead functions):
  * - WHATSAPP_ACCESS_TOKEN
- * - WHATSAPP_PHONE_NUMBER_ID
+ * - WHATSAPP_PHONE_NUMBER_ID (fallback jika tidak ada baris di `organization_whatsapp_accounts`)
+ * - `public.organization_whatsapp_accounts`: phone_number_id per baris; dipilih via `display_phone_number` + `web_id` request
  * - WHATSAPP_GRAPH_VERSION (optional, default v21.0)
  *
  * Owner notification (new):
- * - WHATSAPP_OWNER_TO_E164 (e.g. +62812xxxxxxx)
+ * - WHATSAPP_OWNER_TO_E164 (e.g. +6281118891308)
  * - WHATSAPP_OWNER_TEMPLATE_NAME (e.g. wa_click_notify)
  * - WHATSAPP_OWNER_TEMPLATE_LANGUAGE (optional, default id)
  * - WHATSAPP_OWNER_TEMPLATE_BODY_KEYS (comma-separated keys, optional)
@@ -41,6 +42,9 @@ type Body = {
 };
 
 const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+
+/** Sama dengan Edge Function lead lain — organisasi CRM utama. */
+const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
 
 function normalizeWebId(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -172,9 +176,75 @@ function parseCsvList(raw: string | null): string[] {
     .filter(Boolean);
 }
 
-function parseOwnerTemplateConfig(): OwnerTemplateConfig | null {
+const WA_ORG_LINE_DIGITS: Record<string, string> = {
+  vialdi: "6281118891308",
+  "vialdi-wedding": "6281281714855",
+};
+
+function digitsOnly(s: unknown): string {
+  if (typeof s !== "string") return "";
+  return s.replace(/\D/g, "");
+}
+
+function normalizeIndonesiaMarketingDigits(raw: string): string {
+  const d = digitsOnly(raw);
+  if (!d) return "";
+  if (d.startsWith("62")) return d;
+  if (d.startsWith("0")) return `62${d.slice(1)}`;
+  if (d.startsWith("8")) return `62${d}`;
+  return d;
+}
+
+function pickPhoneNumberIdFromAccountRow(row: Record<string, unknown>): string {
+  for (const k of ["phone_number_id", "whatsapp_phone_number_id", "meta_phone_number_id"] as const) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function orgWhatsappRowIsActive(row: Record<string, unknown>): boolean {
+  const a = row["is_active"];
+  return a === null || a === undefined || a === true;
+}
+
+async function resolveWhatsappPhoneNumberIdFromOrgTable(
+  admin: ReturnType<typeof createClient>,
+  organizationId: string,
+  webId: string,
+): Promise<string | null> {
+  const wid = String(webId).trim();
+  const targetDigits = wid ? WA_ORG_LINE_DIGITS[wid] : null;
+  if (!targetDigits) return null;
+
+  try {
+    const { data: rows, error } = await admin
+      .from("organization_whatsapp_accounts")
+      .select("phone_number_id, display_phone_number, is_active")
+      .eq("organization_id", organizationId);
+    if (error) {
+      console.warn("wa-click-track: organization_whatsapp_accounts lookup failed", error.message);
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+    for (const raw of rows) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const row = raw as Record<string, unknown>;
+      if (!orgWhatsappRowIsActive(row)) continue;
+      const disp = normalizeIndonesiaMarketingDigits(String(row["display_phone_number"] ?? ""));
+      const pid = pickPhoneNumberIdFromAccountRow(row);
+      if (!pid || !disp) continue;
+      if (disp === targetDigits) return pid;
+    }
+  } catch (e) {
+    console.warn("wa-click-track: organization_whatsapp_accounts exception", e);
+  }
+  return null;
+}
+
+function parseOwnerTemplateConfig(graphPhoneNumberId: string | null): OwnerTemplateConfig | null {
   const token = getEnvOptional("WHATSAPP_ACCESS_TOKEN");
-  const phoneNumberId = getEnvOptional("WHATSAPP_PHONE_NUMBER_ID");
+  const phoneNumberId = (graphPhoneNumberId?.trim() || getEnvOptional("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
   const toE164 = getEnvOptional("WHATSAPP_OWNER_TO_E164");
   const templateName =
     getEnvOptional("WHATSAPP_OWNER_TEMPLATE_NAME") ?? getEnvOptional("WHATSAPP_TEMPLATE_NAME");
@@ -380,6 +450,8 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
+  const graphPhoneNumberId = await resolveWhatsappPhoneNumberIdFromOrgTable(admin, ORG_ID, webId);
+
   const attribution = extractAttributionForDb(body.attribution ?? null);
   const ipHash = ip !== "unknown" ? toIpHash(ip) : null;
 
@@ -399,7 +471,7 @@ Deno.serve(async (req) => {
   }
 
   // Optional owner notification
-  const cfg = parseOwnerTemplateConfig();
+  const cfg = parseOwnerTemplateConfig(graphPhoneNumberId);
   let owner_notify: { ok: boolean; skipped?: boolean; error?: string } = { ok: true, skipped: true };
   if (cfg) {
     const ctx = ownerTemplateCtxFromBody({

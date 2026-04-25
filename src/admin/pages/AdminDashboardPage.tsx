@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
-import { adminFetchPosts } from "@/blog/supabaseBlog";
+import { adminFetchPosts } from "@/blog/agencySupabaseBlog";
 import {
   adminFetchAnalyticsSummary,
   jakartaDayRangeToIso,

@@ -9,52 +9,68 @@ export function HomeFaqSection() {
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-navy md:text-4xl">FAQ</h2>
             <p className="mt-3 text-muted-foreground">
-              Pertanyaan yang sering ditanyakan sebelum memesan layanan wedding organizer &amp;
-              dokumentasi.
+              Pertanyaan yang sering ditanyakan sebelum mulai kerja sama.
             </p>
           </div>
 
           <div className="mx-auto mt-8 max-w-4xl">
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="item-1">
-                <AccordionTrigger>Apa saja yang dicakup oleh Vialdi Wedding?</AccordionTrigger>
+                <AccordionTrigger>Apa yang dimaksud layanan vialdi.id?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  Kami menyediakan dokumentasi foto &amp; video (termasuk paket dengan album),
-                  kolaborasi dengan vendor rias dan busana, serta pendampingan dekorasi pelaminan
-                  sesuai paket yang dipilih.
+                  vialdi.id adalah Digital Growth Partner yang membantu bisnis meningkatkan penjualan
+                  melalui strategi dan eksekusi end-to-end: lead acquisition, lead activation, digital
+                  presence, dan digital optimization.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="item-2">
-                <AccordionTrigger>Bagaimana cara memilih paket yang tepat?</AccordionTrigger>
+                <AccordionTrigger>Masalah bisnis apa yang paling sering kami bantu selesaikan?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  Setelah konsultasi gratis, kami merekomendasikan durasi tim, jumlah fotografer /
-                  videografer, dan add-on berdasarkan skala acara (rumah, outdoor, hotel, atau
-                  gedung).
+                  Umumnya: leads kurang stabil, biaya iklan naik (CPL/CPA), conversion rate rendah di
+                  landing page, follow-up prospek tidak rapi, dan kurangnya insight yang bisa
+                  ditindaklanjuti.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="item-3">
-                <AccordionTrigger>Kapan hasil foto dan video biasanya selesai?</AccordionTrigger>
+                <AccordionTrigger>Layanan apa saja yang tersedia?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  Waktu penyelesaian bervariasi per paket. Untuk paket prioritas, estimasi hasil foto
-                  utama dapat lebih cepat — detail tertuang di proposal resmi.
+                  Performance ads (Meta/TikTok/Google), landing page &amp; CRO, creative &amp;
+                  copywriting, tracking &amp; analytics, serta reporting &amp; optimasi rutin.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="item-4">
-                <AccordionTrigger>Apakah revisi editing dimungkinkan?</AccordionTrigger>
+                <AccordionTrigger>Bagaimana cara kerja dan alur kolaborasinya?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  Ya, dalam batas wajar dan sesuai kesepakatan di kontrak. Tujuan kami adalah hasil
-                  yang Anda banggakan tanpa mengorbankan kualitas artistik.
+                  Dimulai dari audit singkat &amp; penentuan KPI, lalu setup tracking dan struktur
+                  campaign. Setelah itu masuk fase testing (creative/audience) dan optimasi rutin.
+                  Setiap minggu ada update progres + next action yang jelas.
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="item-5">
-                <AccordionTrigger>Apakah melayani luar kota?</AccordionTrigger>
+                <AccordionTrigger>Berapa lama biasanya terlihat hasil?</AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
-                  Silakan sampaikan kota dan venue pada formulir kontak. Biaya transport &amp;
-                  akomodasi tim (jika diperlukan) akan dijelaskan secara transparan.
+                  Tergantung channel dan kesiapan funnel. Umumnya 1–2 minggu untuk fase testing dan
+                  baseline data, lalu 3–6 minggu untuk melihat tren performa yang lebih stabil.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6">
+                <AccordionTrigger>Apakah biaya iklan (ad spend) termasuk?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  Tidak. Ad spend dibayar langsung ke platform (Meta/TikTok/Google). Fee layanan kami
+                  terpisah dan transparan, sesuai scope yang disepakati.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-7">
+                <AccordionTrigger>Apakah ada kontrak dan laporan rutin?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  Ya. Kami gunakan proposal + kontrak kerja, dan memberikan laporan rutin (mingguan
+                  dan ringkasan bulanan) berisi KPI, insight, serta rekomendasi next action.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

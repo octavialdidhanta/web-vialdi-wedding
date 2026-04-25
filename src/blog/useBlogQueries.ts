@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchPublishedPostBySlug, fetchPublishedPosts } from "@/blog/supabaseBlog";
+import { fetchPublishedPostBySlug, fetchPublishedPosts } from "@/blog/agencySupabaseBlog";
 
 export function usePublishedPostsQuery() {
   return useQuery({
