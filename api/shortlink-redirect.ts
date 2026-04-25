@@ -20,6 +20,7 @@ export default function handler(request: Request): Response {
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
   }
-  const edge = `${base.replace(/\/+$/, "")}/functions/v1/link-redirect?slug=${encodeURIComponent(slug)}`;
+  const origin = `${url.protocol}//${url.host}`;
+  const edge = `${base.replace(/\/+$/, "")}/functions/v1/link-redirect?slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(origin)}`;
   return Response.redirect(edge, 307);
 }

@@ -45,6 +45,21 @@ function normalizeOrigin(raw: string): string {
   return s;
 }
 
+function tryParseQueryOrigin(reqUrl: string): string | null {
+  const url = new URL(reqUrl);
+  const o = (url.searchParams.get("origin") ?? "").trim();
+  return o.length ? o : null;
+}
+
+function isDisallowedPublicOrigin(origin: string): boolean {
+  const s = origin.trim().toLowerCase();
+  return (
+    s.includes("edge-runtime.supabase.com") ||
+    s.endsWith(".supabase.co") ||
+    s.includes(".supabase.com")
+  );
+}
+
 function extractSlug(reqUrl: string): string | null {
   const url = new URL(reqUrl);
   const fromQuery = url.searchParams.get("slug")?.trim().toLowerCase();
@@ -139,6 +154,11 @@ Deno.serve(async (req) => {
 
   let origin = row.site_origin?.trim() || null;
   if (!origin) {
+    // Allow caller (e.g. Vercel Edge) to pass desired public origin safely.
+    origin = tryParseQueryOrigin(req.url);
+  }
+  if (!origin) {
+    // Fallback for direct Supabase URL usage or non-proxied calls.
     origin = tryGetEnv("PUBLIC_SITE_ORIGIN");
   }
   if (!origin) {
@@ -146,6 +166,7 @@ Deno.serve(async (req) => {
   }
   try {
     origin = normalizeOrigin(origin);
+    if (isDisallowedPublicOrigin(origin)) throw new Error("disallowed origin");
   } catch {
     return new Response("Server misconfiguration", { status: 500 });
   }

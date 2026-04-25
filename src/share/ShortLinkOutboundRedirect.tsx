@@ -14,7 +14,10 @@ export function ShortLinkOutboundRedirect() {
     if (!slug || !SLUG_RE.test(slug)) return;
     const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
     if (!base?.trim()) return;
-    const url = `${base.replace(/\/+$/, "")}/functions/v1/link-redirect?slug=${encodeURIComponent(slug.toLowerCase())}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${base.replace(/\/+$/, "")}/functions/v1/link-redirect?slug=${encodeURIComponent(slug.toLowerCase())}${
+      origin ? `&origin=${encodeURIComponent(origin)}` : ""
+    }`;
     window.location.replace(url);
   }, [slug]);
 
