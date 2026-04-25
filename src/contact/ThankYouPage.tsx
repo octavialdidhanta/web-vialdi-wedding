@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { pushGtmThankYouPageView } from "@/analytics/gtmDataLayer";
+import { metaPixelTrack } from "@/analytics/metaPixel";
 import { Header } from "@/share/Header";
 
 export function ThankYouPage() {
@@ -10,6 +11,21 @@ export function ThankYouPage() {
 
   useEffect(() => {
     pushGtmThankYouPageView();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const key = "__meta_complete_registration_fired";
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) {
+        return;
+      }
+      metaPixelTrack("CompleteRegistration");
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(key, String(Date.now()));
+      }
+    } catch {
+      metaPixelTrack("CompleteRegistration");
+    }
   }, []);
 
   return (

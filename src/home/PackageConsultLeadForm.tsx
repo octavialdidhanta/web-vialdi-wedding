@@ -25,6 +25,7 @@ import {
   resetAnalyticsSessionId,
 } from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { metaPixelTrack } from "@/analytics/metaPixel";
 import { Button } from "@/share/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/share/ui/card";
 import { Checkbox } from "@/share/ui/checkbox";
@@ -315,6 +316,8 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
         markSubmittedNow();
         return;
       }
+      metaPixelTrack("Lead", { source: "package_consult_form", package_label: packageLabel });
+      metaPixelTrack("Contact", { source: "package_consult_form", package_label: packageLabel });
       markSubmittedNow();
       navigate("/thank-you-page");
     } catch (e: unknown) {

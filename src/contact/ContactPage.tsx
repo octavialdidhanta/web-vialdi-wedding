@@ -19,6 +19,7 @@ import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageL
 import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
 import { useContactPageMeta } from "@/contact/useContactPageMeta";
+import { metaPixelTrack } from "@/analytics/metaPixel";
 import { Header } from "@/share/Header";
 import { Footer } from "@/share/Footer";
 import { Button } from "@/share/ui/button";
@@ -240,6 +241,8 @@ export function ContactPage() {
       } catch {
         /* VITE_WEB_ID */
       }
+      metaPixelTrack("Lead", { source: "contact_page_form" });
+      metaPixelTrack("Contact", { source: "contact_page_form" });
       navigate("/thank-you-page");
     } catch (e: unknown) {
       setErrorMessage(e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.");

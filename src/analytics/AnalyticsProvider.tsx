@@ -17,6 +17,12 @@ import { Toaster } from "@/share/ui/sonner";
 const HEARTBEAT_MS = 15_000;
 const DEDUPE_MS = 30_000;
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
 function isAdminPath(pathname: string) {
   return pathname.startsWith("/admin");
 }
@@ -262,6 +268,13 @@ export function AnalyticsProvider() {
       if (lastGtmPath !== path) {
         lastGtmPath = path;
         pushGtmVirtualPageView(path);
+        /**
+         * Meta Pixel virtual PageView for SPA route changes.
+         * Only fire when pixel is already available to avoid blocking navigation or errors.
+         */
+        if (typeof window !== "undefined" && typeof window.fbq === "function") {
+          window.fbq("track", "PageView");
+        }
       }
       scheduleDeferredStartPage();
       visibleSinceRef.current = Date.now();

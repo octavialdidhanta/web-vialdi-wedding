@@ -42,6 +42,7 @@
       name="description"
       content="Vialdi.ID — agensi pemasaran digital: strategi brand, iklan berbayar, konten & kreatif, website/landing page, serta pelaporan performa untuk pertumbuhan bisnis Anda."
     />
+    <meta name="facebook-domain-verification" content="83yvqt5q81ht4fug57n2225j7ny4rg" />
     <!-- Meta Pixel Code -->
     <script>
       /**
@@ -68,9 +69,11 @@
           s = b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t, s);
         })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-        fbq("init", "490486342185584");
+        fbq("init", "1609464219498099");
         fbq("track", "PageView");
       }
+      // Allow app code to trigger boot on demand (SPA events).
+      window.loadMetaPixel = loadMetaPixel;
 
       ["scroll", "pointerdown", "keydown", "touchstart"].forEach(function (ev) {
         window.addEventListener(ev, loadMetaPixel, { once: true, passive: true });
@@ -113,7 +116,7 @@
         height="1"
         width="1"
         style="display: none"
-        src="https://www.facebook.com/tr?id=490486342185584&ev=PageView&noscript=1"
+        src="https://www.facebook.com/tr?id=1609464219498099&ev=PageView&noscript=1"
         alt=""
       />
     </noscript>
