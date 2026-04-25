@@ -4,6 +4,7 @@ import { Header } from "@/share/Header";
 import { SectionTitle } from "@/home/SectionTitle";
 import { PaketUnggulanQuickNav, type PaketUnggulanKind } from "@/home/PaketUnggulanQuickNav";
 import { useIsAgencySite } from "@/site/siteVariant";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/accordion";
 import {
   PackageConsultOpenerProvider,
   usePackageConsultOpenerOptional,
@@ -35,6 +36,12 @@ const FeaturedLayananCards = lazy(() =>
 );
 const WeddingGuaranteeSection = lazy(() =>
   import("@/home/WeddingGuaranteeSection").then((m) => ({ default: m.WeddingGuaranteeSection })),
+);
+const WeddingPackageHighlight = lazy(() =>
+  import("@/home/WeddingPackageHighlight").then((m) => ({ default: m.WeddingPackageHighlight })),
+);
+const HeroAlbumKolaseVideo = lazy(() =>
+  import("@/home/HeroAlbumKolaseVideo").then((m) => ({ default: m.HeroAlbumKolaseVideo })),
 );
 const PostPackageTrustLeadCard = lazy(() =>
   import("@/home/PostPackageTrustSection").then((m) => ({ default: m.PostPackageTrustLeadCard })),
@@ -257,168 +264,302 @@ function HomePageInner() {
           </div>
         </div>
 
-        {/* HeroAlbumKolaseVideo removed */}
-      </section>
-
-      {/* Mobile: kategori → layanan → paket → kartu "solusinya" → janji + before/after → kutipan dokumentasi → sisa narasi post-paket → Instagram. Md+: kutipan tetap sebelum blok janji seperti desktop. */}
-      <div className="flex flex-col">
-        {/* Kategori layanan */}
-        <section className="order-1 bg-card py-10 md:py-14">
-          <DeferUntilNearViewport placeholderClassName="min-h-[18rem] md:min-h-[20rem]">
-            <Suspense
-              fallback={<LazySectionFallback className="min-h-[18rem] md:min-h-[20rem]" />}
-            >
-              <ServiceCategoryGrid />
-            </Suspense>
-          </DeferUntilNearViewport>
-        </section>
-
-        {/* Kartu layanan unggulan */}
-        <section className="order-2 border-y border-border/60 bg-secondary/50 pt-8 pb-14 md:pt-10 md:pb-20">
-          <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[30rem]">
-            <Suspense
-              fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[30rem]" />}
-            >
-              <FeaturedLayananCards />
-            </Suspense>
-          </DeferUntilNearViewport>
-        </section>
-
-        {/* Paket unggulan — kartu pembuka narasi di mobile tepat di bawah carousel; lanjutan narasi setelah janji (md:hidden). */}
-        <section
-          id="paket-dokumentasi"
-          className="order-3 scroll-mt-24 border-t-0 bg-secondary/30 pt-8 pb-4 md:order-5 md:border-t md:border-border/60 md:pt-10 md:pb-10"
-        >
-          <div className="mx-auto max-w-[90rem] px-4 pb-5 md:px-6 md:pb-6">
-            <SectionTitle
-              className="text-left"
-              align="left"
-              title="Paket unggulan"
-              subtitle="Pilih paket sesuai goal Anda — dari iklan, landing page, sampai full funnel. Detail final menyesuaikan budget, target, dan timeline."
-              belowTitle={<PaketUnggulanQuickNav active={paketKind} onChange={setPaketKind} />}
-            />
-          </div>
+        {!isAgencySite ? (
           <DeferUntilNearViewport
-            className="w-full"
-            placeholderClassName="min-h-[300px] pb-3 md:min-h-[56rem] md:pb-4"
+            rootMargin="240px 0px 240px 0px"
+            placeholderClassName="min-h-[22rem] md:min-h-[28rem]"
           >
-            <Suspense
-              fallback={
-                <LazySectionFallback className="min-h-[300px] w-full pb-3 md:min-h-[56rem] md:pb-4" />
-              }
-            >
-              <AgencyPackageHighlight
-                kind={
-                  paketKind === "landing"
-                    ? "landing"
-                    : paketKind === "content"
-                      ? "content"
-                      : paketKind === "fullfunnel"
-                        ? "fullfunnel"
-                        : "ads"
-                }
-              />
+            <Suspense fallback={<LazySectionFallback className="min-h-[22rem] md:min-h-[28rem]" />}>
+              <HeroAlbumKolaseVideo />
             </Suspense>
           </DeferUntilNearViewport>
-          <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
-            <DeferUntilNearViewport placeholderClassName="min-h-[14rem]">
-              <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
-                <PostPackageTrustLeadCard />
-              </Suspense>
-            </DeferUntilNearViewport>
-          </div>
-          <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 pb-8 md:mt-10 md:block md:px-6 md:pt-10 md:pb-10">
-            <DeferUntilNearViewport placeholderClassName="min-h-[12rem]">
-              <Suspense fallback={<LazySectionFallback className="min-h-[12rem]" />}>
-                <PostPackageTrustSection />
-              </Suspense>
-            </DeferUntilNearViewport>
-          </div>
-        </section>
-
-        {/* Kutipan dokumentasi — mobile: setelah before/after; md+: sebelum blok janji */}
-        <section className="order-5 bg-background py-14 md:order-3 md:py-20">
-          <div className="mx-auto max-w-4xl px-2.5 text-center md:px-6">
-            <p className="font-wedding-serif text-xl font-bold leading-snug text-navy md:text-2xl lg:text-[1.65rem]">
-              Strategi jelas, eksekusi rapi, dan laporan transparan — dari setup awal sampai
-              optimasi yang terukur.
-            </p>
-          </div>
-        </section>
-
-        {/* Janji & garansi + Before/After (kanan) */}
-        <section className="order-4 bg-secondary/40 pt-8 pb-8 md:order-4 md:pt-16 md:pb-10">
-          <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-2.5 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
-            <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[32rem]">
-              <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[32rem]" />}>
-                <WeddingGuaranteeSection />
-              </Suspense>
-            </DeferUntilNearViewport>
-            <DeferUntilNearViewport placeholderClassName="min-h-[320px] md:min-h-[36rem]">
-              <Suspense
-                fallback={<LazySectionFallback className="min-h-[320px] md:min-h-[36rem]" />}
-              >
-                <JanjiCompanionColumn />
-              </Suspense>
-            </DeferUntilNearViewport>
-          </div>
-        </section>
-
-        {/* Narasi post-paket (tanpa kartu pembuka di mobile — kartu itu sudah di atas): di mobile setelah janji + before/after; di desktop sisi atas tetap di dalam blok paket. */}
-        <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-14 md:hidden">
-          <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
-            <DeferUntilNearViewport placeholderClassName="min-h-[16rem]">
-              <Suspense fallback={<LazySectionFallback className="min-h-[16rem]" />}>
-                <PostPackageTrustSection />
-              </Suspense>
-            </DeferUntilNearViewport>
-          </div>
-        </section>
-
-      </div>
-
-      {/* Pengalaman lintas industri */}
-      <section className="bg-background py-10 md:py-14">
-        <DeferUntilNearViewport placeholderClassName="min-h-[36rem] md:min-h-[30rem]">
-          <Suspense fallback={<LazySectionFallback className="min-h-[36rem] md:min-h-[30rem]" />}>
-            <IndustryExperienceSection />
-          </Suspense>
-        </DeferUntilNearViewport>
+        ) : null}
       </section>
 
-      {/* CTA */}
-      <section className="bg-background">
-        <div className="mx-auto max-w-4xl px-2.5 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
-          <SectionTitle
-            title="Mulai dari obrolan singkat"
-            subtitle="Ceritakan goal, target KPI, dan budget Anda. Kami bantu susun strategi dan eksekusi yang realistis—jelas deliverable, jelas next action."
-          />
-          <div className="mt-10 flex justify-start">
-            <a
-              href="#paket-dokumentasi"
-              data-track={TRACK_KEYS.contactCta}
-              className="rounded-full bg-navy px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
-              onClick={(e) => {
-                if (packageConsultOpener) {
-                  e.preventDefault();
-                  packageConsultOpener.requestOpenAllPackageConsults();
-                }
-              }}
+      {isAgencySite ? (
+        <>
+          {/* Mobile: kategori → layanan → paket → kartu "solusinya" → janji + before/after → kutipan dokumentasi → sisa narasi post-paket → Instagram. Md+: kutipan tetap sebelum blok janji seperti desktop. */}
+          <div className="flex flex-col">
+            {/* Kategori layanan */}
+            <section className="order-1 bg-card py-10 md:py-14">
+              <DeferUntilNearViewport placeholderClassName="min-h-[18rem] md:min-h-[20rem]">
+                <Suspense fallback={<LazySectionFallback className="min-h-[18rem] md:min-h-[20rem]" />}>
+                  <ServiceCategoryGrid />
+                </Suspense>
+              </DeferUntilNearViewport>
+            </section>
+
+            {/* Kartu layanan unggulan */}
+            <section className="order-2 border-y border-border/60 bg-secondary/50 pt-8 pb-14 md:pt-10 md:pb-20">
+              <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[30rem]">
+                <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[30rem]" />}>
+                  <FeaturedLayananCards />
+                </Suspense>
+              </DeferUntilNearViewport>
+            </section>
+
+            {/* Paket unggulan — kartu pembuka narasi di mobile tepat di bawah carousel; lanjutan narasi setelah janji (md:hidden). */}
+            <section
+              id="paket-dokumentasi"
+              className="order-3 scroll-mt-24 border-t-0 bg-secondary/30 pt-8 pb-4 md:order-5 md:border-t md:border-border/60 md:pt-10 md:pb-10"
             >
-              Konsultasi gratis
-            </a>
-          </div>
-        </div>
-      </section>
+              <div className="mx-auto max-w-[90rem] px-4 pb-5 md:px-6 md:pb-6">
+                <SectionTitle
+                  className="text-left"
+                  align="left"
+                  title="Paket unggulan"
+                  subtitle="Pilih paket sesuai goal Anda — dari iklan, landing page, sampai full funnel. Detail final menyesuaikan budget, target, dan timeline."
+                  belowTitle={<PaketUnggulanQuickNav active={paketKind} onChange={setPaketKind} />}
+                />
+              </div>
+              <DeferUntilNearViewport
+                className="w-full"
+                placeholderClassName="min-h-[300px] pb-3 md:min-h-[56rem] md:pb-4"
+              >
+                <Suspense
+                  fallback={
+                    <LazySectionFallback className="min-h-[300px] w-full pb-3 md:min-h-[56rem] md:pb-4" />
+                  }
+                >
+                  <AgencyPackageHighlight
+                    kind={
+                      paketKind === "landing"
+                        ? "landing"
+                        : paketKind === "content"
+                          ? "content"
+                          : paketKind === "fullfunnel"
+                            ? "fullfunnel"
+                            : "ads"
+                    }
+                  />
+                </Suspense>
+              </DeferUntilNearViewport>
+              <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
+                <DeferUntilNearViewport placeholderClassName="min-h-[14rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
+                    <PostPackageTrustLeadCard />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+              <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 pb-8 md:mt-10 md:block md:px-6 md:pt-10 md:pb-10">
+                <DeferUntilNearViewport placeholderClassName="min-h-[12rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[12rem]" />}>
+                    <PostPackageTrustSection />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
 
-      <DeferUntilNearViewport
-        rootMargin="200px 0px 120px 0px"
-        placeholderClassName="min-h-[28rem] md:min-h-[34rem]"
-      >
-        <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[34rem]" />}>
-          <HomeFaqSection />
-        </Suspense>
-      </DeferUntilNearViewport>
+            {/* Kutipan dokumentasi — mobile: setelah before/after; md+: sebelum blok janji */}
+            <section className="order-5 bg-background py-14 md:order-3 md:py-20">
+              <div className="mx-auto max-w-4xl px-2.5 text-center md:px-6">
+                <p className="font-wedding-serif text-xl font-bold leading-snug text-navy md:text-2xl lg:text-[1.65rem]">
+                  Strategi jelas, eksekusi rapi, dan laporan transparan — dari setup awal sampai optimasi yang terukur.
+                </p>
+              </div>
+            </section>
+
+            {/* Janji & garansi + Before/After (kanan) */}
+            <section className="order-4 bg-secondary/40 pt-8 pb-8 md:order-4 md:pt-16 md:pb-10">
+              <div className="mx-auto grid max-w-[90rem] grid-cols-1 gap-14 px-2.5 md:px-6 md:gap-16 lg:grid-cols-2 lg:items-start lg:gap-x-32 lg:gap-y-0 xl:gap-x-40 2xl:gap-x-48">
+                <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[32rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[32rem]" />}>
+                    <WeddingGuaranteeSection />
+                  </Suspense>
+                </DeferUntilNearViewport>
+                <DeferUntilNearViewport placeholderClassName="min-h-[320px] md:min-h-[36rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[320px] md:min-h-[36rem]" />}>
+                    <JanjiCompanionColumn />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
+
+            {/* Narasi post-paket (tanpa kartu pembuka di mobile — kartu itu sudah di atas): di mobile setelah janji + before/after; di desktop sisi atas tetap di dalam blok paket. */}
+            <section className="order-6 border-t border-border/50 bg-secondary/30 pt-8 pb-14 md:hidden">
+              <div className="mx-auto max-w-[90rem] px-2.5 md:px-6">
+                <DeferUntilNearViewport placeholderClassName="min-h-[16rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[16rem]" />}>
+                    <PostPackageTrustSection />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
+          </div>
+
+          {/* Pengalaman lintas industri */}
+          <section className="bg-background py-10 md:py-14">
+            <DeferUntilNearViewport placeholderClassName="min-h-[36rem] md:min-h-[30rem]">
+              <Suspense fallback={<LazySectionFallback className="min-h-[36rem] md:min-h-[30rem]" />}>
+                <IndustryExperienceSection />
+              </Suspense>
+            </DeferUntilNearViewport>
+          </section>
+
+          {/* CTA */}
+          <section className="bg-background">
+            <div className="mx-auto max-w-4xl px-2.5 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
+              <SectionTitle
+                title="Mulai dari obrolan singkat"
+                subtitle="Ceritakan goal, target KPI, dan budget Anda. Kami bantu susun strategi dan eksekusi yang realistis—jelas deliverable, jelas next action."
+              />
+              <div className="mt-10 flex justify-start">
+                <a
+                  href="#paket-dokumentasi"
+                  data-track={TRACK_KEYS.contactCta}
+                  className="rounded-full bg-navy px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
+                  onClick={(e) => {
+                    if (packageConsultOpener) {
+                      e.preventDefault();
+                      packageConsultOpener.requestOpenAllPackageConsults();
+                    }
+                  }}
+                >
+                  Konsultasi gratis
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <DeferUntilNearViewport rootMargin="200px 0px 120px 0px" placeholderClassName="min-h-[28rem] md:min-h-[34rem]">
+            <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[34rem]" />}>
+              <HomeFaqSection />
+            </Suspense>
+          </DeferUntilNearViewport>
+        </>
+      ) : (
+        <>
+          {/* Wedding home sections */}
+          <div className="flex flex-col">
+            <section
+              id="paket-dokumentasi"
+              className="order-1 scroll-mt-24 border-t border-border/60 bg-secondary/30 pt-8 pb-8 md:pt-10 md:pb-10"
+            >
+              <div className="mx-auto max-w-[90rem] px-4 pb-5 md:px-6 md:pb-6">
+                <SectionTitle
+                  className="text-left"
+                  align="left"
+                  title="Paket unggulan"
+                  subtitle="Pilihan paket foto & video + album, termasuk opsi foto only — detail final mengikuti tanggal, lokasi, dan add-on yang Anda pilih."
+                  belowTitle={<PaketUnggulanQuickNav />}
+                />
+              </div>
+              <DeferUntilNearViewport className="w-full" placeholderClassName="min-h-[300px] pb-3 md:min-h-[56rem] md:pb-4">
+                <Suspense fallback={<LazySectionFallback className="min-h-[300px] w-full pb-3 md:min-h-[56rem] md:pb-4" />}>
+                  <WeddingPackageHighlight />
+                </Suspense>
+              </DeferUntilNearViewport>
+              <div className="mx-auto max-w-[90rem] px-4 pt-6 pb-0 md:hidden">
+                <DeferUntilNearViewport placeholderClassName="min-h-[14rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
+                    <PostPackageTrustLeadCard />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+              <div className="mx-auto hidden max-w-[90rem] border-t border-border/50 px-4 pt-8 md:mt-10 md:block md:px-6 md:pt-10">
+                <DeferUntilNearViewport placeholderClassName="min-h-[12rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[12rem]" />}>
+                    <PostPackageTrustSection />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
+
+            <section className="order-2 bg-secondary/40 pt-12 pb-10 md:pt-16 md:pb-14">
+              <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+                <DeferUntilNearViewport placeholderClassName="min-h-[28rem] md:min-h-[32rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[28rem] md:min-h-[32rem]" />}>
+                    <WeddingGuaranteeSection />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
+
+            <section className="order-3 border-t border-border/60 bg-background py-10 md:py-14">
+              <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+                <DeferUntilNearViewport placeholderClassName="min-h-[14rem]">
+                  <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
+                    <InstagramProfileEmbed />
+                  </Suspense>
+                </DeferUntilNearViewport>
+              </div>
+            </section>
+          </div>
+
+          {/* CTA */}
+          <section className="bg-background">
+            <div className="mx-auto max-w-4xl px-4 pt-10 pb-16 text-center md:px-6 md:pt-12 md:pb-20 md:text-left">
+              <SectionTitle
+                title="Mulai dari obrolan singkat"
+                subtitle="Ceritakan tanggal, venue, dan impian Anda. Kami bantu susun paket yang masuk akal dan menyenangkan."
+              />
+              <div className="mt-10 flex justify-start">
+                <a
+                  href="#paket-dokumentasi"
+                  data-track={TRACK_KEYS.contactCta}
+                  className="rounded-full bg-navy px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
+                  onClick={(e) => {
+                    if (packageConsultOpener) {
+                      e.preventDefault();
+                      packageConsultOpener.requestOpenAllPackageConsults();
+                    }
+                  }}
+                >
+                  Hubungi kami
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {/* FAQ (wedding) */}
+          <section className="bg-background pb-20">
+            <div className="mx-auto max-w-[90rem] px-4 md:px-6">
+              <div className="mx-auto w-full max-w-5xl rounded-3xl border border-border bg-card px-3 py-6 shadow-sm md:p-10">
+                <div className="mx-auto max-w-3xl text-center">
+                  <h2 className="text-3xl font-bold tracking-tight text-navy md:text-4xl">FAQ</h2>
+                  <p className="mt-3 text-muted-foreground">
+                    Pertanyaan yang sering ditanyakan sebelum memesan layanan wedding organizer &amp; dokumentasi.
+                  </p>
+                </div>
+                <div className="mx-auto mt-8 max-w-4xl">
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="item-1">
+                      <AccordionTrigger>Apa saja yang dicakup oleh Vialdi Wedding?</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        Kami menyediakan dokumentasi foto &amp; video (termasuk paket dengan album), kolaborasi dengan vendor rias dan busana, serta pendampingan dekorasi pelaminan sesuai paket yang dipilih.
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="item-2">
+                      <AccordionTrigger>Bagaimana cara memilih paket yang tepat?</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        Setelah konsultasi gratis, kami merekomendasikan durasi tim, jumlah fotografer / videografer, dan add-on berdasarkan skala acara (rumah, outdoor, hotel, atau gedung).
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="item-3">
+                      <AccordionTrigger>Kapan hasil foto dan video biasanya selesai?</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        Waktu penyelesaian bervariasi per paket. Untuk paket prioritas, estimasi hasil foto utama dapat lebih cepat — detail tertuang di proposal resmi.
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="item-4">
+                      <AccordionTrigger>Apakah revisi editing dimungkinkan?</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        Ya, dalam batas wajar dan sesuai kesepakatan di kontrak. Tujuan kami adalah hasil yang Anda banggakan tanpa mengorbankan kualitas artistik.
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="item-5">
+                      <AccordionTrigger>Apakah melayani luar kota?</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        Silakan sampaikan kota dan venue pada formulir kontak. Biaya transport &amp; akomodasi tim (jika diperlukan) akan dijelaskan secara transparan.
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       <DeferUntilNearViewport rootMargin="0px 0px 480px 0px" placeholderClassName="min-h-[14rem]">
         <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>
