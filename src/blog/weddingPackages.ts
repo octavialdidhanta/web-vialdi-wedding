@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/share/supabaseClient";
 import { randomUuidV4 } from "@/share/lib/randomUuid";
+import { resolvePackageStoragePublicUrl } from "@/blog/packageStoragePublicUrl";
 
 const PACKAGE_BUCKET = "package-media";
 
@@ -73,16 +74,7 @@ function mapRow(r: z.infer<typeof rowZ>): WeddingPackageRow {
 }
 
 export function resolvePackageStorageUrl(path: string | null | undefined, url: string | null | undefined): string | null {
-  const u = url?.trim();
-  if (u) {
-    return u;
-  }
-  const p = path?.trim();
-  if (!p) {
-    return null;
-  }
-  const { data } = supabase.storage.from(PACKAGE_BUCKET).getPublicUrl(p);
-  return data.publicUrl;
+  return resolvePackageStoragePublicUrl(path, url);
 }
 
 export async function fetchPublishedPackages(): Promise<WeddingPackageRow[]> {

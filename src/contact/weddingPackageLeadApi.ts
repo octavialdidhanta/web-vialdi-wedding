@@ -2,11 +2,25 @@ import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
 import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import type { AnalyticsWebId } from "@/analytics/trackRegistry";
 import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
-import {
-  FunctionsFetchError,
-  FunctionsHttpError,
-  FunctionsRelayError,
-} from "@supabase/supabase-js";
+
+type SupabaseFunctionsErrors = {
+  FunctionsFetchError: typeof import("@supabase/supabase-js").FunctionsFetchError;
+  FunctionsHttpError: typeof import("@supabase/supabase-js").FunctionsHttpError;
+  FunctionsRelayError: typeof import("@supabase/supabase-js").FunctionsRelayError;
+};
+
+let supabaseFunctionsErrorsP: Promise<SupabaseFunctionsErrors> | null = null;
+
+function loadSupabaseFunctionsErrors(): Promise<SupabaseFunctionsErrors> {
+  if (!supabaseFunctionsErrorsP) {
+    supabaseFunctionsErrorsP = import("@supabase/supabase-js").then((m) => ({
+      FunctionsFetchError: m.FunctionsFetchError,
+      FunctionsHttpError: m.FunctionsHttpError,
+      FunctionsRelayError: m.FunctionsRelayError,
+    }));
+  }
+  return supabaseFunctionsErrorsP;
+}
 
 export type WeddingLeadStep1 = {
   step: 1;
@@ -91,6 +105,8 @@ function isRepeatLeadMessage(message: string): boolean {
  * (bukan `{ body: string }`). Tanpa ini, pengguna hanya melihat "Edge Function returned a non-2xx status code".
  */
 async function formatFunctionsInvokeError(error: unknown): Promise<{ message: string; retryAfterSeconds?: number }> {
+  const { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } = await loadSupabaseFunctionsErrors();
+
   if (error instanceof FunctionsHttpError) {
     const ctx = error.context as unknown;
     if (ctx && typeof ctx === "object" && typeof (ctx as Response).text === "function") {

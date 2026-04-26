@@ -15,9 +15,12 @@ function LazySectionFallback({ className }: { className: string }) {
 
 export function WeddingHeroSection({
   heroImageSrc,
+  heroImageSrcSet,
   onCtaClick,
 }: {
   heroImageSrc: string;
+  /** Responsif: hindari mengunduh WebP penuh (~ribuan px) saat slot tampil jauh lebih kecil. */
+  heroImageSrcSet?: string;
   onCtaClick: (ev: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
@@ -67,6 +70,7 @@ export function WeddingHeroSection({
           <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
             <img
               src={heroImageSrc}
+              srcSet={heroImageSrcSet}
               alt="Pasangan pengantin dalam suasana pernikahan elegan"
               width={720}
               height={720}

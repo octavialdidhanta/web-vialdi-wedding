@@ -1,11 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeCarouselPackageIds } from "@/blog/weddingPackageIds";
-import {
-  fetchPublishedPackages,
-  fetchPublishedPackagesByIds,
-  type WeddingPackageRow,
-} from "@/blog/weddingPackages";
+import type { WeddingPackageRow } from "@/blog/weddingPackages";
 import { DynamicWeddingPackageCardEmbed } from "@/1-home/packages/DynamicWeddingPackageCardEmbed";
 
 const DynamicWeddingPackageCard = lazy(() =>
@@ -85,6 +81,7 @@ export function PackageCarouselStrip({
       if (preloaded?.length) {
         return preloaded;
       }
+      const { fetchPublishedPackages, fetchPublishedPackagesByIds } = await import("@/blog/weddingPackages");
       if (mode === "home") {
         return fetchPublishedPackages();
       }
@@ -108,6 +105,8 @@ export function PackageCarouselStrip({
     const scrollEl = carouselRef.current;
     const trackEl = trackRef.current;
     if (!scrollEl || !trackEl) return;
+    const scrollRoot: HTMLDivElement = scrollEl;
+    const trackRoot: HTMLDivElement = trackEl;
 
     const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mqReduce.matches) return;
@@ -120,13 +119,13 @@ export function PackageCarouselStrip({
     const touchIdsStartedOnCarousel = new Set<number>();
 
     function stripBounce() {
-      trackEl.classList.remove("pkg-carousel-bounce-hint");
+      trackRoot.classList.remove("pkg-carousel-bounce-hint");
       animPlaying = false;
     }
 
     function touchTargetInCarousel(t: Touch): boolean {
       const n = t.target;
-      return n instanceof Node && scrollEl.contains(n);
+      return n instanceof Node && scrollRoot.contains(n);
     }
 
     function stopBounceTimers() {
@@ -206,7 +205,7 @@ export function PackageCarouselStrip({
       passive: true,
     });
     document.addEventListener("visibilitychange", onVisibilityChange);
-    scrollEl.addEventListener("scroll", onCarouselScroll, { passive: true });
+    scrollRoot.addEventListener("scroll", onCarouselScroll, { passive: true });
 
     onCarouselScroll();
 
@@ -224,7 +223,7 @@ export function PackageCarouselStrip({
       cancelled = true;
       stopBounceTimers();
       stripBounce();
-      scrollEl.removeEventListener("scroll", onCarouselScroll);
+      scrollRoot.removeEventListener("scroll", onCarouselScroll);
       document.removeEventListener("touchstart", onDocumentTouchStart, true);
       document.removeEventListener("touchend", onDocumentTouchEndOrCancel, true);
       document.removeEventListener("touchcancel", onDocumentTouchEndOrCancel, true);

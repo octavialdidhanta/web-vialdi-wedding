@@ -7,7 +7,7 @@ import {
 } from "@/1-home/context/PackageConsultOpenerContext";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
-import weddingHeroImage from "@/1-home/assets/hero/DSC00768_11zon.webp";
+import { WEDDING_HERO_IMAGE_SRC, WEDDING_HERO_IMAGE_SRCSET } from "@/1-home/assets/hero/weddingHeroImage";
 import { MobileHomeStickyFooter } from "@/1-home/components/MobileHomeStickyFooter";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
@@ -117,7 +117,8 @@ function HomePageInner() {
       <Header />
 
       <WeddingHeroSection
-        heroImageSrc={weddingHeroImage}
+        heroImageSrc={WEDDING_HERO_IMAGE_SRC}
+        heroImageSrcSet={WEDDING_HERO_IMAGE_SRCSET}
         onCtaClick={(e) => {
           if (packageConsultOpener) {
             e.preventDefault();

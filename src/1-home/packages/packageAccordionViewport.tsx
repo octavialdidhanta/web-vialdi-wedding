@@ -59,8 +59,11 @@ export function PackageAccordionRoot({ onValueChange, ...props }: AccordionRootP
         if (!openValue || !scrollRef?.current) return;
         const container = scrollRef.current;
 
-        // Jalankan setelah DOM update; cukup sekali untuk menghindari layout thrash.
-        requestAnimationFrame(() => scrollOpenTriggerInsideContainer(container));
+        // Dua frame: biarkan Radix menyelesaikan layout sebelum baca `getBoundingClientRect`,
+        // supaya mengurangi forced reflow yang terlihat di Lighthouse.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollOpenTriggerInsideContainer(container));
+        });
       }}
     />
   );

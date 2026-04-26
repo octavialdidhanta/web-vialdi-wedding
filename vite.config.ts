@@ -112,7 +112,7 @@ export default defineConfig(({ mode }) => {
             let next = stripOldHeroPreloads(html);
 
             if (!ctx.bundle) {
-              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp";
+              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=640&format=webp";
               const tag = `    <link rel="preload" as="image" href="${devHref}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
               const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
               if (charsetMeta.test(next)) {
@@ -135,10 +135,12 @@ export default defineConfig(({ mode }) => {
             }
 
             /**
-             * Kadang ada >1 varian WebP (mis. hasil optimasi berbeda). Pilih yang terbesar sebagai
-             * kandidat LCP utama (biasanya versi default import hero).
+             * Ada beberapa varian WebP (hasil `vite-imagetools` dengan `?w=` berbeda).
+             * Preload varian **terkecil** agar selaras dengan `WEDDING_HERO_IMAGE_SRC` (fallback `src`)
+             * dan mengurangi unduhan berlebihan di LCP mobile — browser tetap bisa memilih URL
+             * lebih besar dari `srcSet` sesuai `sizes` + DPR.
              */
-            assetSizes.sort((a, b) => b.bytes - a.bytes);
+            assetSizes.sort((a, b) => a.bytes - b.bytes);
             const picked = assetSizes[0];
             const href = `/${picked.fileName.replace(/^\/+/, "")}`;
 

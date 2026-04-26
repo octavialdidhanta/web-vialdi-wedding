@@ -6,7 +6,7 @@ import { PackageConsultLeadForm } from "@/1-home/packages/PackageConsultLeadForm
 import { PackagePricingCardShell } from "@/1-home/packages/PackagePricingCardShell";
 import { usePromoCountdown } from "@/1-home/packages/usePromoCountdown";
 import type { WeddingPackageRow } from "@/blog/weddingPackages";
-import { resolvePackageStorageUrl } from "@/blog/weddingPackages";
+import { resolvePackageStoragePublicUrl } from "@/blog/packageStoragePublicUrl";
 import bestSellerBadgePng from "@/1-home/assets/Untitled design (3).png";
 
 function CountdownFooter({
@@ -46,8 +46,8 @@ type Props = {
 };
 
 export function WeddingPackagePricingCard({ pkg, accordion }: Props) {
-  const badgeUrl = resolvePackageStorageUrl(pkg.badge_image_path, pkg.badge_image_url);
-  const bestSellerUrl = resolvePackageStorageUrl(pkg.best_seller_image_path, pkg.best_seller_image_url);
+  const badgeUrl = resolvePackageStoragePublicUrl(pkg.badge_image_path, pkg.badge_image_url);
+  const bestSellerUrl = resolvePackageStoragePublicUrl(pkg.best_seller_image_path, pkg.best_seller_image_url);
   const countdownMs = pkg.promo_countdown_ends_at
     ? new Date(pkg.promo_countdown_ends_at).getTime()
     : null;
