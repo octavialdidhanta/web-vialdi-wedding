@@ -49,8 +49,8 @@
         padding: 0 16px;
         max-width: 90rem;
         margin: 0 auto;
-        background-color: oklch(0.985 0.005 90 / 0.92);
-        backdrop-filter: blur(10px);
+        /* Tanpa backdrop-filter: komposit lebih murah → Speed Index / paint lebih cepat */
+        background-color: oklch(0.985 0.005 90);
       }
       @media (min-width: 768px) {
         #vialdi-fcp-bar {
@@ -69,11 +69,110 @@
           font-size: 1.5rem;
         }
       }
+      /* Skeleton hero: isi layar lebih awal (Speed Index) — urutan mobile foto dulu, desktop row-reverse = teks kiri */
+      #vialdi-fcp-hero-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        max-width: 90rem;
+        margin: 0 auto;
+        padding: 2.5rem 0.625rem 2rem;
+        box-sizing: border-box;
+      }
+      @media (min-width: 1024px) {
+        #vialdi-fcp-hero-wrap {
+          flex-direction: row-reverse;
+          align-items: center;
+          gap: 3rem;
+          padding: 2.5rem 1.5rem 2rem;
+        }
+      }
+      #vialdi-fcp-photo-wrap {
+        width: 100%;
+        max-width: min(36rem, calc(100vw - 1.25rem));
+        margin: 0 auto;
+      }
+      @media (min-width: 1024px) {
+        #vialdi-fcp-photo-wrap {
+          margin: 0;
+          max-width: none;
+          flex: 1 1 0;
+          min-width: 0;
+        }
+      }
+      /* Gambar hero statis (disuntik Vite) — LCP sebelum React */
+      #vialdi-fcp-photo-wrap .vialdi-static-hero-lcp {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1;
+        object-fit: cover;
+        object-position: bottom;
+        border-radius: 1.5rem;
+        border: 1px solid oklch(0.9 0.01 80);
+        box-sizing: border-box;
+      }
+      #vialdi-fcp-copy {
+        width: 100%;
+        min-width: 0;
+      }
+      @media (min-width: 1024px) {
+        #vialdi-fcp-copy {
+          flex: 1.05 1 0;
+        }
+      }
+      #vialdi-fcp-badge {
+        height: 2rem;
+        max-width: 22rem;
+        border-radius: 9999px;
+        border: 1px solid oklch(0.9 0.01 80);
+        background: oklch(1 0 0 / 0.9);
+      }
+      .vialdi-fcp-line {
+        border-radius: 0.25rem;
+        background: oklch(0.9 0.02 250 / 0.55);
+      }
+      #vialdi-fcp-line1 {
+        margin-top: 1.5rem;
+        width: min(92%, 28rem);
+        height: 1.05rem;
+      }
+      #vialdi-fcp-line2 {
+        margin-top: 0.65rem;
+        width: min(88%, 26rem);
+        height: 1.05rem;
+      }
+      #vialdi-fcp-line3 {
+        margin-top: 0.55rem;
+        width: min(72%, 20rem);
+        height: 0.75rem;
+      }
     </style>
     <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
     <title>Vialdi Wedding — Wedding Organizer</title>
   </head>
   <body>
+    <!-- Konten paintable dulu (FCP): noscript GTM/Meta di bawah agar parser mencapai #root lebih awal -->
+    <main id="main-content">
+      <div id="root">
+        <div id="vialdi-fcp-root">
+          <div id="vialdi-fcp-bar">
+            <span id="vialdi-fcp-title">__VIALDI_FCP_BRAND__</span>
+          </div>
+          <div id="vialdi-fcp-hero-wrap">
+            <div id="vialdi-fcp-photo-wrap">
+              __VIALDI_LCP_HERO_IMG__
+            </div>
+            <div id="vialdi-fcp-copy" aria-hidden="true">
+              <div id="vialdi-fcp-badge"></div>
+              <div id="vialdi-fcp-line1" class="vialdi-fcp-line"></div>
+              <div id="vialdi-fcp-line2" class="vialdi-fcp-line"></div>
+              <div id="vialdi-fcp-line3" class="vialdi-fcp-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
     <!-- Google Tag Manager (noscript) -->
     <noscript>
       <iframe
@@ -96,15 +195,6 @@
       />
     </noscript>
     <!-- End Meta Pixel (noscript) -->
-    <main id="main-content">
-      <div id="root">
-        <div id="vialdi-fcp-root" aria-hidden="true">
-          <div id="vialdi-fcp-bar">
-            <span id="vialdi-fcp-title">__VIALDI_FCP_BRAND__</span>
-          </div>
-        </div>
-      </div>
-    </main>
     <script type="module" src="/src/main.tsx"></script>
     <script defer src="/vialdi-deferred-analytics.js"></script>
   </body>

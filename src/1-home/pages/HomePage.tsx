@@ -13,7 +13,6 @@ import {
   mobileHomeStickyFooterPageBottomPaddingClass,
 } from "@/1-home/components/MobileHomeStickyFooter";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
-import { WeddingServicesGridSection } from "@/1-home/sections/WeddingServicesGridSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
 
 const Footer = lazy(() => import("@/share/Footer").then((m) => ({ default: m.Footer })));
@@ -35,6 +34,11 @@ const WeddingCtaSection = lazy(() =>
 );
 const WeddingFaqSection = lazy(() =>
   import("@/1-home/sections/WeddingFaqSection").then((m) => ({ default: m.WeddingFaqSection })),
+);
+const WeddingServicesGridSection = lazy(() =>
+  import("@/1-home/sections/WeddingServicesGridSection").then((m) => ({
+    default: m.WeddingServicesGridSection,
+  })),
 );
 
 function LazySectionFallback({ className }: { className: string }) {
@@ -155,7 +159,9 @@ function HomePageInner() {
         }}
       />
 
-      <WeddingServicesGridSection />
+      <Suspense fallback={<LazySectionFallback className="min-h-[22rem] md:min-h-[26rem]" />}>
+        <WeddingServicesGridSection />
+      </Suspense>
 
       <div className="flex flex-col">
         <Suspense fallback={<LazySectionFallback className="min-h-[28rem]" />}>

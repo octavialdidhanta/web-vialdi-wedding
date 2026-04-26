@@ -106,14 +106,13 @@ export default defineConfig(({ mode }) => {
           order: "post",
           handler(html, ctx) {
             /**
-             * Lighthouse "LCP request discovery" membutuhkan URL kandidat LCP terlihat di HTML awal.
-             * Hero di-render dari JS; hash file hasil build berubah tiap deploy — ambil URL final dari
-             * artefak Rollup (`ctx.bundle`) supaya preload selalu cocok tanpa edit manual `index.html`.
-             *
-             * `imagesizes` harus sama dengan `sizes` di `WeddingHeroSection.tsx` (hero `<img>`).
+             * Lighthouse: LCP discovery + `<img>` sungguhan di HTML agar LCP tidak menunggu React.
+             * `sizes` / srcset selaras `WeddingHeroSection.tsx`.
              */
             const heroImgSizes =
               "(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)";
+
+            const staticHeroAlt = "Pasangan pengantin dalam suasana pernikahan elegan";
 
             const stripOldHeroPreloads = (h: string) =>
               h.replace(
@@ -123,14 +122,29 @@ export default defineConfig(({ mode }) => {
 
             let next = stripOldHeroPreloads(html);
 
-            if (!ctx.bundle) {
-              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=960&format=webp";
-              const tag = `    <link rel="preload" as="image" href="${devHref}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
+            const injectPreloadAfterCharset = (h: string, href: string) => {
+              const tag = `    <link rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
               const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
-              if (charsetMeta.test(next)) {
-                return next.replace(charsetMeta, (m) => `${m}\n${tag}`);
+              if (charsetMeta.test(h)) {
+                return h.replace(charsetMeta, (m) => `${m}\n${tag}`);
               }
-              return next.replace("</head>", `${tag}  </head>`);
+              return h.replace("</head>", `${tag}  </head>`);
+            };
+
+            const buildImgTag = (src: string, srcset: string) =>
+              `<img id="vialdi-static-hero-lcp" class="vialdi-static-hero-lcp" src="${src}" srcset="${srcset}" sizes="${heroImgSizes}" width="720" height="720" fetchpriority="high" decoding="async" alt="${staticHeroAlt}" />`;
+
+            if (!ctx.bundle) {
+              const dev640 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=640&format=webp";
+              const dev960 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=960&format=webp";
+              const dev1280 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=1280&format=webp";
+              const dev1600 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=1600&format=webp";
+              const devSrcset = `${dev640} 640w, ${dev960} 960w, ${dev1280} 1280w, ${dev1600} 1600w`;
+              next = injectPreloadAfterCharset(next, dev960);
+              return next.replaceAll(
+                "__VIALDI_LCP_HERO_IMG__",
+                buildImgTag(dev960, devSrcset),
+              );
             }
 
             const assetSizes = Object.values(ctx.bundle)
@@ -146,21 +160,38 @@ export default defineConfig(({ mode }) => {
               return next;
             }
 
-            /**
-             * Ada beberapa varian WebP (hasil `vite-imagetools` dengan `?w=` berbeda).
-             * Preload varian **kedua terkecil** (~960w): cocok untuk slot hero mobile (DPR 2–3) tanpa
-             * unduhan 1280/1600 yang berlebihan; hindari preload 640w yang sering di-upgrade browser.
-             */
             assetSizes.sort((a, b) => a.bytes - b.bytes);
+            const widths = [640, 960, 1280, 1600] as const;
+            const pairs = assetSizes.slice(0, 4).map((a, i) => ({
+              href: `/${a.fileName.replace(/^\/+/, "")}`,
+              w: widths[i] ?? 640 * (i + 1),
+            }));
+            const srcset = pairs.map((p) => `${p.href} ${p.w}w`).join(", ");
             const picked = assetSizes.length >= 2 ? assetSizes[1]! : assetSizes[0]!;
             const href = `/${picked.fileName.replace(/^\/+/, "")}`;
+            const srcForImg = pairs[1]?.href ?? pairs[0]!.href;
 
-            const tag = `    <link rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
-            const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
-            if (charsetMeta.test(next)) {
-              return next.replace(charsetMeta, (m) => `${m}\n${tag}`);
-            }
-            return next.replace("</head>", `${tag}  </head>`);
+            next = injectPreloadAfterCharset(next, href);
+            return next.replaceAll("__VIALDI_LCP_HERO_IMG__", buildImgTag(srcForImg, srcset));
+          },
+        },
+      },
+      {
+        /** Produksi: rapatkan CSS kritis di <head> agar parse + tokenisasi lebih cepat (FCP). */
+        name: "minify-fcp-critical-css",
+        transformIndexHtml: {
+          order: "post",
+          handler(html) {
+            return html.replace(
+              /<style id="vialdi-fcp-critical">([\s\S]*?)<\/style>/i,
+              (_full, css: string) => {
+                const min = css
+                  .replace(/\/\*[\s\S]*?\*\//g, "")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                return `<style id="vialdi-fcp-critical">${min}</style>`;
+              },
+            );
           },
         },
       },

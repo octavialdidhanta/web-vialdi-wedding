@@ -27,14 +27,14 @@ export function WeddingHeroSection({
     <section className="relative overflow-x-hidden border-b border-border/40 bg-background pb-10 md:pb-14 lg:pb-20">
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-32 right-0 h-96 w-96 rounded-full opacity-25 blur-3xl"
+        className="pointer-events-none absolute -top-32 right-0 hidden h-96 w-96 rounded-full opacity-25 blur-3xl lg:block"
         style={{
           background: "linear-gradient(135deg, oklch(0.88 0.05 300), oklch(0.94 0.02 95))",
         }}
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[oklch(0.75_0.08_300)]/15 blur-3xl"
+        className="pointer-events-none absolute bottom-0 left-1/2 hidden h-72 w-72 -translate-x-1/2 rounded-full bg-[oklch(0.75_0.08_300)]/15 blur-3xl lg:block"
       />
 
       <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
