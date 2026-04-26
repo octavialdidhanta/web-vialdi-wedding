@@ -12,7 +12,7 @@ import {
 } from "@/about-us/content";
 import { MilestoneSection } from "@/about-us/MilestoneSection";
 import { useAboutPageMeta } from "@/about-us/useAboutPageMeta";
-import { SectionTitle } from "@/home/SectionTitle";
+import { SectionTitle } from "@/1-home/components/SectionTitle";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
 

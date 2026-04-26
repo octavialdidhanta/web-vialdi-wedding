@@ -166,8 +166,11 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between px-6">
-        <Link to="/" className="flex flex-wrap items-baseline gap-x-1 text-xl font-bold tracking-tight md:text-2xl">
+      <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between px-4 md:h-16 md:px-6">
+        <Link
+          to="/"
+          className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight md:text-2xl"
+        >
           {isAgencySite ? (
             <>
               <span className="text-navy">vialdi</span>
@@ -176,7 +179,9 @@ export function Header() {
           ) : (
             <>
               <span className="text-navy">Vialdi</span>
-              <span className="text-accent-orange">Wedding</span>
+              <span className="bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] bg-clip-text text-transparent">
+                Wedding
+              </span>
             </>
           )}
         </Link>
@@ -214,7 +219,7 @@ export function Header() {
 
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
             aria-label="Buka menu navigasi"
             aria-expanded={mobileMounted}
             onClick={openMobileNav}

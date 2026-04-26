@@ -74,7 +74,7 @@ const serviceSectionsAgency: ServiceSection[] = [
     title: "Solusi End to End Agency:",
     description: [
       "Perusahaan baru seringkali menghadapi kesulitan ketika memulai bisnis dan perizinan.",
-      "vialdi.id membantu menangani segalanya mulai dari permohonan BPOM, Merek dagang (brand), Legalitas bisnis (Akta Perusahaan, NIB, NPWP), dan perizinan lainnya",
+      "Pendampingan persiapan yang rapi: timeline, checklist, koordinasi vendor, dan detail teknis agar hari H berjalan mulus.",
     ],
     fee: "Agency Fee Start From 2,8jt",
     items: [
@@ -108,7 +108,7 @@ const serviceSectionsAgency: ServiceSection[] = [
     id: "ads",
     title: "Iklan/ Ads/ Campaign:",
     description: [
-      "Dengan menggabungkan konten berkualitas dan strategi pemasaran yang efektif, Anda dapat memperluas jangkauan dan meningkatkan interaksi dengan menggunakan jasa iklan di vialdi.id.",
+      "Dokumentasi yang rapi dan konsisten: foto, video, album, dan output yang mudah dibagikan—sesuai style yang Anda inginkan.",
       "Kami bantu optimalkan iklan anda agar tepat sasaran dan tidak boncos:",
     ],
     bullets: [
@@ -251,7 +251,7 @@ const serviceSectionsWedding: ServiceSection[] = [
   },
 ];
 
-export const serviceSections: ServiceSection[] = isWeddingSite() ? serviceSectionsWedding : serviceSectionsAgency;
+export const serviceSections: ServiceSection[] = serviceSectionsWedding;
 
 export const servicesCtas = {
   primaryHref: "/contact",
@@ -261,7 +261,7 @@ export const servicesCtas = {
 };
 
 export const servicesSeo = {
-  title: "Layanan — vialdi.id | Digital marketing & creative agency",
+  title: "Layanan — Vialdi Wedding",
   description:
-    "Solusi end-to-end: perizinan & legalitas, creative & social media, iklan/ads, website, dan marketplace. Konsultasi via halaman kontak.",
+    "Layanan & paket Vialdi Wedding: dokumentasi foto/video, album, serta pendampingan persiapan sesuai kebutuhan Anda. Konsultasi via halaman kontak.",
 };

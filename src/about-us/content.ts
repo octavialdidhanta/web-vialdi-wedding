@@ -2,25 +2,13 @@
 
 import { isWeddingSite } from "@/site/siteVariant";
 
-const aboutSeoAgency = {
-  title: "Tentang Kami — vialdi.id | Cerita, nilai, dan cara kami mendampingi",
-  description:
-    "Kenali vialdi.id: digital marketing agency yang mengutamakan empati, data, dan eksekusi jernih — dari akuisisi lead hingga funnel yang terbaca untuk marketing, sales, dan leadership.",
-} as const;
-
 const aboutSeoWedding = {
   title: "Tentang Kami — Vialdi Wedding | Cerita, nilai, dan cara kami mendampingi",
   description:
     "Kenali Vialdi Wedding: wedding organizer yang memahami tekanan persiapan pernikahan—vendor, keluarga, dan hari-H. Cerita kami, positioning, nilai kerja, dan langkah berikutnya.",
 } as const;
 
-export const aboutSeo = isWeddingSite() ? aboutSeoWedding : aboutSeoAgency;
-
-const heroAgency = {
-  eyebrow: "Tentang kami",
-  title: "Kami percaya pertumbuhan bisnis layak didampingi dengan empati, data, dan eksekusi yang jernih.",
-  lead: "vialdi.id hadir sebagai digital marketing agency yang tidak hanya bicara soal traffic, tetapi soal alur: bagaimana calon pelanggan menemukan Anda, mempercayai Anda, dan memilih Anda tanpa membuat tim Anda kehabisan napas.",
-} as const;
+export const aboutSeo = aboutSeoWedding;
 
 const heroWedding = {
   eyebrow: "Tentang Vialdi Wedding",
@@ -28,7 +16,7 @@ const heroWedding = {
   lead: "Vialdi Wedding hadir sebagai pendamping organisasi pernikahan: kami membantu merapikan konsep, menyelaraskan vendor, dan mengawasi jalannya acara agar Anda dan keluarga bisa fokus pada momen, bukan pada kebingungan jadwal.",
 } as const;
 
-export const hero = isWeddingSite() ? heroWedding : heroAgency;
+export const hero = heroWedding;
 
 /** Storytelling + empati + benang merah masalah → arah solusi (detail solusi di layanan & konsultasi). */
 export const storyEmpathy = {
@@ -123,7 +111,7 @@ export const milestones: Milestone[] = [
         {
           year: "2023",
           title: "Titik awal yang disengaja",
-          body: 'Perjalanan vialdi.id dimulai pada 2023, ketika kami memutuskan membangun rumah digital di bawah PT. Integrasi Visual Digital Indonesia dengan fokus membantu perusahaan merapikan akuisisi lead dan eksekusi digital secara bertahap, bukan sekadar "kampanye sekejap".',
+          body: "Perjalanan Vialdi Wedding dimulai ketika kami ingin membuat persiapan pernikahan terasa lebih rapi dan manusiawi—dengan komunikasi yang jelas, koordinasi yang tenang, dan hasil dokumentasi yang layak dikenang.",
         },
         {
           year: "2024",
@@ -213,8 +201,8 @@ export const founder = {
         role: "Founder / Chief Executive Officer",
         quote:
           "Investasikan waktu Anda pada hal yang dapat dipertanggungjawabkan. Jika funnel digital bisa dirapikan lebih awal, Anda mengurangi trial-error yang mahal bukan hanya dalam biaya iklan, tapi dalam energi tim.",
-        bio: "Di balik vialdi.id, Octa membangun komunikasi yang tenang namun tegas: setiap keputusan marketing harus bisa dijelaskan ke bisnis bukan hanya ke algoritma platform.",
-        imageAlt: "Octa Vialdi, Founder vialdi.id",
+        bio: "Di balik Vialdi Wedding, Octa membangun komunikasi yang tenang namun tegas: setiap keputusan harus bisa dipahami pasangan dan keluarga, bukan bikin stres menjelang hari H.",
+        imageAlt: "Octa Vialdi, Founder Vialdi Wedding",
       }),
 } as const;
 

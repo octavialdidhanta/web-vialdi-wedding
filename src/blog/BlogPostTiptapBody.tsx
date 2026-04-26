@@ -2,10 +2,10 @@ import { lazy, Suspense } from "react";
 import { generateHTML } from "@tiptap/html";
 import type { JSONContent } from "@tiptap/core";
 import { tiptapDocumentExtensions } from "@/admin/lib/documentExtensions";
-import { PackageConsultOpenerProvider } from "@/home/PackageConsultOpenerContext";
+import { PackageConsultOpenerProvider } from "@/1-home/context/PackageConsultOpenerContext";
 
 const PackageCarouselStrip = lazy(() =>
-  import("@/home/PackageCarouselStrip").then((m) => ({ default: m.PackageCarouselStrip })),
+  import("@/1-home/packages/PackageCarouselStrip").then((m) => ({ default: m.PackageCarouselStrip })),
 );
 
 const proseArticleClass =

@@ -307,7 +307,7 @@ export function AdminShortLinksPage() {
                     readOnly
                     disabled
                     className="font-mono text-sm"
-                    placeholder="https://vialdi.id"
+                    placeholder="https://jasafotowedding.com"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Domain dikunci dari konfigurasi aplikasi (

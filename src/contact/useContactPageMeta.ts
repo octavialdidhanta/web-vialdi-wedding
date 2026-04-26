@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { contactSeo } from "@/contact/seo";
 
-const DEFAULT_DOCUMENT_TITLE = "vialdi.id";
+const DEFAULT_DOCUMENT_TITLE = "Vialdi Wedding";
 
 type MetaSnapshot = {
   el: HTMLMetaElement;

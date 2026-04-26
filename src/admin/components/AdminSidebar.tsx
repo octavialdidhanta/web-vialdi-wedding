@@ -16,7 +16,7 @@ export function AdminSidebar() {
     <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
       <div className="border-b border-border px-4 py-4">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          vialdi.id
+          Vialdi Wedding
         </div>
         <div className="text-sm font-bold text-navy">CMS Admin</div>
       </div>

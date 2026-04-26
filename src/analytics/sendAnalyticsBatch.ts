@@ -1,16 +1,14 @@
 import { randomUuidV4 } from "@/share/lib/randomUuid";
 
-const SESSION_KEY_PREFIX = "vialdi_analytics_session_v1";
+const SESSION_KEY_PREFIX = "vw_analytics_session_v1";
 
 /** Nilai yang sama dengan CHECK di DB + validasi Edge. */
-const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+const ALLOWED_WEB_IDS = ["vialdi-wedding"] as const;
 export type AnalyticsWebId = (typeof ALLOWED_WEB_IDS)[number];
 
 /**
  * Mapping konseptual (domain dipilih di deploy / Vercel env, bukan di runtime):
- * - vialdi → vialdi.id
  * - vialdi-wedding → jasafotowedding.com
- * - synckerja → synckerja.com
  */
 export function getRequiredWebId(): AnalyticsWebId {
   const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
@@ -24,7 +22,7 @@ function sessionStorageKey(): string {
   return `${SESSION_KEY_PREFIX}_${getRequiredWebId()}`;
 }
 
-const LANDING_SNAPSHOT_PREFIX = "vialdi_analytics_landing_v1";
+const LANDING_SNAPSHOT_PREFIX = "vw_analytics_landing_v1";
 
 function landingSnapshotKey(): string {
   return `${LANDING_SNAPSHOT_PREFIX}_${getRequiredWebId()}`;

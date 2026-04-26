@@ -86,7 +86,9 @@ function DeferredAnalyticsLayout() {
 const QueryRoutesLayout = lazy(() =>
   import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
 );
-const HomePage = lazy(() => import("@/home/HomePage").then((m) => ({ default: m.HomePage })));
+const HomePage = lazy(() =>
+  import("@/1-home/pages/HomePage").then((m) => ({ default: m.HomePage })),
+);
 const AboutUsPage = lazy(() =>
   import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
 );

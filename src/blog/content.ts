@@ -1,16 +1,16 @@
-/** Copy halaman blog indeks & label terkait artikel (Vialdi.ID). */
+/** Copy halaman blog indeks & label terkait artikel (Vialdi Wedding). */
 
 export const blogIndexSeo = {
-  title: "Blog — Vialdi.ID | Insight pemasaran digital & studi kasus",
+  title: "Blog — Vialdi Wedding | Inspirasi & tips persiapan nikah",
   description:
-    "Artikel singkat tentang strategi brand, iklan berbayar, konten, dan pengukuran performa — untuk tim pemasaran dan pemilik bisnis.",
+    "Kumpulan artikel singkat seputar persiapan pernikahan: checklist, timeline, dekorasi, rias, vendor, serta tips foto & video agar momenmu rapi dan berkesan.",
 } as const;
 
 export const blogHero = {
-  eyebrow: "Jurnal Vialdi.ID",
-  title: "Insight praktis untuk pertumbuhan bisnis Anda",
+  eyebrow: "Jurnal Vialdi Wedding",
+  title: "Inspirasi & panduan singkat untuk hari pernikahanmu",
   subtitle:
-    "Dari framework strategi hingga eksekusi kampanye — kami rangkum pembelajaran lapangan agar Anda bisa mengambil keputusan lebih cepat.",
+    "Dari checklist sampai tips dokumentasi — kami rangkum hal yang paling sering ditanya calon pengantin agar persiapan lebih tenang dan terarah.",
 } as const;
 
 export const blogFeatured = {
@@ -34,15 +34,15 @@ export const blogSearch = {
 } as const;
 
 export const blogCta = {
-  title: "Butuh pendampingan eksekusi pemasaran?",
+  title: "Mau konsultasi persiapan & paket Vialdi Wedding?",
   subtitle:
-    "Ceritakan target bisnis dan saluran yang ingin Anda perkuat — tim Vialdi.ID membantu merancang langkah terukur dari strategi hingga optimasi.",
-  buttonLabel: "Hubungi kami",
+    "Ceritakan tanggal acara, kebutuhan (WO/dekor/rias/dokumentasi), dan preferensi budget — tim kami bantu rekomendasi paket yang paling pas.",
+  buttonLabel: "Buka halaman kontak",
 } as const;
 
 export const blogPostMeta = {
-  documentTitle: (postTitle: string) => `${postTitle} — Blog Vialdi.ID`,
-  notFoundDocumentTitle: "Artikel tidak ditemukan — Vialdi.ID",
+  documentTitle: (postTitle: string) => `${postTitle} — Blog Vialdi Wedding`,
+  notFoundDocumentTitle: "Artikel tidak ditemukan — Vialdi Wedding",
   notFoundDescription: "Artikel tidak ditemukan atau tautan sudah tidak berlaku.",
 } as const;
 
@@ -54,5 +54,5 @@ export const blogPostUi = {
   backToBlog: "Kembali ke daftar artikel",
   relatedEmpty: "Belum ada artikel terkait untuk ditampilkan.",
   allPostsLink: "Lihat semua artikel",
-  contactCta: "Hubungi Vialdi.ID",
+  contactCta: "Kontak Vialdi Wedding",
 } as const;

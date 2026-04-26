@@ -134,6 +134,12 @@ const SOURCE = "Website";
 const CREATED_BY_NAME = "Vialdi.ID";
 const ASSIGNEE = "Unassigned";
 
+/**
+ * Hard-bind template WhatsApp untuk semua lead dari website.
+ * Source of truth: `public.organization_whatsapp_templates`.
+ */
+const ORG_WHATSAPP_TEMPLATE_ID = "06043eb4-e183-4c55-a9a3-89ec389bbd62";
+
 const AGENCY_TITLE = "Lead Website - Vialdi.ID";
 const AGENCY_CATEGORY = "Agency package card";
 const AGENCY_DB_SOURCE = "Agency package card";
@@ -360,13 +366,31 @@ async function loadOrganizationWhatsappTemplateFromDb(
   webId: string,
 ): Promise<Partial<ResolvedWhatsappTemplateEnv> | null> {
   try {
-    const { data, error } = await admin
+    // 1) Preferred: fixed template row id (no ambiguity across web_id).
+    const fixed = await admin
       .from("organization_whatsapp_templates")
       .select("template_name,template_language,body_keys,body_parameter_names,components_json")
       .eq("organization_id", organizationId)
-      .eq("web_id", webId)
+      .eq("id", ORG_WHATSAPP_TEMPLATE_ID)
       .eq("is_active", true)
       .maybeSingle();
+
+    let data: unknown = fixed.data;
+    let error: { message?: string } | null = fixed.error as unknown as { message?: string } | null;
+
+    // 2) Fallback: old behavior (per web_id) if fixed row missing.
+    if (!data && !error) {
+      const byWeb = await admin
+        .from("organization_whatsapp_templates")
+        .select("template_name,template_language,body_keys,body_parameter_names,components_json")
+        .eq("organization_id", organizationId)
+        .eq("web_id", webId)
+        .eq("is_active", true)
+        .maybeSingle();
+      data = byWeb.data;
+      error = byWeb.error as unknown as { message?: string } | null;
+    }
+
     if (error) {
       console.warn("wedding-package-lead: organization_whatsapp_templates read failed", error.message);
       return null;
