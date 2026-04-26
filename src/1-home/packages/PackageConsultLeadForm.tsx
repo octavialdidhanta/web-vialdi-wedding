@@ -16,7 +16,8 @@ import {
   writeWeddingPackageLeadSubmittedAt,
 } from "@/contact/weddingPackageLeadSession";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
-import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
+import { isValidEmail, isValidPhone, normalizePhone } from "@/contact/leadValidators";
+import { PhoneCountryInput } from "@/contact/PhoneCountryInput";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
 import {
   getOrCreateSessionId,
@@ -170,7 +171,12 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
     const saved = readLeadIdentity();
     if (!saved) return;
     setName((n) => n.trim() || saved.name);
-    setPhone((p) => p.trim() || saved.phone);
+    setPhone((p) => {
+      const cur = p.trim();
+      if (cur) return cur;
+      const norm = normalizePhone(saved.phone);
+      return norm || saved.phone.trim();
+    });
     setEmail((e) => e.trim() || saved.email);
   }, [open, step]);
 
@@ -406,19 +412,16 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">Nomor telepon</label>
-                <Input
+                <PhoneCountryInput
                   name="lead-phone"
-                  autoComplete="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={setPhone}
                   onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-                  placeholder="0812xxxxxxx"
-                  inputMode="tel"
-                  className="h-9 text-sm"
+                  placeholderNational="812xxxxxxxx"
                 />
                 {touched.phone && !phoneOk ? (
                   <p className="text-[0.65rem] font-medium text-destructive">
-                    Nomor tidak valid (9–15 digit, contoh 0812… atau +62812…).
+                    Nomor tidak valid (9–15 digit setelah kode negara; angka 0 di depan tidak perlu).
                   </p>
                 ) : null}
               </div>

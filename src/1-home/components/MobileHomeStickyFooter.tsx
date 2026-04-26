@@ -1,14 +1,32 @@
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { BadgePercent, HelpCircle, Instagram, Phone, ShieldCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { BadgePercent, HelpCircle, Instagram, ShieldCheck } from "lucide-react";
+import {
+  FooterContactNavButton,
+  footerContactIconBoxClass,
+  footerContactNavButtonClass,
+} from "@/1-home/components/FooterContactNavButton";
+import {
+  buildWaMeUrl,
+  fetchHomeFloatingWhatsappSettings,
+  HOME_FLOATING_WHATSAPP_QUERY_KEY,
+} from "@/share/homeFloatingWhatsappSettings";
 
-type NavItem = {
+/**
+ * Padding bawah konten halaman (mobile) agar footer tidak tertutup bar navigasi fixed.
+ * ≈ tinggi bar (ikon 36px + label + py + border) + safe area — jangan terlalu besar agar tidak
+ * terlihat “lompat” jauh di atas bar; jangan terlalu kecil agar teks footer tidak ketutup.
+ */
+export const mobileHomeStickyFooterPageBottomPaddingClass =
+  "pb-[calc(3.875rem+env(safe-area-inset-bottom,0px))] md:pb-0";
+
+type ScrollNavItem = {
   id: string;
   label: string;
   Icon: typeof Instagram;
-  kind?: "scroll" | "route";
-  to?: string;
 };
+
+type NavItem = ScrollNavItem | { id: "contact"; kind: "contact-link"; label: "Contact" };
 
 function scrollToId(id: string) {
   const el = document.getElementById(id);
@@ -31,23 +49,28 @@ export function MobileHomeStickyFooter({
   garansiId: string;
   faqId: string;
 }) {
-  const navigate = useNavigate();
+  const { data: waSettings } = useQuery({
+    queryKey: HOME_FLOATING_WHATSAPP_QUERY_KEY,
+    queryFn: fetchHomeFloatingWhatsappSettings,
+    staleTime: 60_000,
+  });
+
+  const waFooterActive = Boolean(
+    waSettings?.is_enabled && waSettings.phone_digits,
+  );
+
   const items = useMemo<NavItem[]>(
     () => [
-      { id: instagramId, label: "Instagram", Icon: Instagram },
       { id: hargaPaketId, label: "Harga paket", Icon: BadgePercent },
+      { id: instagramId, label: "Instagram", Icon: Instagram },
       { id: garansiId, label: "Garansi", Icon: ShieldCheck },
       { id: faqId, label: "FAQ", Icon: HelpCircle },
-      { id: "contact", label: "Contact", Icon: Phone, kind: "route", to: "/contact" },
+      { id: "contact", kind: "contact-link", label: "Contact" },
     ],
     [faqId, garansiId, hargaPaketId, instagramId],
   );
 
-  const onClick = useCallback((item: NavItem) => {
-    if (item.kind === "route" && item.to) {
-      navigate(item.to);
-      return;
-    }
+  const onScrollItem = useCallback((item: ScrollNavItem) => {
     scrollToId(item.id);
   }, []);
 
@@ -59,22 +82,34 @@ export function MobileHomeStickyFooter({
       aria-label="Navigasi cepat halaman"
     >
       <div className="mx-auto grid max-w-[90rem] grid-cols-5 gap-1 px-1 py-1">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onClick(item)}
-            className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-0.5 text-[0.5625rem] font-medium leading-none text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.48_0.2_300)]/40"
-            aria-label={item.label}
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-[oklch(0.48_0.2_300)] shadow-sm">
-              <item.Icon className="h-3.5 w-3.5" aria-hidden strokeWidth={1.85} />
-            </div>
-            <span className="w-full truncate text-center">{item.label}</span>
-          </button>
-        ))}
+        {items.map((item) =>
+          item.kind === "contact-link" ? (
+            waFooterActive && waSettings?.phone_digits ? (
+              <FooterContactNavButton
+                key={item.id}
+                variant="whatsapp"
+                href={buildWaMeUrl(waSettings.phone_digits, waSettings.prefill_message)}
+                className="w-full"
+              />
+            ) : (
+              <FooterContactNavButton key={item.id} variant="contact" className="w-full" />
+            )
+          ) : (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onScrollItem(item)}
+              className={footerContactNavButtonClass}
+              aria-label={item.label}
+            >
+              <div className={footerContactIconBoxClass}>
+                <item.Icon className="h-4 w-4" aria-hidden strokeWidth={1.85} />
+              </div>
+              <span className="w-full truncate text-center">{item.label}</span>
+            </button>
+          ),
+        )}
       </div>
     </div>
   );
 }
-

@@ -55,7 +55,7 @@ export function BlogPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-destructive md:px-6">
+        <div className="mx-auto max-w-lg px-2.5 py-16 text-center text-sm text-destructive md:px-6">
           {(error as Error).message}
         </div>
         <Footer />
@@ -77,12 +77,12 @@ export function BlogPage() {
           className="pointer-events-none absolute bottom-0 left-1/4 h-64 w-64 rounded-full opacity-30 blur-3xl"
           style={{ background: "var(--gradient-primary)" }}
         />
-        <div className="relative mx-auto max-w-[90rem] px-4 py-8 md:px-6 md:py-10">
+        <div className="relative mx-auto max-w-[90rem] px-2.5 pt-3 pb-5 md:px-6 md:py-10">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-navy shadow-sm">
             <Sparkles className="h-3 w-3 text-accent-orange" aria-hidden />
             {blogHero.eyebrow}
           </div>
-          <h1 className="mt-4 max-w-3xl text-2xl font-bold leading-snug tracking-tight text-navy md:text-3xl lg:text-4xl">
+          <h1 className="mt-3 max-w-3xl text-2xl font-bold leading-snug tracking-tight text-navy md:mt-4 md:text-3xl lg:text-4xl">
             {blogHero.title}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
@@ -91,8 +91,8 @@ export function BlogPage() {
         </div>
       </section>
 
-      <section className="sticky top-16 z-40 border-b border-border/60 bg-background/95 py-2.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[90rem] flex-col gap-2.5 px-4 md:flex-row md:items-center md:justify-between md:gap-5 md:px-6">
+      <section className="sticky top-14 z-40 border-b border-border/60 bg-background/95 py-2 md:top-16 md:py-2.5 backdrop-blur-md">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-2 px-2.5 md:flex-row md:items-center md:justify-between md:gap-5 md:px-6">
           <div className="relative min-w-0 max-w-xl flex-1">
             <Search
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
@@ -107,7 +107,7 @@ export function BlogPage() {
               aria-label={blogSearch.ariaLabel}
             />
           </div>
-          <div className="no-scrollbar flex min-w-0 gap-1.5 overflow-x-auto scroll-px-4 px-1 pb-0.5 md:max-w-[50%] md:scroll-px-6 md:px-2">
+          <div className="no-scrollbar flex min-w-0 gap-1.5 overflow-x-auto scroll-px-2.5 px-0.5 pb-0.5 md:max-w-[50%] md:scroll-px-6 md:px-2">
             <button
               type="button"
               onClick={() => setActiveTag(null)}
@@ -137,7 +137,7 @@ export function BlogPage() {
             ))}
           </div>
         </div>
-        <div className="mx-auto max-w-[90rem] px-4 pt-1 md:px-6">
+        <div className="mx-auto max-w-[90rem] px-2.5 pt-0 md:px-6 md:pt-1">
           <p className="text-[11px] text-muted-foreground md:text-xs">
             Menampilkan{" "}
             <span className="font-semibold text-navy">{isLoading ? "…" : filtered.length}</span>{" "}
@@ -159,7 +159,7 @@ export function BlogPage() {
       </section>
 
       <section className="bg-secondary/25">
-        <div className="mx-auto max-w-[90rem] space-y-8 px-4 py-8 md:space-y-10 md:px-6 md:py-10">
+        <div className="mx-auto max-w-[90rem] space-y-8 px-2.5 py-8 md:space-y-10 md:px-6 md:py-10">
           {isLoading ? (
             <div id="pilihan-editor" aria-busy="true" aria-label="Memuat sorotan">
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -224,7 +224,7 @@ export function BlogPage() {
                 ))}
               </div>
             ) : listPosts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-10 text-center md:py-14">
+              <div className="rounded-xl border border-dashed border-border bg-card/50 px-2.5 py-10 text-center md:px-4 md:py-14">
                 <p className="text-sm font-medium text-navy">{blogEmpty.title}</p>
                 <p className="mt-1.5 text-xs text-muted-foreground">{blogEmpty.hint}</p>
                 <button

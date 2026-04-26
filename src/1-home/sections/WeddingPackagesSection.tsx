@@ -1,7 +1,15 @@
 import { lazy, Suspense } from "react";
 import { SectionTitle } from "@/1-home/components/SectionTitle";
+import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
+
+const WEDDING_PAKET_TABS = [
+  { id: "dokumentasi" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[0] },
+  { id: "rias-gaun" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[1] },
+  { id: "dekorasi" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[2] },
+  { id: "all-in-one" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[3] },
+];
 
 const InstagramProfileEmbed = lazy(() =>
   import("@/1-home/sections/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
@@ -61,14 +69,7 @@ export function WeddingPackagesSection({
             <nav aria-label="Kategori paket wedding" className="mt-4 w-full min-w-0">
               <div className="no-scrollbar relative left-1/2 right-1/2 -mx-[50vw] w-screen max-w-[100vw] snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-4 scroll-pr-4 px-0 md:static md:mx-0 md:w-full md:max-w-full md:snap-none md:scroll-p-0 md:overflow-visible">
                 <ul className="flex w-max flex-nowrap items-stretch justify-start gap-2 px-4 md:w-full md:flex-wrap md:gap-2.5 md:px-0">
-                  {(
-                    [
-                      { id: "dokumentasi", label: "Dokumentasi" },
-                      { id: "rias-gaun", label: "Rias & Gaun" },
-                      { id: "dekorasi", label: "Dekorasi" },
-                      { id: "all-in-one", label: "Paket All in one" },
-                    ] as const
-                  ).map((p) => (
+                  {WEDDING_PAKET_TABS.map((p) => (
                     <li key={p.id} className="shrink-0 snap-start">
                       <button
                         type="button"

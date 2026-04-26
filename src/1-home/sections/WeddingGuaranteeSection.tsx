@@ -17,7 +17,7 @@ export function WeddingGuaranteeSection() {
     <div className="min-w-0">
       <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/80 px-4 py-6 shadow-sm backdrop-blur-sm md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0">
         <h2 className="font-wedding-serif text-2xl font-bold text-navy md:text-3xl">
-          Janji Vialdi Wedding
+          Komitmen kami
         </h2>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
           Bukan janji manis — ini standar kerja yang kami pegang supaya persiapan dan hari H terasa tenang.

@@ -4,7 +4,8 @@ import { getOrCreateSessionId, getRequiredWebId, readLandingAttributionForLead }
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { metaPixelTrack } from "@/analytics/metaPixel";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
-import { isValidEmail, isValidPhone } from "@/contact/leadValidators";
+import { isValidEmail, isValidPhone, normalizePhone } from "@/contact/leadValidators";
+import { PhoneCountryInput } from "@/contact/PhoneCountryInput";
 import { submitWeddingPackageLead } from "@/contact/weddingPackageLeadApi";
 import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
 import { useWeddingLeadStep1Autosave } from "@/contact/useWeddingLeadStep1Autosave";
@@ -51,7 +52,12 @@ export function ContactPage() {
     const saved = readLeadIdentity();
     if (!saved) return;
     setName((n) => n.trim() || saved.name);
-    setPhone((p) => p.trim() || saved.phone);
+    setPhone((p) => {
+      const cur = p.trim();
+      if (cur) return cur;
+      const norm = normalizePhone(saved.phone);
+      return norm || saved.phone.trim();
+    });
     setEmail((e) => e.trim() || saved.email);
   }, []);
 
@@ -149,13 +155,16 @@ export function ContactPage() {
               {step === 1 ? (
                 <>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama lengkap" />
-                  <Input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-                    placeholder="Nomor telepon (WhatsApp)"
-                    inputMode="tel"
-                  />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Nomor telepon (WhatsApp)</label>
+                    <PhoneCountryInput
+                      name="contact-phone"
+                      value={phone}
+                      onChange={setPhone}
+                      onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                      placeholderNational="812xxxxxxxx"
+                    />
+                  </div>
                   {touched.phone && !phoneOk ? (
                     <p className="text-xs font-medium text-destructive">Nomor telepon tidak valid.</p>
                   ) : null}

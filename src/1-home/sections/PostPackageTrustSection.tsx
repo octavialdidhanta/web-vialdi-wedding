@@ -228,7 +228,7 @@ export function PostPackageTrustSection({
       {variant === "risksOnly" ? (
         <div className="min-w-0">
           <h3 className="text-center text-lg font-bold text-navy md:text-left md:text-xl">
-            {wedding ? "Risiko yang sering muncul jika persiapan ditunda" : "Risiko yang sering muncul jika optimasi ditunda"}
+            {wedding ? "Risiko menunda persiapan" : "Risiko menunda optimasi"}
           </h3>
           <Accordion
             type="single"
@@ -276,7 +276,7 @@ export function PostPackageTrustSection({
           {/* Kiri: Risiko */}
           <div className="min-w-0">
             <h3 className="text-center text-lg font-bold text-navy md:text-left md:text-xl">
-              {wedding ? "Risiko yang sering muncul jika persiapan ditunda" : "Risiko yang sering muncul jika optimasi ditunda"}
+              {wedding ? "Risiko menunda persiapan" : "Risiko menunda optimasi"}
             </h3>
             <Accordion
               type="single"

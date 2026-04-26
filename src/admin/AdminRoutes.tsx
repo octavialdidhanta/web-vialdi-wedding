@@ -25,6 +25,11 @@ const AdminPackageEditorPage = lazy(() =>
 const AdminShortLinksPage = lazy(() =>
   import("@/admin/pages/AdminShortLinksPage").then((m) => ({ default: m.AdminShortLinksPage })),
 );
+const AdminFloatingWhatsappPage = lazy(() =>
+  import("@/admin/pages/AdminFloatingWhatsappPage").then((m) => ({
+    default: m.AdminFloatingWhatsappPage,
+  })),
+);
 
 function AdminSpinner() {
   return (
@@ -103,6 +108,14 @@ export function AdminRoutes() {
             element={
               <Suspense fallback={<AdminSpinner />}>
                 <AdminShortLinksPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="whatsapp"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminFloatingWhatsappPage />
               </Suspense>
             }
           />

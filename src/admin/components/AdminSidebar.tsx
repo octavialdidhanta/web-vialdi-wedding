@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Boxes, FileText, LayoutDashboard, Link2, LogOut } from "lucide-react";
+import { Boxes, FileText, LayoutDashboard, Link2, LogOut, MessageCircle } from "lucide-react";
 import { supabase } from "@/share/supabaseClient";
 import { cn } from "@/share/lib/utils";
 
@@ -36,6 +36,10 @@ export function AdminSidebar() {
         <NavLink to="/admin/links" className={linkClass}>
           <Link2 className="h-4 w-4 shrink-0" aria-hidden />
           Short link
+        </NavLink>
+        <NavLink to="/admin/whatsapp" className={linkClass}>
+          <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
+          WhatsApp
         </NavLink>
       </nav>
       <div className="border-t border-border p-3">

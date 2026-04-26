@@ -25,7 +25,7 @@ export function BeforeAfterShowcase() {
         <span className="block text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground md:text-base">
           Before / After
         </span>
-        Bedanya terasa di hasil
+        Detail yang menjadikan hari pernikahan Anda lebih berkilau
       </h2>
 
       <figure

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { homeBadgePillToCarouselKind } from "@/blog/weddingPackageHomeTabs";
 import { normalizeCarouselPackageIds } from "@/blog/weddingPackageIds";
 import type { WeddingPackageRow } from "@/blog/weddingPackages";
 import { DynamicWeddingPackageCardEmbed } from "@/1-home/packages/DynamicWeddingPackageCardEmbed";
@@ -35,6 +36,12 @@ function normalizeText(s: string): string {
 
 function shouldIncludeWeddingPackage(pkg: WeddingPackageRow, kind: Props["kind"]): boolean {
   if (!kind || kind === "all") return true;
+
+  const tabFromBadge = homeBadgePillToCarouselKind(pkg.badge_label ?? "");
+  if (tabFromBadge) {
+    return kind === tabFromBadge;
+  }
+
   const hay = normalizeText(`${pkg.package_label} ${pkg.title} ${pkg.badge_label}`);
 
   const has = (re: RegExp) => re.test(hay);

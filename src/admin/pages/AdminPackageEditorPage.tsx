@@ -10,6 +10,7 @@ import {
   type AgencyPackageSection,
   type AgencyPackageUpsert,
 } from "@/agency/agencyPackages";
+import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
 import {
   adminFetchPackage,
   adminUpsertPackage,
@@ -19,6 +20,7 @@ import {
   type WeddingPackageUpsert,
 } from "@/blog/weddingPackages";
 import { useAdminAuth } from "@/admin/adminAuthContext";
+import { formatIdrThousandsInput, formatPriceLikeInput } from "@/share/lib/idrThousandsInput";
 import { useIsWeddingSite } from "@/site/siteVariant";
 import { Button } from "@/share/ui/button";
 import { Input } from "@/share/ui/input";
@@ -155,8 +157,8 @@ export function AdminPackageEditorPage() {
     setTitle(existing.title);
     setPackageLabel(existing.package_label);
     setSummary(existing.summary ?? "");
-    setStrikethroughPrice(existing.strikethrough_price ?? "");
-    setPrice(existing.price);
+    setStrikethroughPrice(formatIdrThousandsInput(existing.strikethrough_price ?? ""));
+    setPrice(formatPriceLikeInput(existing.price ?? ""));
     setPromoMarquee(existing.promo_marquee_text ?? "");
     setFooterNote(existing.footer_note ?? "");
     setFooterExtraHtml(existing.footer_extra_html ?? "");
@@ -186,7 +188,7 @@ export function AdminPackageEditorPage() {
     setSlug("paket-baru");
     setSortOrder(0);
     setIsPublished(false);
-    setBadgeLabel("Paket Ads");
+    setBadgeLabel(isWeddingSite ? WEDDING_HOME_BADGE_PILL_OPTIONS[0] : "Paket Ads");
     setTitle("");
     setPackageLabel("");
     setSummary("");
@@ -196,7 +198,7 @@ export function AdminPackageEditorPage() {
     setSpentCurrency("IDR");
     setSpentPeriod("per bulan");
     setFeePercent(10);
-  }, [isNew, existing]);
+  }, [isNew, existing, isWeddingSite]);
 
   useEffect(() => {
     if (title.trim() && !packageLabel.trim()) {
@@ -394,16 +396,20 @@ export function AdminPackageEditorPage() {
           </Label>
           <Select value={badgeLabel} onValueChange={(v) => setBadgeLabel(v)}>
             <SelectTrigger id="badge" className="w-full">
-              <SelectValue placeholder="Pilih jenis paket" />
+              <SelectValue placeholder="Pilih tab Paket unggulan" />
             </SelectTrigger>
             <SelectContent>
               {isWeddingSite ? (
                 <>
-                  <SelectItem value="Paket Dokumentasi">Paket Dokumentasi</SelectItem>
-                  <SelectItem value="Paket Foto">Paket Foto</SelectItem>
-                  <SelectItem value="Paket Video">Paket Video</SelectItem>
-                  <SelectItem value="Paket Foto + Video">Paket Foto + Video</SelectItem>
-                  <SelectItem value="Paket Album">Paket Album</SelectItem>
+                  {badgeLabel.trim() &&
+                  !(WEDDING_HOME_BADGE_PILL_OPTIONS as readonly string[]).includes(badgeLabel.trim()) ? (
+                    <SelectItem value={badgeLabel.trim()}>{badgeLabel.trim()} (label lama — pilih tab baru)</SelectItem>
+                  ) : null}
+                  {WEDDING_HOME_BADGE_PILL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
                 </>
               ) : (
                 <>
@@ -490,8 +496,11 @@ export function AdminPackageEditorPage() {
             <Label htmlFor="strike">Harga coret</Label>
             <Input
               id="strike"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="500.000"
               value={strikethroughPrice}
-              onChange={(e) => setStrikethroughPrice(e.target.value)}
+              onChange={(e) => setStrikethroughPrice(formatIdrThousandsInput(e.target.value))}
             />
           </div>
           <div className="space-y-2">
@@ -499,7 +508,15 @@ export function AdminPackageEditorPage() {
               Label harga (mis. "Fee 10%")
               <ReqMark />
             </Label>
-            <Input id="price" value={price} onChange={(e) => setPrice(e.target.value)} required />
+            <Input
+              id="price"
+              inputMode="text"
+              autoComplete="off"
+              placeholder='Rp 5.500.000 atau "Fee 10%"'
+              value={price}
+              onChange={(e) => setPrice(formatPriceLikeInput(e.target.value))}
+              required
+            />
           </div>
         </div>
 
@@ -734,10 +751,8 @@ export function AdminPackageEditorPage() {
                                 : bonusLinesText
                           }
                           onChange={(e) => {
-                            const lines = e.target.value
-                              .split("\n")
-                              .map((x) => x.trim())
-                              .filter(Boolean);
+                            // Jangan filter baris kosong: Enter harus bisa menambah baris baru (1 baris = 1 item).
+                            const lines = e.target.value.split("\n").map((x) => x.trim());
                             setSections((prev) =>
                               prev.map((p, i) => {
                                 if (i !== idx) return p;

@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 import {
   PackageConsultOpenerProvider,
@@ -8,8 +7,13 @@ import {
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import { WEDDING_HERO_IMAGE_SRC, WEDDING_HERO_IMAGE_SRCSET } from "@/1-home/assets/hero/weddingHeroImage";
-import { MobileHomeStickyFooter } from "@/1-home/components/MobileHomeStickyFooter";
+import { FloatingWhatsApp } from "@/1-home/components/FloatingWhatsApp";
+import {
+  MobileHomeStickyFooter,
+  mobileHomeStickyFooterPageBottomPaddingClass,
+} from "@/1-home/components/MobileHomeStickyFooter";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
+import { WeddingServicesGridSection } from "@/1-home/sections/WeddingServicesGridSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
 
 const Footer = lazy(() => import("@/share/Footer").then((m) => ({ default: m.Footer })));
@@ -115,7 +119,12 @@ function HomePageInner() {
   }, []);
 
   return (
-    <div className="min-h-screen touch-manipulation bg-background pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0">
+    <div
+      className={cn(
+        "min-h-screen touch-manipulation bg-background",
+        mobileHomeStickyFooterPageBottomPaddingClass,
+      )}
+    >
       {blockLandscapeTouch ? (
         <div
           role="alertdialog"
@@ -145,6 +154,8 @@ function HomePageInner() {
           }
         }}
       />
+
+      <WeddingServicesGridSection />
 
       <div className="flex flex-col">
         <Suspense fallback={<LazySectionFallback className="min-h-[28rem]" />}>
@@ -195,6 +206,8 @@ function HomePageInner() {
         garansiId="home-garansi"
         faqId="home-faq"
       />
+
+      <FloatingWhatsApp />
     </div>
   );
 }
