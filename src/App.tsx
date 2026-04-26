@@ -1,6 +1,20 @@
-import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ShortLinkOutboundRedirect } from "@/share/ShortLinkOutboundRedirect";
+
+function ScrollToTopOnNavigate() {
+  const location = useLocation();
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    // SPA default: preserve scroll across navigations — reset supaya halaman baru selalu mulai dari atas.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname, location.search]);
+
+  return null;
+}
 
 function MetaPixelRouteTracker() {
   const location = useLocation();
@@ -137,6 +151,7 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTopOnNavigate />
       <MetaPixelRouteTracker />
       <Suspense fallback={null}>
         <Routes>

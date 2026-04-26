@@ -10,14 +10,28 @@ import { cn } from "@/share/lib/utils";
 import weddingHeroImage from "@/1-home/assets/hero/DSC00768_11zon.webp";
 import { MobileHomeStickyFooter } from "@/1-home/components/MobileHomeStickyFooter";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
-import { WeddingPackagesSection } from "@/1-home/sections/WeddingPackagesSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
-import { WeddingGuaranteeSplitSection } from "@/1-home/sections/WeddingGuaranteeSplitSection";
-import { WeddingGaransiMobileSection } from "@/1-home/sections/WeddingGaransiMobileSection";
-import { WeddingCtaSection } from "@/1-home/sections/WeddingCtaSection";
-import { WeddingFaqSection } from "@/1-home/sections/WeddingFaqSection";
 
 const Footer = lazy(() => import("@/share/Footer").then((m) => ({ default: m.Footer })));
+const WeddingPackagesSection = lazy(() =>
+  import("@/1-home/sections/WeddingPackagesSection").then((m) => ({ default: m.WeddingPackagesSection })),
+);
+const WeddingGuaranteeSplitSection = lazy(() =>
+  import("@/1-home/sections/WeddingGuaranteeSplitSection").then((m) => ({
+    default: m.WeddingGuaranteeSplitSection,
+  })),
+);
+const WeddingGaransiMobileSection = lazy(() =>
+  import("@/1-home/sections/WeddingGaransiMobileSection").then((m) => ({
+    default: m.WeddingGaransiMobileSection,
+  })),
+);
+const WeddingCtaSection = lazy(() =>
+  import("@/1-home/sections/WeddingCtaSection").then((m) => ({ default: m.WeddingCtaSection })),
+);
+const WeddingFaqSection = lazy(() =>
+  import("@/1-home/sections/WeddingFaqSection").then((m) => ({ default: m.WeddingFaqSection })),
+);
 
 function LazySectionFallback({ className }: { className: string }) {
   return (
@@ -113,31 +127,41 @@ function HomePageInner() {
       />
 
       <div className="flex flex-col">
-        <WeddingPackagesSection
-          kind={weddingPaketKind}
-          onChangeKind={(k) => setWeddingPaketKind(k)}
-          dokumentasiLeadCard={weddingDokumentasiLeadCard}
-        />
-        <WeddingGuaranteeSplitSection />
+        <Suspense fallback={<LazySectionFallback className="min-h-[28rem]" />}>
+          <WeddingPackagesSection
+            kind={weddingPaketKind}
+            onChangeKind={(k) => setWeddingPaketKind(k)}
+            dokumentasiLeadCard={weddingDokumentasiLeadCard}
+          />
+        </Suspense>
+        <Suspense fallback={<LazySectionFallback className="min-h-[18rem]" />}>
+          <WeddingGuaranteeSplitSection />
+        </Suspense>
       </div>
 
-      <WeddingGaransiMobileSection
-        onCtaClick={(e) => {
-          if (packageConsultOpener) {
-            e.preventDefault();
-            packageConsultOpener.requestOpenAllPackageConsults();
-          }
-        }}
-      />
-      <WeddingCtaSection
-        onCtaClick={(e) => {
-          if (packageConsultOpener) {
-            e.preventDefault();
-            packageConsultOpener.requestOpenAllPackageConsults();
-          }
-        }}
-      />
-      <WeddingFaqSection />
+      <Suspense fallback={null}>
+        <WeddingGaransiMobileSection
+          onCtaClick={(e) => {
+            if (packageConsultOpener) {
+              e.preventDefault();
+              packageConsultOpener.requestOpenAllPackageConsults();
+            }
+          }}
+        />
+      </Suspense>
+      <Suspense fallback={<LazySectionFallback className="min-h-[16rem]" />}>
+        <WeddingCtaSection
+          onCtaClick={(e) => {
+            if (packageConsultOpener) {
+              e.preventDefault();
+              packageConsultOpener.requestOpenAllPackageConsults();
+            }
+          }}
+        />
+      </Suspense>
+      <Suspense fallback={<LazySectionFallback className="min-h-[22rem]" />}>
+        <WeddingFaqSection />
+      </Suspense>
 
       <DeferUntilNearViewport rootMargin="0px 0px 480px 0px" placeholderClassName="min-h-[14rem]">
         <Suspense fallback={<LazySectionFallback className="min-h-[14rem]" />}>

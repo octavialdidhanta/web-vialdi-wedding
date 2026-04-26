@@ -9,7 +9,7 @@ const contactSeoAgency = {
 const contactSeoWedding = {
   title: "Kontak — Vialdi Wedding | Konsultasi dokumentasi & paket pernikahan",
   description:
-    "Hubungi Vialdi Wedding untuk konsultasi gratis: dokumentasi foto & video, album, dan paket pernikahan. Form singkat 2 langkah — data kontak lalu jadwal & lokasi acara.",
+    "Konsultasi awal Vialdi Wedding gratis & tanpa tekanan. Form 2 langkah: kontak dulu, lalu perkiraan jadwal & lokasi. Privasi dijaga — hanya untuk follow-up, tanpa spam.",
 } as const;
 
 export const contactSeo = isWeddingSite() ? contactSeoWedding : contactSeoAgency;

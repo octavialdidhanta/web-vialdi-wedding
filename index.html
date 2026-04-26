@@ -6,23 +6,6 @@
       name="facebook-domain-verification"
       content="pu7w44p0mw1c59vjatomr4sypaikov"
     />
-    <!--
-      GTM + tag di dalamnya (GA, Meta, TikTok, dll.) membebani main thread dan byte tidak terpakai di PSI.
-      dataLayer tetap hidup; gtm.js dimuat setelah engagement pertama atau fallback setelah load (bot / bounce).
-    -->
-    <script>
-      (function (w, d, s, l, i) {
-        w[l] = w[l] || [];
-        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-        var f = d.getElementsByTagName(s)[0],
-          j = d.createElement(s),
-          dl = l != "dataLayer" ? "&l=" + l : "";
-        j.async = true;
-        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
-        f.parentNode.insertBefore(j, f);
-      })(window, document, "script", "dataLayer", "GTM-N7LD8CX");
-    </script>
-    <!-- End Google Tag Manager -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -32,6 +15,119 @@
       content="Vialdi Wedding — wedding organizer, dokumentasi foto & video, rias pengantin, sewa gaun & jas, serta dekorasi pernikahan."
     />
     <link rel="icon" type="image/jpeg" href="/octa.jpeg" />
+    <meta property="og:title" content="Vialdi Wedding — Wedding Organizer &amp; Dokumentasi" />
+    <meta
+      property="og:description"
+      content="Wujudkan pernikahan impian: dekorasi, busana, rias, dan tim foto-video profesional."
+    />
+    <meta property="og:type" content="website" />
+    <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
+    <title>Vialdi Wedding — Wedding Organizer</title>
+    <!-- Entry module (defer bawaan). Taruh di awal agar request JS kritikal cepat discover. -->
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript>
+      <iframe
+        src="https://www.googletagmanager.com/ns.html?id=GTM-N7LD8CX"
+        height="0"
+        width="0"
+        style="display: none; visibility: hidden"
+        title="Google Tag Manager"
+      ></iframe>
+    </noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <!-- Meta Pixel (noscript) -->
+    <noscript>
+      <img
+        height="1"
+        width="1"
+        style="display: none"
+        src="https://www.facebook.com/tr?id=490486342185584&ev=PageView&noscript=1"
+        alt=""
+      />
+    </noscript>
+    <!-- End Meta Pixel (noscript) -->
+    <main id="main-content">
+      <div id="root"></div>
+    </main>
+    <!--
+      GTM + tag di dalamnya (GA, Meta, TikTok, dll.) membebani main thread dan byte tidak terpakai di PSI.
+      IMPORTANT: Dipindah ke akhir body agar discovery request JS utama tidak ketahan oleh inline script parsing/execution.
+    -->
+    <script>
+      window.__deferNonCritical =
+        window.__deferNonCritical ||
+        function (fn) {
+          var run = function () {
+            try {
+              fn();
+            } catch (e) {
+              // keep page usable even if scheduling fails
+            }
+          };
+          if (typeof requestIdleCallback !== "undefined") {
+            requestIdleCallback(run, { timeout: 1200 });
+            return;
+          }
+          if (typeof window.requestAnimationFrame === "function") {
+            window.requestAnimationFrame(function () {
+              window.setTimeout(run, 0);
+            });
+            return;
+          }
+          window.setTimeout(run, 0);
+        };
+    </script>
+    <script>
+      (function () {
+        var w = window;
+        w.dataLayer = w.dataLayer || [];
+        w.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+
+        w.__deferNonCritical(function () {
+          var didLoad = false;
+          function loadGtm() {
+            if (didLoad) return;
+            didLoad = true;
+            var d = document;
+            var s = "script";
+            var l = "dataLayer";
+            var i = "GTM-N7LD8CX";
+            var f = d.getElementsByTagName(s)[0];
+            var j = d.createElement(s);
+            var dl = l != "dataLayer" ? "&l=" + l : "";
+            j.async = true;
+            j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+            f.parentNode.insertBefore(j, f);
+          }
+
+          // Load on first user interaction to reduce unused JS.
+          var once = function () {
+            loadGtm();
+            w.removeEventListener("pointerdown", once, true);
+            w.removeEventListener("keydown", once, true);
+            w.removeEventListener("touchstart", once, true);
+            w.removeEventListener("scroll", once, true);
+          };
+          w.addEventListener("pointerdown", once, true);
+          w.addEventListener("keydown", once, true);
+          w.addEventListener("touchstart", once, true);
+          w.addEventListener("scroll", once, true);
+
+          // Fallback for bot / bounce: load after window load.
+          w.addEventListener(
+            "load",
+            function () {
+              setTimeout(loadGtm, 1200);
+            },
+            { once: true },
+          );
+        });
+      })();
+    </script>
+    <!-- End Google Tag Manager -->
     <!-- Meta Pixel Code -->
     <script>
       window.__fbPixelBooted = false;
@@ -39,6 +135,11 @@
       window.__fbqInitialPageViewTracked = window.__fbqInitialPageViewTracked || false;
 
       function loadMetaPixel() {
+        // If Pixel already exists (e.g. loaded via GTM), never inject fbevents.js again.
+        if (typeof window.fbq === "function") {
+          window.__fbPixelBooted = true;
+          return;
+        }
         if (window.__fbPixelBooted) return;
         window.__fbPixelBooted = true;
 
@@ -69,46 +170,34 @@
       // Expose for SPA route-change tracking (React Router) and app-triggered events.
       window.loadMetaPixel = loadMetaPixel;
 
-      // Install official pixel snippet behavior: load immediately.
-      loadMetaPixel();
+      // Defer pixel library load (queue still captures events).
+      window.__deferNonCritical(function () {
+        var did = false;
+        function load() {
+          if (did) return;
+          did = true;
+          loadMetaPixel();
+        }
+        var once = function () {
+          load();
+          window.removeEventListener("pointerdown", once, true);
+          window.removeEventListener("keydown", once, true);
+          window.removeEventListener("touchstart", once, true);
+          window.removeEventListener("scroll", once, true);
+        };
+        window.addEventListener("pointerdown", once, true);
+        window.addEventListener("keydown", once, true);
+        window.addEventListener("touchstart", once, true);
+        window.addEventListener("scroll", once, true);
+        window.addEventListener(
+          "load",
+          function () {
+            setTimeout(load, 1500);
+          },
+          { once: true },
+        );
+      });
     </script>
     <!-- End Meta Pixel Code -->
-    <meta property="og:title" content="Vialdi Wedding — Wedding Organizer &amp; Dokumentasi" />
-    <meta
-      property="og:description"
-      content="Wujudkan pernikahan impian: dekorasi, busana, rias, dan tim foto-video profesional."
-    />
-    <meta property="og:type" content="website" />
-    <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
-    <title>Vialdi Wedding — Wedding Organizer</title>
-    <!-- Entry module (defer bawaan); penemuan lebih awal daripada skrip di akhir body. -->
-    <script type="module" src="/src/main.tsx"></script>
-  </head>
-  <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript>
-      <iframe
-        src="https://www.googletagmanager.com/ns.html?id=GTM-N7LD8CX"
-        height="0"
-        width="0"
-        style="display: none; visibility: hidden"
-        title="Google Tag Manager"
-      ></iframe>
-    </noscript>
-    <!-- End Google Tag Manager (noscript) -->
-    <!-- Meta Pixel (noscript) -->
-    <noscript>
-      <img
-        height="1"
-        width="1"
-        style="display: none"
-        src="https://www.facebook.com/tr?id=490486342185584&ev=PageView&noscript=1"
-        alt=""
-      />
-    </noscript>
-    <!-- End Meta Pixel (noscript) -->
-    <main id="main-content">
-      <div id="root"></div>
-    </main>
   </body>
 </html>

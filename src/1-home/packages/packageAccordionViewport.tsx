@@ -9,6 +9,7 @@ export const PackageAccordionViewportRefContext = createContext<RefObject<HTMLDi
 type AccordionRootProps = ComponentProps<typeof Accordion>;
 
 const ACCORDION_SCROLL_PAD_PX = 6;
+type AccordionValue = string | string[];
 
 /**
  * Hanya menggeser `container` (bukan window / shell kartu). Menjepit trigger terbuka agar utuh
@@ -52,20 +53,14 @@ export function PackageAccordionRoot({ onValueChange, ...props }: AccordionRootP
   return (
     <Accordion
       {...props}
-      onValueChange={(value) => {
-        onValueChange?.(value);
-        if (!value || !scrollRef?.current) return;
+      onValueChange={(value: AccordionValue) => {
+        onValueChange?.(value as never);
+        const openValue = Array.isArray(value) ? value[0] : value;
+        if (!openValue || !scrollRef?.current) return;
         const container = scrollRef.current;
 
-        const run = () => scrollOpenTriggerInsideContainer(container);
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(run);
-        });
-        // Radix accordion mengubah tinggi konten dengan animasi; koreksi setelah layout stabil.
-        window.setTimeout(() => {
-          requestAnimationFrame(run);
-        }, 220);
+        // Jalankan setelah DOM update; cukup sekali untuk menghindari layout thrash.
+        requestAnimationFrame(() => scrollOpenTriggerInsideContainer(container));
       }}
     />
   );

@@ -127,11 +127,23 @@ export function ContactPage() {
       <main className="flex-1 px-4 py-10 md:px-6 md:py-14">
         <div className="mx-auto w-full max-w-xl">
           <h1 className="text-3xl font-bold tracking-tight text-navy md:text-4xl">Kontak Vialdi Wedding</h1>
-          <p className="mt-3 text-sm text-muted-foreground">Isi singkat, kami hubungi via WhatsApp/telepon.</p>
+          {step === 1 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Konsultasi awal gratis & tanpa tekanan. Data kamu aman: tidak kami publikasikan dan tidak kami
+              bagikan ke pihak lain.
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Hampir selesai. Isi perkiraan jadwal & lokasi — boleh belum final, supaya tim kami menyiapkan opsi yang
+              relevan.
+            </p>
+          )}
 
           <Card className="mt-8 rounded-2xl">
             <CardHeader>
-              <CardTitle className="text-base">Langkah {step} dari 2</CardTitle>
+              <CardTitle className="text-base">
+                {step === 1 ? "Langkah 1 dari 2 — Kenalan singkat" : "Langkah 2 dari 2 — Jadwal & lokasi"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {step === 1 ? (
@@ -184,7 +196,7 @@ export function ContactPage() {
                   <label className="flex items-start gap-3 rounded-xl border border-border bg-background/50 p-3">
                     <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
                     <span className="text-sm text-muted-foreground">
-                      Saya setuju data diproses untuk konsultasi & dihubungi via WhatsApp/telepon.
+                      Saya setuju syarat &amp; ketentuan serta dihubungi (WA/telepon) untuk konsultasi.
                     </span>
                   </label>
                 </>

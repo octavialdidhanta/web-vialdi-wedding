@@ -93,40 +93,61 @@ export default defineConfig(({ mode }) => {
         transformIndexHtml: {
           order: "post",
           handler(html, ctx) {
-            if (!ctx.bundle) {
-              return html;
-            }
             /**
              * Lighthouse "LCP request discovery" membutuhkan URL kandidat LCP terlihat di HTML awal.
-             * Hero di-render dari JS; satu `href` preload saja gagal jika browser memilih URL lain dari
-             * `srcset` (ukuran file tidak selalu sejajar dengan lebar). Ambil string final dari chunk HomePage.
-             * `imagesizes` harus sama dengan `sizes` di `HomePage.tsx` (hero `<img>`).
+             * Hero di-render dari JS; hash file hasil build berubah tiap deploy — ambil URL final dari
+             * artefak Rollup (`ctx.bundle`) supaya preload selalu cocok tanpa edit manual `index.html`.
+             *
+             * `imagesizes` harus sama dengan `sizes` di `WeddingHeroSection.tsx` (hero `<img>`).
              */
             const heroImgSizes =
               "(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)";
-            const chunk = Object.values(ctx.bundle).find(
-              (c): c is { type: "chunk"; fileName: string; code: string } =>
-                c.type === "chunk" &&
-                typeof (c as { code?: string }).code === "string" &&
-                (c as { code: string }).code.includes(
-                  "Pasangan pengantin dalam suasana pernikahan elegan",
-                ),
-            );
-            const code = chunk?.code;
-            const heroUrls = code
-              ? [...code.matchAll(/"(\/assets\/DSC00768_11zon[^"]*)"/g)].map((m) => m[1])
-              : [];
-            const imagesrcset = heroUrls.find((s) => /\d+w/.test(s));
-            const hrefFromChunk = heroUrls.find((s) => !/\d+w/.test(s));
-            if (!imagesrcset || !hrefFromChunk) {
-              return html;
+
+            const stripOldHeroPreloads = (h: string) =>
+              h.replace(
+                /<link[^>]*rel=["']preload["'][^>]*href=["'][^"']*DSC00768_11zon[^"']*["'][^>]*>\s*/gi,
+                "",
+              );
+
+            let next = stripOldHeroPreloads(html);
+
+            if (!ctx.bundle) {
+              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp";
+              const tag = `    <link rel="preload" as="image" href="${devHref}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
+              const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
+              if (charsetMeta.test(next)) {
+                return next.replace(charsetMeta, (m) => `${m}\n${tag}`);
+              }
+              return next.replace("</head>", `${tag}  </head>`);
             }
-            const tag = `    <link rel="preload" as="image" href="${hrefFromChunk}" imagesrcset="${imagesrcset}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
+
+            const assetSizes = Object.values(ctx.bundle)
+              .filter((o) => o.type === "asset" && /DSC00768_11zon.*\.webp$/i.test(o.fileName))
+              .map((o) => {
+                const buf = o.source instanceof Uint8Array ? o.source : null;
+                const str = typeof o.source === "string" ? o.source : "";
+                const bytes = buf?.byteLength ?? (str ? new TextEncoder().encode(str).byteLength : 0);
+                return { fileName: o.fileName, bytes };
+              });
+
+            if (!assetSizes.length) {
+              return next;
+            }
+
+            /**
+             * Kadang ada >1 varian WebP (mis. hasil optimasi berbeda). Pilih yang terbesar sebagai
+             * kandidat LCP utama (biasanya versi default import hero).
+             */
+            assetSizes.sort((a, b) => b.bytes - a.bytes);
+            const picked = assetSizes[0];
+            const href = `/${picked.fileName.replace(/^\/+/, "")}`;
+
+            const tag = `    <link rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
             const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
-            if (charsetMeta.test(html)) {
-              return html.replace(charsetMeta, (m) => `${m}\n${tag}`);
+            if (charsetMeta.test(next)) {
+              return next.replace(charsetMeta, (m) => `${m}\n${tag}`);
             }
-            return html.replace("</head>", `${tag}  </head>`);
+            return next.replace("</head>", `${tag}  </head>`);
           },
         },
       },
