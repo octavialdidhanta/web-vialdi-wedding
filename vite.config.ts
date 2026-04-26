@@ -153,25 +153,6 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      {
-        name: "async-build-stylesheets",
-        transformIndexHtml: {
-          order: "post",
-          handler(html) {
-            /** Hanya CSS hasil build (`/assets/*.css`); font eksternal dibiarkan seperti di `index.html`. */
-            return html.replace(/<link\s+([^>]+)>/gi, (full, inner: string) => {
-              if (!/\brel\s*=\s*["']stylesheet["']/i.test(inner)) return full;
-              const href = /href\s*=\s*["']([^"']+)["']/i.exec(inner)?.[1];
-              if (!href?.startsWith("/assets/") || !href.endsWith(".css")) return full;
-              if (/\bmedia\s*=\s*["']print["']/i.test(inner) || /\bonload\s*=/.test(inner)) {
-                return full;
-              }
-              const attrs = inner.trim();
-              return `<link ${attrs} media="print" onload="this.media='all'">\n    <noscript><link ${attrs}></noscript>`;
-            });
-          },
-        },
-      },
     ],
     build: {
       /**

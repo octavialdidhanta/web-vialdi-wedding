@@ -69,16 +69,35 @@ function HomePageInner() {
         void so.lock("portrait").catch(() => {});
       }
     };
-    tryLockPortrait();
-    const onFirstPointer = () => {
+
+    let onFirstPointer: (() => void) | null = null;
+    const armListeners = () => {
+      if (cancelled) return;
       tryLockPortrait();
-      window.removeEventListener("pointerdown", onFirstPointer);
+      onFirstPointer = () => {
+        tryLockPortrait();
+        if (onFirstPointer) window.removeEventListener("pointerdown", onFirstPointer);
+      };
+      window.addEventListener("pointerdown", onFirstPointer, { passive: true });
     };
-    window.addEventListener("pointerdown", onFirstPointer, { passive: true });
+
+    let idleId = 0;
+    let usedIdleCallback = false;
+    if (typeof requestIdleCallback !== "undefined") {
+      usedIdleCallback = true;
+      idleId = requestIdleCallback(armListeners, { timeout: 2500 });
+    } else {
+      idleId = window.setTimeout(armListeners, 0);
+    }
 
     return () => {
       cancelled = true;
-      window.removeEventListener("pointerdown", onFirstPointer);
+      if (usedIdleCallback && typeof cancelIdleCallback !== "undefined") {
+        cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+      if (onFirstPointer) window.removeEventListener("pointerdown", onFirstPointer);
       try {
         screen.orientation?.unlock?.();
       } catch {

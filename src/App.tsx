@@ -1,5 +1,7 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { HomePage } from "@/1-home/pages/HomePage";
+import { QueryRoutesLayout } from "@/query/QueryRoutesLayout";
 import { ShortLinkOutboundRedirect } from "@/share/ShortLinkOutboundRedirect";
 
 function ScrollToTopOnNavigate() {
@@ -18,6 +20,8 @@ function ScrollToTopOnNavigate() {
 
 function MetaPixelRouteTracker() {
   const location = useLocation();
+  /** Hindari memanggil `loadMetaPixel` pada commit pertama: itu memaksa parse `fbevents.js` di jendela TBT. */
+  const isFirstLocationCommit = useRef(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -30,10 +34,13 @@ function MetaPixelRouteTracker() {
 
     const url = location.pathname + location.search + location.hash;
 
-    // Ensure the Pixel library is available for all visitors (retargeting).
-    w.loadMetaPixel?.();
+    if (isFirstLocationCommit.current) {
+      isFirstLocationCommit.current = false;
+    } else {
+      w.loadMetaPixel?.();
+    }
 
-    // Track PageView on SPA navigations (and avoid duplicates on first load).
+    // PageView navigasi SPA (muat skrip piksel hanya setelah navigasi, bukan di cold start).
     if (typeof w.fbq === "function") {
       if (w.__fbqLastTrackedUrl !== url) {
         w.fbq("track", "PageView");
@@ -97,12 +104,6 @@ function DeferredAnalyticsLayout() {
   return <Layout />;
 }
 
-const QueryRoutesLayout = lazy(() =>
-  import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
-);
-const HomePage = lazy(() =>
-  import("@/1-home/pages/HomePage").then((m) => ({ default: m.HomePage })),
-);
 const AboutUsPage = lazy(() =>
   import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
 );
