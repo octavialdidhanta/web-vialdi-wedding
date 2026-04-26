@@ -38,7 +38,8 @@ export function WeddingHeroSection({
       />
 
       <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
-        <div>
+        {/* Mobile: foto dulu agar LCP (biasanya gambar hero) terpenuhi lebih awal; desktop tetap teks | gambar. */}
+        <div className="max-lg:order-2 lg:order-none">
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
             <span className="h-2 w-2 rounded-full bg-[oklch(0.55_0.16_300)]" />
             Wedding organizer &amp; dokumentasi
@@ -66,7 +67,7 @@ export function WeddingHeroSection({
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative max-lg:order-1 lg:order-none">
           <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
             <img
               src={heroImageSrc}
@@ -77,6 +78,7 @@ export function WeddingHeroSection({
               sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
               fetchPriority="high"
               decoding="async"
+              loading="eager"
               className="aspect-square w-full object-cover object-bottom"
             />
             <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">

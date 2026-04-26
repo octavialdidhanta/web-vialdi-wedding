@@ -26,6 +26,11 @@ export default defineConfig(({ mode }) => {
       : [];
 
   const env = loadEnv(mode, process.cwd(), "");
+  /** Judul bar statis FCP (index.html) — selaras Header wedding vs agency. */
+  const fcpBrandHtml =
+    env.VITE_WEB_ID === "vialdi"
+      ? '<span style="color:oklch(0.22 0.03 250)">vialdi</span><span style="color:oklch(0.72 0.13 55)">.id</span>'
+      : '<span style="color:oklch(0.22 0.03 250)">Vialdi Wedding</span>';
   let supabaseOrigin = "";
   try {
     const u = env.VITE_SUPABASE_URL?.trim();
@@ -56,6 +61,13 @@ export default defineConfig(({ mode }) => {
       imagetools(),
       react(),
       tailwindcss(),
+      {
+        name: "inject-fcp-brand",
+        transformIndexHtml(html) {
+          if (!html.includes("__VIALDI_FCP_BRAND__")) return html;
+          return html.replaceAll("__VIALDI_FCP_BRAND__", fcpBrandHtml);
+        },
+      },
       {
         name: "inject-origin-hints",
         transformIndexHtml(html) {
@@ -112,7 +124,7 @@ export default defineConfig(({ mode }) => {
             let next = stripOldHeroPreloads(html);
 
             if (!ctx.bundle) {
-              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=640&format=webp";
+              const devHref = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=960&format=webp";
               const tag = `    <link rel="preload" as="image" href="${devHref}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
               const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
               if (charsetMeta.test(next)) {
@@ -136,12 +148,11 @@ export default defineConfig(({ mode }) => {
 
             /**
              * Ada beberapa varian WebP (hasil `vite-imagetools` dengan `?w=` berbeda).
-             * Preload varian **terkecil** agar selaras dengan `WEDDING_HERO_IMAGE_SRC` (fallback `src`)
-             * dan mengurangi unduhan berlebihan di LCP mobile — browser tetap bisa memilih URL
-             * lebih besar dari `srcSet` sesuai `sizes` + DPR.
+             * Preload varian **kedua terkecil** (~960w): cocok untuk slot hero mobile (DPR 2–3) tanpa
+             * unduhan 1280/1600 yang berlebihan; hindari preload 640w yang sering di-upgrade browser.
              */
             assetSizes.sort((a, b) => a.bytes - b.bytes);
-            const picked = assetSizes[0];
+            const picked = assetSizes.length >= 2 ? assetSizes[1]! : assetSizes[0]!;
             const href = `/${picked.fileName.replace(/^\/+/, "")}`;
 
             const tag = `    <link rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;

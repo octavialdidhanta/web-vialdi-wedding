@@ -21,10 +21,57 @@
       content="Wujudkan pernikahan impian: dekorasi, busana, rias, dan tim foto-video profesional."
     />
     <meta property="og:type" content="website" />
+    <!--
+      FCP: latar + bar statis (selaras Header) agar paint pertama terjadi sebelum bundle React/CSS penuh.
+      Teks merek di #vialdi-fcp-title diganti saat build (vite) menurut VITE_WEB_ID.
+    -->
+    <style id="vialdi-fcp-critical">
+      html {
+        background-color: oklch(0.985 0.005 90);
+      }
+      body {
+        margin: 0;
+        min-height: 100%;
+        background-color: oklch(0.985 0.005 90);
+        color: oklch(0.22 0.03 250);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      #vialdi-fcp-root {
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      #vialdi-fcp-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+        border-bottom: 1px solid oklch(0.9 0.01 80 / 0.65);
+        padding: 0 16px;
+        max-width: 90rem;
+        margin: 0 auto;
+        background-color: oklch(0.985 0.005 90 / 0.92);
+        backdrop-filter: blur(10px);
+      }
+      @media (min-width: 768px) {
+        #vialdi-fcp-bar {
+          height: 64px;
+          padding: 0 24px;
+        }
+      }
+      #vialdi-fcp-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+      @media (min-width: 768px) {
+        #vialdi-fcp-title {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
     <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
     <title>Vialdi Wedding — Wedding Organizer</title>
-    <!-- Entry module (defer bawaan). Taruh di awal agar request JS kritikal cepat discover. -->
-    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
     <!-- Google Tag Manager (noscript) -->
@@ -50,154 +97,15 @@
     </noscript>
     <!-- End Meta Pixel (noscript) -->
     <main id="main-content">
-      <div id="root"></div>
+      <div id="root">
+        <div id="vialdi-fcp-root" aria-hidden="true">
+          <div id="vialdi-fcp-bar">
+            <span id="vialdi-fcp-title">__VIALDI_FCP_BRAND__</span>
+          </div>
+        </div>
+      </div>
     </main>
-    <!--
-      GTM + tag di dalamnya (GA, Meta, TikTok, dll.) membebani main thread dan byte tidak terpakai di PSI.
-      IMPORTANT: Dipindah ke akhir body agar discovery request JS utama tidak ketahan oleh inline script parsing/execution.
-    -->
-    <script>
-      window.__deferNonCritical =
-        window.__deferNonCritical ||
-        function (fn) {
-          var run = function () {
-            try {
-              fn();
-            } catch (e) {
-              // keep page usable even if scheduling fails
-            }
-          };
-          if (typeof requestIdleCallback !== "undefined") {
-            requestIdleCallback(run, { timeout: 1200 });
-            return;
-          }
-          if (typeof window.requestAnimationFrame === "function") {
-            window.requestAnimationFrame(function () {
-              window.setTimeout(run, 0);
-            });
-            return;
-          }
-          window.setTimeout(run, 0);
-        };
-    </script>
-    <script>
-      (function () {
-        var w = window;
-        w.dataLayer = w.dataLayer || [];
-        w.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-
-        w.__deferNonCritical(function () {
-          var didLoad = false;
-          function loadGtm() {
-            if (didLoad) return;
-            didLoad = true;
-            var d = document;
-            var s = "script";
-            var l = "dataLayer";
-            var i = "GTM-N7LD8CX";
-            var f = d.getElementsByTagName(s)[0];
-            var j = d.createElement(s);
-            var dl = l != "dataLayer" ? "&l=" + l : "";
-            j.async = true;
-            j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
-            f.parentNode.insertBefore(j, f);
-          }
-
-          // Load on first user interaction to reduce unused JS.
-          var once = function () {
-            loadGtm();
-            w.removeEventListener("pointerdown", once, true);
-            w.removeEventListener("keydown", once, true);
-            w.removeEventListener("touchstart", once, true);
-            w.removeEventListener("scroll", once, true);
-          };
-          w.addEventListener("pointerdown", once, true);
-          w.addEventListener("keydown", once, true);
-          w.addEventListener("touchstart", once, true);
-          w.addEventListener("scroll", once, true);
-
-          // Fallback for bot / bounce: load after window load.
-          w.addEventListener(
-            "load",
-            function () {
-              setTimeout(loadGtm, 2800);
-            },
-            { once: true },
-          );
-        });
-      })();
-    </script>
-    <!-- End Google Tag Manager -->
-    <!-- Meta Pixel Code -->
-    <script>
-      window.__fbPixelBooted = false;
-      window.__fbqLastTrackedUrl = window.__fbqLastTrackedUrl || null;
-      window.__fbqInitialPageViewTracked = window.__fbqInitialPageViewTracked || false;
-
-      function loadMetaPixel() {
-        // If Pixel already exists (e.g. loaded via GTM), never inject fbevents.js again.
-        if (typeof window.fbq === "function") {
-          window.__fbPixelBooted = true;
-          return;
-        }
-        if (window.__fbPixelBooted) return;
-        window.__fbPixelBooted = true;
-
-        !(function (f, b, e, v, n, t, s) {
-          if (f.fbq) return;
-          n = f.fbq = function () {
-            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-          };
-          if (!f._fbq) f._fbq = n;
-          n.push = n;
-          n.loaded = !0;
-          n.version = "2.0";
-          n.queue = [];
-          t = b.createElement(e);
-          t.async = !0;
-          t.src = v;
-          s = b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t, s);
-        })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-
-        fbq("init", "490486342185584");
-        fbq("track", "PageView");
-        window.__fbqInitialPageViewTracked = true;
-        window.__fbqLastTrackedUrl =
-          window.location.pathname + window.location.search + window.location.hash;
-      }
-
-      // Expose for SPA route-change tracking (React Router) and app-triggered events.
-      window.loadMetaPixel = loadMetaPixel;
-
-      // Defer pixel library load (queue still captures events).
-      window.__deferNonCritical(function () {
-        var did = false;
-        function load() {
-          if (did) return;
-          did = true;
-          loadMetaPixel();
-        }
-        var once = function () {
-          load();
-          window.removeEventListener("pointerdown", once, true);
-          window.removeEventListener("keydown", once, true);
-          window.removeEventListener("touchstart", once, true);
-          window.removeEventListener("scroll", once, true);
-        };
-        window.addEventListener("pointerdown", once, true);
-        window.addEventListener("keydown", once, true);
-        window.addEventListener("touchstart", once, true);
-        window.addEventListener("scroll", once, true);
-        window.addEventListener(
-          "load",
-          function () {
-            setTimeout(load, 2800);
-          },
-          { once: true },
-        );
-      });
-    </script>
-    <!-- End Meta Pixel Code -->
+    <script type="module" src="/src/main.tsx"></script>
+    <script defer src="/vialdi-deferred-analytics.js"></script>
   </body>
 </html>
