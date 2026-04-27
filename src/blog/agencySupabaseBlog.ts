@@ -73,14 +73,14 @@ const publishedSelect = `
   id, slug, title, excerpt, status, featured, accent,
   cover_image_path, cover_image_url, body_json, body_html, toc_json,
   read_time_minutes, published_at, scheduled_at,
-  post_tags:agency_post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
+  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
 `;
 
 const publishedListSelect = `
   id, slug, title, excerpt, status, featured, accent,
   cover_image_path, cover_image_url,
   read_time_minutes, published_at, scheduled_at,
-  post_tags:agency_post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
+  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
 `;
 
 type PostListRow = Pick<
@@ -128,7 +128,7 @@ function mapListRowToPublic(p: PostListRow): BlogPostPublic {
 export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
   const now = new Date().toISOString();
   const { data: publishedRows, error: errPub } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .select(publishedListSelect)
     .eq("status", "published")
     .not("published_at", "is", null)
@@ -137,7 +137,7 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
   if (errPub) throw errPub;
 
   const { data: dueScheduledRows, error: errSch } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .select(publishedListSelect)
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
@@ -164,7 +164,7 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPublic | null> {
   const now = new Date().toISOString();
   const { data, error } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .select(publishedSelect)
     .eq("slug", slug)
     .eq("status", "published")
@@ -175,7 +175,7 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPu
   if (data) return mapRowToPublic(data as PostRow);
 
   const { data: due, error: errDue } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .select(publishedSelect)
     .eq("slug", slug)
     .eq("status", "scheduled")
@@ -220,23 +220,23 @@ const adminSelect = `
   cover_image_path, cover_image_url, body_json, body_html, toc_json,
   read_time_minutes, category_id, published_at, scheduled_at,
   created_at, updated_at, created_by, updated_by,
-  post_tags:agency_post_tags ( agency_blog_tags:agency_blog_tags ( id, name, slug ) )
+  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( id, name, slug ) )
 `;
 
 export async function adminFetchPosts(): Promise<AdminPostRow[]> {
-  const { data, error } = await supabase.from("agency_posts").select(adminSelect).order("updated_at", { ascending: false });
+  const { data, error } = await supabase.from("posts").select(adminSelect).order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as AdminPostRow[];
 }
 
 export async function adminFetchPost(id: string): Promise<AdminPostRow | null> {
-  const { data, error } = await supabase.from("agency_posts").select(adminSelect).eq("id", id).maybeSingle();
+  const { data, error } = await supabase.from("posts").select(adminSelect).eq("id", id).maybeSingle();
   if (error) throw error;
   return (data as AdminPostRow) ?? null;
 }
 
 export async function adminDeletePost(id: string) {
-  const { error } = await supabase.from("agency_posts").delete().eq("id", id);
+  const { error } = await supabase.from("posts").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -277,7 +277,7 @@ function slugify(s: string) {
 }
 
 export async function adminReplacePostTags(postId: string, tagNames: string[]) {
-  await supabase.from("agency_post_tags").delete().eq("post_id", postId);
+  await supabase.from("post_tags").delete().eq("post_id", postId);
   const ids: string[] = [];
   for (const name of tagNames) {
     const slug = slugify(name) || "tag";
@@ -286,7 +286,7 @@ export async function adminReplacePostTags(postId: string, tagNames: string[]) {
   }
   if (ids.length) {
     const rows = ids.map((tag_id) => ({ post_id: postId, tag_id }));
-    const { error } = await supabase.from("agency_post_tags").insert(rows);
+    const { error } = await supabase.from("post_tags").insert(rows);
     if (error) throw error;
   }
 }
@@ -312,7 +312,7 @@ export type AdminPostPayload = {
 
 export async function adminInsertPost(payload: AdminPostPayload, userId: string) {
   const { data, error } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .insert({
       slug: payload.slug,
       title: payload.title,
@@ -340,7 +340,7 @@ export async function adminInsertPost(payload: AdminPostPayload, userId: string)
 
 export async function adminUpdatePost(id: string, payload: AdminPostPayload) {
   const { error } = await supabase
-    .from("agency_posts")
+    .from("posts")
     .update({
       slug: payload.slug,
       title: payload.title,
@@ -361,6 +361,18 @@ export async function adminUpdatePost(id: string, payload: AdminPostPayload) {
     })
     .eq("id", id);
   if (error) throw error;
+}
+
+export async function adminCheckIsCmsAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("cms_admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    return false;
+  }
+  return Boolean(data);
 }
 
 export async function uploadBlogImage(file: File, userId: string): Promise<string> {

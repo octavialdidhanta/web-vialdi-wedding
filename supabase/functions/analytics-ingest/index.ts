@@ -34,8 +34,8 @@ type SessionTouch = {
 };
 
 type PageView = { type: "page_view"; path: string };
-type ActivePing = { type: "active_ping"; path: string; delta_ms: number };
-type PageEnd = { type: "page_end"; path: string };
+type ActivePing = { type: "active_ping"; path: string; delta_ms: number; scroll_max_pct?: number };
+type PageEnd = { type: "page_end"; path: string; scroll_max_pct?: number };
 type Click = {
   type: "click";
   path: string;
@@ -199,12 +199,13 @@ async function applyActivePing(
   sessionId: string,
   path: string,
   delta: number,
+  scrollMaxPct: number | null,
   webId: string,
 ) {
   if (delta <= 0 || delta > 120_000) return;
   const { data: row } = await supabase
     .from("analytics_page_views")
-    .select("id, active_ms, path")
+    .select("id, active_ms, path, scroll_max_pct")
     .eq("session_id", sessionId)
     .eq("web_id", webId)
     .is("ended_at", null)
@@ -212,9 +213,13 @@ async function applyActivePing(
     .limit(1)
     .maybeSingle();
   if (!row?.id || row.path !== path) return;
+  const incoming = typeof scrollMaxPct === "number" && Number.isFinite(scrollMaxPct) ? scrollMaxPct : null;
+  const clipped = incoming == null ? null : Math.max(0, Math.min(100, Math.floor(incoming)));
+  const prev = typeof row.scroll_max_pct === "number" ? row.scroll_max_pct : 0;
+  const nextScroll = clipped == null ? prev : Math.max(prev, clipped);
   await supabase
     .from("analytics_page_views")
-    .update({ active_ms: (row.active_ms ?? 0) + delta })
+    .update({ active_ms: (row.active_ms ?? 0) + delta, scroll_max_pct: nextScroll })
     .eq("id", row.id);
 }
 
@@ -371,14 +376,26 @@ Deno.serve(async (req) => {
       case "active_ping": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
         const d = Math.floor(Number(ev.delta_ms));
-        await applyActivePing(supabase, body.session_id, ev.path, d, webId);
+        const smp =
+          typeof (ev as ActivePing).scroll_max_pct === "number"
+            ? Number((ev as ActivePing).scroll_max_pct)
+            : null;
+        await applyActivePing(supabase, body.session_id, ev.path, d, smp, webId);
         break;
       }
       case "page_end": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
+        const incoming =
+          typeof (ev as PageEnd).scroll_max_pct === "number"
+            ? Number((ev as PageEnd).scroll_max_pct)
+            : null;
+        const clipped =
+          incoming == null || !Number.isFinite(incoming)
+            ? null
+            : Math.max(0, Math.min(100, Math.floor(incoming)));
         const { data: row } = await supabase
           .from("analytics_page_views")
-          .select("id")
+          .select("id, scroll_max_pct")
           .eq("session_id", body.session_id)
           .eq("web_id", webId)
           .eq("path", ev.path)
@@ -387,9 +404,11 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (row?.id) {
+          const prev = typeof row.scroll_max_pct === "number" ? row.scroll_max_pct : 0;
+          const nextScroll = clipped == null ? prev : Math.max(prev, clipped);
           await supabase
             .from("analytics_page_views")
-            .update({ ended_at: new Date().toISOString() })
+            .update({ ended_at: new Date().toISOString(), scroll_max_pct: nextScroll })
             .eq("id", row.id);
         }
         break;
@@ -398,7 +417,15 @@ Deno.serve(async (req) => {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
         const label = (ev.element_label ?? "").toString().slice(0, MAX_LABEL_LEN);
         const et = (ev.element_type ?? "unknown").toString().slice(0, 40);
-        const tk = ev.track_key ? String(ev.track_key).slice(0, MAX_TRACK_KEY_LEN) : null;
+        const rawTk = ev.track_key ? String(ev.track_key).trim() : "";
+        const tk =
+          rawTk.length > 0
+            ? rawTk.slice(0, MAX_TRACK_KEY_LEN)
+            : (`${label || "unknown"}_${et === "a" ? "link" : "cta"}`)
+                .toLowerCase()
+                .replace(/[^a-z0-9_:\\-]+/g, "_")
+                .replace(/^_+|_+$/g, "")
+                .slice(0, MAX_TRACK_KEY_LEN);
         const tu = ev.target_url ? String(ev.target_url).slice(0, MAX_URL_LEN) : null;
         const { error } = await supabase.from("analytics_click_events").insert({
           session_id: body.session_id,

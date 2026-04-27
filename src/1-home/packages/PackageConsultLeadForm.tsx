@@ -370,7 +370,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
     return (
       <button
         type="button"
-        data-track={TRACK_KEYS.contactCta}
+        data-track={TRACK_KEYS.packageConsultOpenCta}
         onClick={() => {
           setOpen(true);
           cardLead?.setConsultOpen(true);
@@ -652,6 +652,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
                 size="sm"
                 variant="outline"
                 className="mt-2"
+                data-track={TRACK_KEYS.packageConsultResetCta}
                 disabled={submitting}
                 onClick={() => {
                   try {
@@ -672,10 +673,24 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
           ) : null}
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" size="sm" className="sm:mr-auto" onClick={reset}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="sm:mr-auto"
+              data-track={TRACK_KEYS.packageConsultViewDetailLink}
+              onClick={reset}
+            >
               Lihat detail paket
             </Button>
-            <Button type="button" size="sm" disabled={!canNext} onClick={onPrimary}>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canNext}
+              data-track={step === 1 ? TRACK_KEYS.packageConsultNextCta : TRACK_KEYS.packageConsultSubmitCta}
+              {...(step === 1 ? {} : { "data-track-target": "/thank-you-page" })}
+              onClick={onPrimary}
+            >
               {primaryLabel}
             </Button>
           </div>

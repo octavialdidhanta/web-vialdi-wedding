@@ -142,7 +142,19 @@ export function Header() {
                       key={link.to}
                       to={link.to}
                       end={link.to === "/"}
-                      {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
+                      {...(link.to === "/"
+                        ? { "data-track": TRACK_KEYS.navHomeLink }
+                        : link.to === "/about-us"
+                          ? { "data-track": TRACK_KEYS.navAboutLink }
+                          : link.to === "/service"
+                            ? { "data-track": TRACK_KEYS.navServiceLink }
+                            : link.to === "/blog"
+                              ? { "data-track": TRACK_KEYS.navBlogLink }
+                              : link.to === "/terms-and-conditions"
+                                ? { "data-track": TRACK_KEYS.navTermsLink }
+                                : link.to === "/contact"
+                                  ? { "data-track": TRACK_KEYS.contactCta }
+                                  : {})}
                       onClick={closeMobileNav}
                       className={({ isActive }) =>
                         `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
@@ -169,6 +181,7 @@ export function Header() {
       <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between px-4 md:h-16 md:px-6">
         <Link
           to="/"
+          data-track={TRACK_KEYS.navLogoHome}
           className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight md:text-2xl"
         >
           {isAgencySite ? (
@@ -191,7 +204,19 @@ export function Header() {
               key={link.to}
               to={link.to}
               end={link.to === "/"}
-              {...(link.to === "/contact" ? { "data-track": TRACK_KEYS.contactCta } : {})}
+              {...(link.to === "/"
+                ? { "data-track": TRACK_KEYS.navHomeLink }
+                : link.to === "/about-us"
+                  ? { "data-track": TRACK_KEYS.navAboutLink }
+                  : link.to === "/service"
+                    ? { "data-track": TRACK_KEYS.navServiceLink }
+                    : link.to === "/blog"
+                      ? { "data-track": TRACK_KEYS.navBlogLink }
+                      : link.to === "/terms-and-conditions"
+                        ? { "data-track": TRACK_KEYS.navTermsLink }
+                        : link.to === "/contact"
+                          ? { "data-track": TRACK_KEYS.contactCta }
+                          : {})}
               className={({ isActive }) =>
                 `text-sm font-medium text-muted-foreground transition-colors hover:text-primary ${
                   isActive ? "text-primary" : ""
@@ -205,6 +230,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           <Link
             to="/service"
+            data-track={TRACK_KEYS.navServiceCta}
             className="hidden rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 md:inline-flex"
           >
             Lihat Service
@@ -222,6 +248,7 @@ export function Header() {
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
             aria-label="Buka menu navigasi"
             aria-expanded={mobileMounted}
+            data-track={TRACK_KEYS.navMenuOpenCta}
             onClick={openMobileNav}
           >
             <Menu className="h-5 w-5" aria-hidden />

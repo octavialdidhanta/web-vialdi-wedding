@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import type { WeddingPackageSection } from "@/blog/weddingPackages";
 import { cn } from "@/share/lib/utils";
 import { WeddingPackageSectionBody } from "@/1-home/packages/weddingPackageCardSectionBody";
+import { buildPackageSectionToggleTrackKey } from "@/analytics/trackKeyUtils";
 import {
   weddingPackageSectionContentClass,
   weddingPackageSectionTriggerClass,
@@ -28,6 +29,7 @@ export function WeddingPackageLightweightSections({
             <button
               type="button"
               aria-expanded={open}
+              data-track={buildPackageSectionToggleTrackKey(s.title)}
               onClick={() => setOpenId((cur) => (cur === s.id ? undefined : s.id))}
               className={cn(
                 "flex w-full items-center justify-between gap-2 text-left transition-colors",

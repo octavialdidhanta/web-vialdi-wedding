@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useLocation } from "react-router-dom";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/share/supabaseClient";
-import { adminCheckIsCmsAdmin } from "@/blog/supabaseBlog";
+import { adminCheckIsCmsAdmin } from "@/blog/agencySupabaseBlog";
 
 type AdminAuthState = {
   session: Session | null;

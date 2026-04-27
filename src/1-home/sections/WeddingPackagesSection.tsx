@@ -3,6 +3,7 @@ import { SectionTitle } from "@/1-home/components/SectionTitle";
 import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
+import { TRACK_KEYS } from "@/analytics/trackRegistry";
 
 const WEDDING_PAKET_TABS = [
   { id: "dokumentasi" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[0] },
@@ -10,6 +11,13 @@ const WEDDING_PAKET_TABS = [
   { id: "dekorasi" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[2] },
   { id: "all-in-one" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[3] },
 ];
+
+const TAB_TRACK_KEYS: Record<(typeof WEDDING_PAKET_TABS)[number]["id"], string> = {
+  "dokumentasi": TRACK_KEYS.homePackageTabDokumentasiCta,
+  "rias-gaun": TRACK_KEYS.homePackageTabRiasGaunCta,
+  "dekorasi": TRACK_KEYS.homePackageTabDekorasiCta,
+  "all-in-one": TRACK_KEYS.homePackageTabAllInOneCta,
+};
 
 const InstagramProfileEmbed = lazy(() =>
   import("@/1-home/sections/InstagramProfileEmbed").then((m) => ({ default: m.InstagramProfileEmbed })),
@@ -74,6 +82,7 @@ export function WeddingPackagesSection({
                       <button
                         type="button"
                         onClick={() => onChangeKind(p.id)}
+                        data-track={TAB_TRACK_KEYS[p.id]}
                         className={
                           kind === p.id
                             ? "inline-flex shrink-0 rounded-full border border-[oklch(0.48_0.2_300)] bg-[oklch(0.48_0.2_300)]/10 px-3 py-2 text-xs font-semibold text-[oklch(0.48_0.2_300)] shadow-sm ring-2 ring-[oklch(0.48_0.2_300)]/20 md:px-3.5 md:text-sm"

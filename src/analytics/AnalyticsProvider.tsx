@@ -48,6 +48,33 @@ function labelFromElement(el: Element): string {
   return t.slice(0, 120) || el.tagName.toLowerCase();
 }
 
+function normalizeTrackKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+function fallbackTrackKey(el: Element): string {
+  const tag = el.tagName.toLowerCase();
+  const label = labelForGtm(el) || labelFromElement(el);
+  const norm = normalizeTrackKey(label) || "unknown";
+  const suffix =
+    tag === "a" ? "link" : tag === "button" || tag === "input" || el.getAttribute("role") === "button" ? "cta" : "click";
+  return `${norm}_${suffix}`.slice(0, 80);
+}
+
+function articleFallbackTrackKey(el: Element): string {
+  const tag = el.tagName.toLowerCase();
+  const label = labelForGtm(el) || labelFromElement(el);
+  const norm = normalizeTrackKey(label) || "unknown";
+  const suffix =
+    tag === "a" ? "link" : tag === "button" || tag === "input" || el.getAttribute("role") === "button" ? "cta" : "click";
+  return `article_${norm}_${suffix}`.slice(0, 80);
+}
+
 function labelForGtm(el: Element): string {
   const aria = el.getAttribute("aria-label");
   if (aria?.trim()) {
@@ -78,6 +105,18 @@ function isInternalHref(href: string): boolean {
   }
 }
 
+function computeScrollPct(): number {
+  if (typeof window === "undefined" || typeof document === "undefined") return 0;
+  const root = (document.scrollingElement ?? document.documentElement) as HTMLElement;
+  const max = Math.max(0, (root.scrollHeight || 0) - (root.clientHeight || window.innerHeight || 0));
+  if (max <= 0) {
+    // Halaman tidak scrollable → 0% (tidak ada jarak yang bisa di-scroll).
+    return 0;
+  }
+  const y = Math.max(0, Math.min(max, root.scrollTop || 0));
+  return Math.max(0, Math.min(100, Math.round((y / max) * 100)));
+}
+
 /**
  * Layout route + pathname dari `window.location` + patch History API agar setiap
  * navigasi SPA (Link/navigate/pushState) memicu page_view — tidak bergantung
@@ -88,6 +127,8 @@ export function AnalyticsProvider() {
   const lastPageViewAtRef = useRef<Map<string, number>>(new Map());
   const visibleSinceRef = useRef<number | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastClickSigRef = useRef<{ sig: string; at: number } | null>(null);
+  const scrollMaxPctRef = useRef<number>(0);
 
   const endPageRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
   const flushDurationRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
@@ -108,10 +149,13 @@ export function AnalyticsProvider() {
       visibleSinceRef.current = null;
     }
     if (delta > 0 && delta < 120_000) {
-      void sendAnalyticsBatch([{ type: "active_ping", path, delta_ms: delta }], {
+      void sendAnalyticsBatch(
+        [{ type: "active_ping", path, delta_ms: delta, scroll_max_pct: scrollMaxPctRef.current }],
+        {
         useBeacon: opts?.useBeacon,
         deferNetwork: !opts?.useBeacon,
-      });
+        },
+      );
     }
   }, []);
 
@@ -121,7 +165,7 @@ export function AnalyticsProvider() {
         return;
       }
       flushDuration(path, opts);
-      void sendAnalyticsBatch([{ type: "page_end", path }], {
+      void sendAnalyticsBatch([{ type: "page_end", path, scroll_max_pct: scrollMaxPctRef.current }], {
         useBeacon: opts?.useBeacon,
         deferNetwork: !opts?.useBeacon,
       });
@@ -185,6 +229,22 @@ export function AnalyticsProvider() {
 
       document.addEventListener("visibilitychange", onVis);
 
+      const onScroll = () => {
+        const p = pathRef.current;
+        if (!p || isAdminPath(p)) return;
+        if (document.visibilityState !== "visible") return;
+        const pct = computeScrollPct();
+        if (pct > scrollMaxPctRef.current) {
+          scrollMaxPctRef.current = pct;
+        }
+      };
+      const root = document.scrollingElement ?? document.documentElement;
+      // Beberapa layout memakai root scroller; sebagian browser memicu scroll di window.
+      window.addEventListener("scroll", onScroll, { passive: true });
+      root.addEventListener("scroll", onScroll, { passive: true } as AddEventListenerOptions);
+      // Capture initial state (mis. halaman dibuka di posisi scroll tertentu).
+      onScroll();
+
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
       }
@@ -206,6 +266,8 @@ export function AnalyticsProvider() {
 
       return () => {
         document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("scroll", onScroll);
+        root.removeEventListener("scroll", onScroll);
         window.removeEventListener("pagehide", onPageHide);
         clearHeartbeat();
       };
@@ -266,6 +328,7 @@ export function AnalyticsProvider() {
         detachDomListeners();
       }
       pathRef.current = path;
+      scrollMaxPctRef.current = 0;
       if (lastGtmPath !== path) {
         lastGtmPath = path;
         pushGtmVirtualPageView(path);
@@ -337,24 +400,45 @@ export function AnalyticsProvider() {
         return;
       }
 
-      const trackKey =
+      const explicitTrackKey =
         el.getAttribute("data-track") ||
         el.getAttribute("data-track-click") ||
         el.getAttribute("data-gtm-click");
+      const inArticle = Boolean(el.closest("[data-analytics-scope='article']"));
+      const trackKey = explicitTrackKey || (inArticle ? articleFallbackTrackKey(el) : null);
+      if (!trackKey) return;
       const tag = el.tagName.toLowerCase();
       let targetUrl: string | null = null;
       let isInternal = false;
 
+      const dataTarget = (el.getAttribute("data-track-target") ?? "").trim();
+      if (dataTarget) {
+        try {
+          const u = new URL(dataTarget, window.location.origin);
+          targetUrl = u.href;
+          isInternal = u.origin === window.location.origin;
+        } catch {
+          // ignore invalid target
+        }
+      }
+
       if (tag === "a") {
         const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
-        if (!href || href.startsWith("#")) {
+        // Always track if we have an explicit track key, even for hash anchors.
+        // Hash navigation is common for "scroll to section" CTAs on Home.
+        if (!href || (href.startsWith("#") && !el.getAttribute("data-track"))) {
           return;
         }
+        if (href.startsWith("#")) {
+          isInternal = true;
+          targetUrl = null;
+        } else {
         try {
           targetUrl = new URL(href, window.location.origin).href;
           isInternal = isInternalHref(href);
         } catch {
           targetUrl = href;
+        }
         }
       }
 
@@ -367,6 +451,16 @@ export function AnalyticsProvider() {
         target_url: targetUrl,
         is_internal: isInternal,
       };
+
+      // Deduplicate accidental double-fire (e.g. rare browser/handler quirks).
+      // Keep window short so legitimate repeated clicks still count.
+      const sig = `${path}|${evt.track_key ?? ""}|${evt.element_type}|${evt.target_url ?? ""}`;
+      const now = Date.now();
+      const prev = lastClickSigRef.current;
+      if (prev && prev.sig === sig && now - prev.at < 800) {
+        return;
+      }
+      lastClickSigRef.current = { sig, at: now };
 
       pushGtmUserInteraction({
         page_path: path,

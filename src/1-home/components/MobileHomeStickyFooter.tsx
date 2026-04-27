@@ -6,6 +6,7 @@ import {
   footerContactIconBoxClass,
   footerContactNavButtonClass,
 } from "@/1-home/components/FooterContactNavButton";
+import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import {
   buildWaMeUrl,
   fetchHomeFloatingWhatsappSettings,
@@ -74,6 +75,14 @@ export function MobileHomeStickyFooter({
     scrollToId(item.id);
   }, []);
 
+  const trackKeyForScrollItem = (id: string) => {
+    if (id === hargaPaketId) return TRACK_KEYS.homeStickyHargaPaketCta;
+    if (id === instagramId) return TRACK_KEYS.homeStickyInstagramCta;
+    if (id === garansiId) return TRACK_KEYS.homeStickyGaransiCta;
+    if (id === faqId) return TRACK_KEYS.homeStickyFaqCta;
+    return TRACK_KEYS.homeStickyScrollCta;
+  };
+
   return (
     <div
       className="fixed inset-x-0 bottom-0 z-[260] border-t border-border/60 bg-background/92 backdrop-blur supports-[backdrop-filter]:bg-background/70 md:hidden"
@@ -101,6 +110,7 @@ export function MobileHomeStickyFooter({
               onClick={() => onScrollItem(item)}
               className={footerContactNavButtonClass}
               aria-label={item.label}
+              data-track={trackKeyForScrollItem(item.id)}
             >
               <div className={footerContactIconBoxClass}>
                 <item.Icon className="h-4 w-4" aria-hidden strokeWidth={1.85} />

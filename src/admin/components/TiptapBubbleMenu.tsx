@@ -24,7 +24,9 @@ export function TiptapBubbleMenu({ editor, onLinkPopoverRequest }: Props) {
     <BubbleMenu
       editor={editor}
       options={{ placement: "top-start" }}
-      shouldShow={({ state }) => !state.selection.empty}
+      // Tampilkan saat ada seleksi ATAU kursor berada di dalam link,
+      // supaya user bisa edit/toggle style link tanpa harus nge-block teks dulu.
+      shouldShow={({ state, editor }) => !state.selection.empty || editor.isActive("link")}
     >
       <div className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-1 shadow-md">
         <Button

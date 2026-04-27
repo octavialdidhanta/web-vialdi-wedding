@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { pushGtmThankYouPageView } from "@/analytics/gtmDataLayer";
 import { metaPixelTrack, trackMetaStandardEvent } from "@/analytics/metaPixel";
+import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { Header } from "@/share/Header";
 
 export function ThankYouPage() {
@@ -49,12 +50,16 @@ export function ThankYouPage() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               to="/"
+              data-track={TRACK_KEYS.thankYouBackHomeCta}
+              data-track-target="/"
               className="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
             >
               Kembali ke Home
             </Link>
             <Link
               to="/service"
+              data-track={TRACK_KEYS.thankYouViewServiceCta}
+              data-track-target="/service"
               className="inline-flex items-center justify-center rounded-full border border-border bg-background px-8 py-3 text-sm font-semibold text-navy transition-colors hover:border-accent-orange hover:text-accent-orange"
             >
               Lihat Service

@@ -2,6 +2,7 @@ import { AccordionContent, AccordionItem, AccordionTrigger } from "@/share/ui/ac
 import { PackageAccordionRoot } from "@/1-home/packages/packageAccordionViewport";
 import type { WeddingPackageSection } from "@/blog/weddingPackages";
 import { WeddingPackageSectionBody } from "@/1-home/packages/weddingPackageCardSectionBody";
+import { buildPackageSectionToggleTrackKey } from "@/analytics/trackKeyUtils";
 import {
   weddingPackageSectionContentClass,
   weddingPackageSectionTriggerClass,
@@ -16,7 +17,12 @@ export function PackageRadixAccordionSections({
     <PackageAccordionRoot type="single" collapsible className="w-full space-y-2">
       {sections.map((s) => (
         <AccordionItem key={s.id} value={s.id} className="border-0">
-          <AccordionTrigger className={weddingPackageSectionTriggerClass}>{s.title}</AccordionTrigger>
+          <AccordionTrigger
+            className={weddingPackageSectionTriggerClass}
+            data-track={buildPackageSectionToggleTrackKey(s.title)}
+          >
+            {s.title}
+          </AccordionTrigger>
           <AccordionContent className={weddingPackageSectionContentClass}>
             <WeddingPackageSectionBody s={s} />
           </AccordionContent>

@@ -24,7 +24,13 @@ export function BlogPostBody({ bodyJson, bodyHtml }: Props) {
     Boolean(doc?.type === "doc") && !isPlaceholderTiptapDoc(doc) && (doc?.content?.length ?? 0) > 0;
 
   if (!useJson) {
-    return <div className={proseArticleClass} dangerouslySetInnerHTML={{ __html: bodyHtml }} />;
+    return (
+      <div
+        className={proseArticleClass}
+        data-analytics-scope="article"
+        dangerouslySetInnerHTML={{ __html: bodyHtml }}
+      />
+    );
   }
 
   return (

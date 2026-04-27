@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { CornerDownLeft, FileText, Link2, Newspaper } from "lucide-react";
 import { Button } from "@/share/ui/button";
@@ -10,6 +10,15 @@ import type { InternalLinkTarget } from "@/admin/lib/siteNavLinks";
 import { cn } from "@/share/lib/utils";
 
 const BTN_CLASS = "blog-cta-btn";
+
+function escapeHtml(s: string): string {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 function normalizeHref(raw: string): string {
   const t = raw.trim();
@@ -45,16 +54,24 @@ export function EditorLinkPopover({ editor, internalTargets, open }: Props) {
   const [url, setUrl] = useState("");
   const [asButton, setAsButton] = useState(false);
   const [q, setQ] = useState("");
+  const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
   useEffect(() => {
     if (!open) {
       return;
     }
+    savedSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
     const attrs = editor.getAttributes("link") as { href?: string; class?: string | null };
     setUrl(attrs.href ?? "");
     setAsButton(typeof attrs.class === "string" && attrs.class.split(/\s+/).includes(BTN_CLASS));
     setQ("");
   }, [open, editor]);
+
+  function restoreSelectionIfNeeded() {
+    const sel = savedSelectionRef.current;
+    if (!sel) return;
+    editor.chain().focus().setTextSelection(sel).run();
+  }
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -70,10 +87,29 @@ export function EditorLinkPopover({ editor, internalTargets, open }: Props) {
   }, [internalTargets, q]);
 
   function applyHref(href: string, button: boolean) {
-    const h = normalizeHref(href);
-    if (!h) {
+    const h = normalizeHref(href) || (editor.getAttributes("link") as { href?: string }).href || "";
+    if (!h) return;
+    restoreSelectionIfNeeded();
+
+    // Cara alternatif (lebih tahan focus/selection hilang):
+    // kalau user memilih "tombol" tapi editor sedang tidak berada di mark link,
+    // sisipkan elemen <a class="blog-cta-btn"> langsung di posisi selection.
+    if (button && !editor.isActive("link")) {
+      const sel = editor.state.selection;
+      const label =
+        editor.state.doc.textBetween(sel.from, sel.to, " ").trim() ||
+        (editor.getAttributes("link") as { href?: string }).href?.trim() ||
+        "Klik di sini";
+      editor
+        .chain()
+        .focus()
+        .insertContent(
+          `<a href="${escapeHtml(h)}" class="${BTN_CLASS}">${escapeHtml(label)}</a>`,
+        )
+        .run();
       return;
     }
+
     editor
       .chain()
       .focus()
@@ -86,6 +122,7 @@ export function EditorLinkPopover({ editor, internalTargets, open }: Props) {
   }
 
   function removeLink() {
+    restoreSelectionIfNeeded();
     editor.chain().focus().extendMarkRange("link").unsetLink().run();
   }
 
@@ -131,7 +168,15 @@ export function EditorLinkPopover({ editor, internalTargets, open }: Props) {
           <p className="text-xs font-medium text-navy">Tampil sebagai tombol</p>
           <p className="text-[10px] text-muted-foreground">Gaya CTA di artikel publik</p>
         </div>
-        <Switch checked={asButton} onCheckedChange={setAsButton} />
+        <Switch
+          checked={asButton}
+          onCheckedChange={(next) => {
+            setAsButton(next);
+            // Terapkan langsung agar user tidak perlu klik "Simpan tautan".
+            // Fokus popover sering menghapus selection, jadi restoreSelectionIfNeeded penting.
+            applyHref(url, next);
+          }}
+        />
       </div>
 
       <div>

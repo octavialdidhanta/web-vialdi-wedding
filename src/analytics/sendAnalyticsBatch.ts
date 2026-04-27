@@ -297,8 +297,8 @@ export type IngestEvent =
       has_wbraid?: boolean;
     }
   | { type: "page_view"; path: string }
-  | { type: "active_ping"; path: string; delta_ms: number }
-  | { type: "page_end"; path: string }
+  | { type: "active_ping"; path: string; delta_ms: number; scroll_max_pct?: number }
+  | { type: "page_end"; path: string; scroll_max_pct?: number }
   | {
       type: "click";
       path: string;
@@ -369,12 +369,13 @@ function scheduleDeferredIngest(run: () => void, leadMs = 0) {
 export function getOrCreateSessionId(): string {
   const key = sessionStorageKey();
   try {
-    const existing = localStorage.getItem(key);
+    // Per-tab session agar page_view/scroll tidak tercampur antar tab.
+    const existing = sessionStorage.getItem(key);
     if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
       return existing;
     }
     const id = randomUuidV4();
-    localStorage.setItem(key, id);
+    sessionStorage.setItem(key, id);
     return id;
   } catch {
     return randomUuidV4();
@@ -386,7 +387,7 @@ export function resetAnalyticsSessionId(): void {
   try {
     // Force a new session id immediately so subsequent calls in this tick
     // won't recreate / reuse the old value.
-    localStorage.setItem(key, randomUuidV4());
+    sessionStorage.setItem(key, randomUuidV4());
   } catch {
     /* ignore */
   }

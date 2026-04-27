@@ -16,7 +16,7 @@ export function WeddingCtaSection({
         <div className="mt-10 flex justify-start">
           <a
             href="#paket-dokumentasi"
-            data-track={TRACK_KEYS.contactCta}
+            data-track={TRACK_KEYS.homeCtaSectionCta}
             className="rounded-full bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-elegant)] transition-all hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.48_0.2_300)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={onCtaClick}
           >

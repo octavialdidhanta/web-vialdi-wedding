@@ -227,7 +227,12 @@ export function ContactPage() {
                     Isi ulang
                   </Button>
                 )}
-                <Button data-track={TRACK_KEYS.contactCta} disabled={!canNext} onClick={onPrimary}>
+                <Button
+                  data-track={TRACK_KEYS.contactCta}
+                  {...(step === 1 ? {} : { "data-track-target": "/thank-you-page" })}
+                  disabled={!canNext}
+                  onClick={onPrimary}
+                >
                   {step === 1 ? (submitting ? "Menyimpan..." : "Lanjut") : submitting ? "Mengirim..." : "Kirim"}
                 </Button>
               </div>

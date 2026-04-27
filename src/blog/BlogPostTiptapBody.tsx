@@ -49,7 +49,7 @@ export function BlogPostTiptapBody({ doc }: Props) {
 
   return (
     <PackageConsultOpenerProvider>
-      <div className={proseArticleClass}>
+      <div className={proseArticleClass} data-analytics-scope="article">
         {segments.map((seg, i) => {
           if (seg.kind === "html") {
             if (seg.nodes.length === 0) {
