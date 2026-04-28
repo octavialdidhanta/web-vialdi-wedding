@@ -6,6 +6,7 @@ import { randomUuidV4 } from "@/share/lib/randomUuid";
 // Reuse same bucket (schema separation is in DB tables).
 export const BLOG_MEDIA_BUCKET = "blog-media";
 const BUCKET = BLOG_MEDIA_BUCKET;
+const CMS_WEB_ID = "vialdi-wedding";
 
 export type TagJoin = { agency_blog_tags: { name: string; slug: string } | null } | null;
 
@@ -314,6 +315,7 @@ export async function adminInsertPost(payload: AdminPostPayload, userId: string)
   const { data, error } = await supabase
     .from("posts")
     .insert({
+      web_id: CMS_WEB_ID,
       slug: payload.slug,
       title: payload.title,
       excerpt: payload.excerpt,
