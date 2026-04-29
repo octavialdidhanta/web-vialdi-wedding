@@ -4,9 +4,12 @@ import {
   buildSessionTouchEvent,
   ensureLandingAttributionCaptured,
   getOrCreateSessionId,
+  getRequiredWebId,
+  readLandingAttributionForLead,
   sendAnalyticsBatch,
   type IngestEvent,
 } from "@/analytics/sendAnalyticsBatch";
+import { supabase } from "@/share/supabaseClient";
 import {
   pushGtmFormSubmit,
   pushGtmUserInteraction,
@@ -479,6 +482,30 @@ export function AnalyticsProvider() {
         link_url: targetUrl,
         is_internal_link: isInternal,
       });
+
+      // Special-case: Floating WhatsApp click must be persisted server-side
+      // in `public.analytics_wa_clicks` (Edge Function `wa-click-track`),
+      // because later inbound WhatsApp webhook flow joins via session_id.
+      if (trackKey === "whatsapp_floating_click") {
+        void (async () => {
+          try {
+            const webId = getRequiredWebId();
+            const attribution = readLandingAttributionForLead();
+            await supabase.functions.invoke("wa-click-track", {
+              body: {
+                session_id: getOrCreateSessionId(),
+                web_id: webId,
+                path,
+                target_url: targetUrl ?? null,
+                attribution,
+              },
+            });
+          } catch (e) {
+            // Must not block navigation.
+            console.warn("[analytics] wa-click-track invoke failed", e);
+          }
+        })();
+      }
 
       void sendAnalyticsBatch([evt], { deferNetwork: true });
     };

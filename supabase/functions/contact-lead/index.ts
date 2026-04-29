@@ -1055,6 +1055,62 @@ Deno.serve(async (req) => {
 
     if (linkErr) return json({ error: linkErr.message }, { status: 500 });
 
+    // If this lead is coming from a WhatsApp flow, enrich:
+    // - update the sender phone_number in `analytics_wa_clicks`
+    // - overwrite `leads` + `leads_vialdiid` phone_number + attribution.
+    if (payload.analytics_session_id && resolvedWebId) {
+      const { data: latestWaClick, error: waSelErr } = await admin
+        .from("analytics_wa_clicks")
+        .select("id, attribution")
+        .eq("session_id", payload.analytics_session_id)
+        .eq("web_id", resolvedWebId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!waSelErr && latestWaClick?.id) {
+        const waPhone = payload.phone_number;
+
+        const { error: waPhoneUpdErr } = await admin
+          .from("analytics_wa_clicks")
+          .update({ phone_number: waPhone })
+          .eq("id", latestWaClick.id);
+
+        if (waPhoneUpdErr) {
+          console.warn("contact-lead: analytics_wa_clicks phone_number update failed", waPhoneUpdErr.message);
+        }
+
+        const waLeadAttr = parseLeadAttribution(latestWaClick.attribution);
+        const waAttrUpdate =
+          waLeadAttr !== null
+            ? {
+                attribution: attributionToJsonb(waLeadAttr.attribution),
+                attribution_label: waLeadAttr.label,
+              }
+            : null;
+
+        const leadPatch = {
+          phone_number: waPhone,
+          ...(waAttrUpdate ?? {}),
+        };
+
+        const { error: leadsUpdErr } = await admin.from("leads").update(leadPatch).eq("id", leadId);
+        if (leadsUpdErr) {
+          console.warn("contact-lead: leads update from wa-click failed", leadsUpdErr.message);
+        }
+
+        const { error: leadsVialdiUpdErr } = await admin
+          .from("leads_vialdiid")
+          .update(leadPatch)
+          .eq("id", vialdiLead.id);
+        if (leadsVialdiUpdErr) {
+          console.warn("contact-lead: leads_vialdiid update from wa-click failed", leadsVialdiUpdErr.message);
+        }
+      } else if (waSelErr) {
+        console.warn("contact-lead: analytics_wa_clicks lookup failed", waSelErr.message);
+      }
+    }
+
     return json({ id: vialdiLead.id, lead_id: leadId });
   }
 

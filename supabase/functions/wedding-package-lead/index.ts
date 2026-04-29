@@ -1432,6 +1432,56 @@ Deno.serve(async (req) => {
         .eq("lead_id", leadId);
       if (pUp) return json({ error: pUp.message }, { status: 500 });
 
+      // Enrich from the latest WhatsApp click for the same analytics session.
+      // This allows propagating sender `phone_number` + attribution into CRM leads.
+      if (payload.analytics_session_id && resolvedWebId) {
+        const { data: latestWaClick, error: waSelErr } = await admin
+          .from("analytics_wa_clicks")
+          .select("id, attribution")
+          .eq("session_id", payload.analytics_session_id)
+          .eq("web_id", resolvedWebId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!waSelErr && latestWaClick?.id) {
+          const waPhone = payload.phone_number;
+
+          const { error: waPhoneUpdErr } = await admin
+            .from("analytics_wa_clicks")
+            .update({ phone_number: waPhone })
+            .eq("id", latestWaClick.id);
+          if (waPhoneUpdErr) {
+            console.warn("wedding-package-lead: analytics_wa_clicks phone_number update failed", waPhoneUpdErr.message);
+          }
+
+          const waLeadAttr = parseLeadAttribution(latestWaClick.attribution);
+          const waAttrUpdate =
+            waLeadAttr !== null
+              ? {
+                  attribution: attributionToJsonb(waLeadAttr.attribution),
+                  attribution_label: waLeadAttr.label,
+                }
+              : null;
+
+          const leadPatch = {
+            phone_number: waPhone,
+            ...(waAttrUpdate ?? {}),
+          };
+
+          const { error: leadsUpdErr } = await admin.from("leads").update(leadPatch).eq("id", leadId);
+          if (leadsUpdErr) console.warn("wedding-package-lead: leads update from wa-click failed", leadsUpdErr.message);
+
+          const { error: pkgUpdErr } = await admin
+            .from(packageTable)
+            .update(leadPatch)
+            .eq("id", p1.id);
+          if (pkgUpdErr) console.warn("wedding-package-lead: package leads update from wa-click failed", pkgUpdErr.message);
+        } else if (waSelErr) {
+          console.warn("wedding-package-lead: analytics_wa_clicks lookup failed", waSelErr.message);
+        }
+      }
+
       return json({ id: p1.id, lead_id: leadId });
       }
     }
@@ -1485,7 +1535,59 @@ Deno.serve(async (req) => {
     // If the draft row is already linked to a CRM lead, just return it.
     const existingLeadId = (weddingLead as Record<string, unknown>)?.lead_id;
     if (typeof existingLeadId === "string" && existingLeadId.trim()) {
-      return json({ id: weddingLead.id, lead_id: existingLeadId.trim() });
+      const leadId = existingLeadId.trim();
+
+      // Best-effort enrichment (same logic as the "new lead" path).
+      if (payload.analytics_session_id && resolvedWebId) {
+        const { data: latestWaClick, error: waSelErr } = await admin
+          .from("analytics_wa_clicks")
+          .select("id, attribution")
+          .eq("session_id", payload.analytics_session_id)
+          .eq("web_id", resolvedWebId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!waSelErr && latestWaClick?.id) {
+          const waPhone = payload.phone_number;
+
+          const { error: waPhoneUpdErr } = await admin
+            .from("analytics_wa_clicks")
+            .update({ phone_number: waPhone })
+            .eq("id", latestWaClick.id);
+          if (waPhoneUpdErr) {
+            console.warn("wedding-package-lead: analytics_wa_clicks phone_number update failed", waPhoneUpdErr.message);
+          }
+
+          const waLeadAttr = parseLeadAttribution(latestWaClick.attribution);
+          const waAttrUpdate =
+            waLeadAttr !== null
+              ? {
+                  attribution: attributionToJsonb(waLeadAttr.attribution),
+                  attribution_label: waLeadAttr.label,
+                }
+              : null;
+
+          const leadPatch = {
+            phone_number: waPhone,
+            ...(waAttrUpdate ?? {}),
+          };
+
+          const { error: leadsUpdErr } = await admin.from("leads").update(leadPatch).eq("id", leadId);
+          if (leadsUpdErr) console.warn("wedding-package-lead: leads update from wa-click failed", leadsUpdErr.message);
+
+          const { error: pkgUpdErr } = await admin
+            .from(packageTable)
+            .update(leadPatch)
+            .eq("id", weddingLead.id);
+          if (pkgUpdErr)
+            console.warn("wedding-package-lead: package leads update from wa-click failed", pkgUpdErr.message);
+        } else if (waSelErr) {
+          console.warn("wedding-package-lead: analytics_wa_clicks lookup failed", waSelErr.message);
+        }
+      }
+
+      return json({ id: weddingLead.id, lead_id: leadId });
     }
 
     // Otherwise create the CRM lead + profile once, then link it.
@@ -1545,6 +1647,56 @@ Deno.serve(async (req) => {
       .eq("id", weddingLead.id);
 
     if (linkErr) return json({ error: linkErr.message }, { status: 500 });
+
+    // Enrich from the latest WhatsApp click for the same analytics session.
+    if (payload.analytics_session_id && resolvedWebId) {
+      const { data: latestWaClick, error: waSelErr } = await admin
+        .from("analytics_wa_clicks")
+        .select("id, attribution")
+        .eq("session_id", payload.analytics_session_id)
+        .eq("web_id", resolvedWebId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!waSelErr && latestWaClick?.id) {
+        const waPhone = payload.phone_number;
+
+        const { error: waPhoneUpdErr } = await admin
+          .from("analytics_wa_clicks")
+          .update({ phone_number: waPhone })
+          .eq("id", latestWaClick.id);
+        if (waPhoneUpdErr) {
+          console.warn("wedding-package-lead: analytics_wa_clicks phone_number update failed", waPhoneUpdErr.message);
+        }
+
+        const waLeadAttr = parseLeadAttribution(latestWaClick.attribution);
+        const waAttrUpdate =
+          waLeadAttr !== null
+            ? {
+                attribution: attributionToJsonb(waLeadAttr.attribution),
+                attribution_label: waLeadAttr.label,
+              }
+            : null;
+
+        const leadPatch = {
+          phone_number: waPhone,
+          ...(waAttrUpdate ?? {}),
+        };
+
+        const { error: leadsUpdErr } = await admin.from("leads").update(leadPatch).eq("id", leadId);
+        if (leadsUpdErr) console.warn("wedding-package-lead: leads update from wa-click failed", leadsUpdErr.message);
+
+        const { error: pkgUpdErr } = await admin
+          .from(packageTable)
+          .update(leadPatch)
+          .eq("id", weddingLead.id);
+        if (pkgUpdErr)
+          console.warn("wedding-package-lead: package leads update from wa-click failed", pkgUpdErr.message);
+      } else if (waSelErr) {
+        console.warn("wedding-package-lead: analytics_wa_clicks lookup failed", waSelErr.message);
+      }
+    }
 
     return json({ id: weddingLead.id, lead_id: leadId });
   }

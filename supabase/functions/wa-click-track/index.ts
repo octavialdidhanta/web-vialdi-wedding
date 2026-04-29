@@ -461,6 +461,7 @@ Deno.serve(async (req) => {
     path: body.path,
     target_url: targetUrl || null,
     attribution: Object.keys(attribution).length ? attribution : null,
+    phone_number: null,
     ua_hash: uaHash || null,
     ip_hash: ipHash,
   });
