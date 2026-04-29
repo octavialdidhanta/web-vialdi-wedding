@@ -309,6 +309,15 @@ export type IngestEvent =
       is_internal?: boolean;
     };
 
+type ClickEvent = Extract<IngestEvent, { type: "click" }>;
+
+const CLICK_BUFFER_MAX = 25;
+const CLICK_BUFFER_FLUSH_DEFER_MS = 250;
+
+let pendingClicks: ClickEvent[] = [];
+let clickFlushTimer: number | null = null;
+let clickListenersInstalled = false;
+
 function getSupabaseUrl(): string {
   const u = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   if (!u) throw new Error("VITE_SUPABASE_URL");
@@ -402,6 +411,105 @@ function simpleUaHash(): string {
   return String(h);
 }
 
+function isClickEvent(ev: IngestEvent): ev is ClickEvent {
+  return Boolean(ev && typeof ev === "object" && "type" in ev && ev.type === "click");
+}
+
+function buildIngestRequest(events: IngestEvent[], options?: { authUserId?: string | null; keepalive?: boolean }) {
+  const session_id = getOrCreateSessionId();
+  const web_id = getRequiredWebId();
+  const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
+  const anon = getAnonKey();
+  const body = JSON.stringify({
+    session_id,
+    web_id,
+    auth_user_id: options?.authUserId ?? null,
+    events,
+  });
+  return { url, anon, body, keepalive: Boolean(options?.keepalive) };
+}
+
+async function runIngestFetch(req: ReturnType<typeof buildIngestRequest>) {
+  const res = await fetch(req.url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${req.anon}`,
+      apikey: req.anon,
+    },
+    body: req.body,
+    keepalive: req.keepalive,
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.warn(
+      `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
+      detail.slice(0, 200),
+    );
+  }
+}
+
+function clearClickFlushTimer() {
+  if (clickFlushTimer != null) {
+    window.clearTimeout(clickFlushTimer);
+    clickFlushTimer = null;
+  }
+}
+
+async function flushPendingClicks(opts?: { keepalive?: boolean }) {
+  if (typeof window === "undefined") {
+    pendingClicks = [];
+    return;
+  }
+  if (pendingClicks.length === 0) {
+    clearClickFlushTimer();
+    return;
+  }
+
+  const batch = pendingClicks.slice(0, CLICK_BUFFER_MAX);
+  pendingClicks = pendingClicks.slice(batch.length);
+
+  clearClickFlushTimer();
+
+  try {
+    await runIngestFetch(buildIngestRequest(batch, { keepalive: opts?.keepalive }));
+  } catch (e) {
+    // Never throw in analytics; keep pending to retry on next flush opportunity.
+    pendingClicks = batch.concat(pendingClicks);
+    console.warn("[analytics] click flush failed", e);
+  }
+}
+
+function scheduleClickFlushIdle() {
+  if (typeof window === "undefined") return;
+  if (clickFlushTimer != null) return;
+  clickFlushTimer = window.setTimeout(() => {
+    clickFlushTimer = null;
+    void flushPendingClicks();
+  }, CLICK_BUFFER_FLUSH_DEFER_MS);
+}
+
+function ensureClickFlushListenersInstalled() {
+  if (clickListenersInstalled) return;
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  clickListenersInstalled = true;
+
+  const onVis = () => {
+    if (document.visibilityState === "hidden") {
+      // Tab is being backgrounded (new tab opened, app switched, etc.).
+      void flushPendingClicks({ keepalive: true });
+    }
+  };
+  const onPageHide = () => {
+    // Most reliable signal for page lifecycle end.
+    void flushPendingClicks({ keepalive: true });
+  };
+
+  document.addEventListener("visibilitychange", onVis);
+  window.addEventListener("pagehide", onPageHide);
+}
+
 export async function getOptionalAuthUserId(): Promise<string | null> {
   try {
     const { supabase } = await import("@/share/supabaseClient");
@@ -432,6 +540,23 @@ export async function sendAnalyticsBatch(
   if (events.length === 0) {
     return;
   }
+
+  // Click-only reliability: when the tab becomes hidden (e.g. open link in new tab),
+  // browsers often throttle idle callbacks/timers. Buffer click events and flush them
+  // on lifecycle signals (visibilitychange/pagehide) with keepalive.
+  const allClicks = events.every(isClickEvent);
+  if (allClicks && options?.deferNetwork) {
+    ensureClickFlushListenersInstalled();
+    pendingClicks = pendingClicks.concat(events as ClickEvent[]);
+    if (pendingClicks.length >= CLICK_BUFFER_MAX) {
+      // If buffer grows, attempt an early flush (best effort).
+      void flushPendingClicks({ keepalive: true });
+    } else {
+      scheduleClickFlushIdle();
+    }
+    return;
+  }
+
   const session_id = getOrCreateSessionId();
   const web_id = getRequiredWebId();
   const skipAuthLookup = options?.skipAuthLookup ?? true;
@@ -445,24 +570,7 @@ export async function sendAnalyticsBatch(
   const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
 
   const runFetch = async () => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${anon}`,
-        apikey: anon,
-      },
-      body,
-      keepalive: useKeepalive,
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.warn(
-        `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
-        detail.slice(0, 200),
-      );
-    }
+    await runIngestFetch({ url, anon, body, keepalive: useKeepalive });
   };
 
   if (options?.deferNetwork) {
