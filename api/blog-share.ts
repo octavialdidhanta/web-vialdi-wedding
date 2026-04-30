@@ -52,6 +52,7 @@ function html({
   description,
   shareUrl,
   url,
+  imageProxyUrl,
   image,
   imageType,
 }: {
@@ -59,6 +60,7 @@ function html({
   description: string;
   shareUrl: string;
   url: string;
+  imageProxyUrl: string;
   image: string;
   imageType: string;
 }) {
@@ -66,6 +68,7 @@ function html({
   const safeDesc = esc(description);
   const safeShareUrl = esc(shareUrl);
   const safeUrl = esc(url);
+  const safeImageProxyUrl = esc(imageProxyUrl);
   const safeImg = esc(image);
   const hasImg = Boolean(image);
   const safeImgType = esc(imageType);
@@ -85,16 +88,18 @@ function html({
     ${
       hasImg
         ? [
-            `<meta property="og:image" content="${safeImg}" />`,
-            `<meta property="og:image:secure_url" content="${safeImg}" />`,
+            `<meta property="og:image" content="${safeImageProxyUrl}" />`,
+            `<meta property="og:image:secure_url" content="${safeImageProxyUrl}" />`,
             `<meta property="og:image:type" content="${safeImgType}" />`,
+            `<meta property="og:image:width" content="1200" />`,
+            `<meta property="og:image:height" content="630" />`,
           ].join("\n    ")
         : ""
     }
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDesc}" />
-    ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
+    ${hasImg ? `<meta name="twitter:image" content="${safeImageProxyUrl}" />` : ""}
     <link rel="canonical" href="${safeUrl}" />
   </head>
   <body>
@@ -185,6 +190,7 @@ export default async function handler(request: Request): Promise<Response> {
   const origin = `${reqUrl.protocol}//${reqUrl.host}`;
   const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}`;
   const canonical = `${origin}/blog/${encodeURIComponent(slug)}`;
+  const imageProxyUrl = `${origin}/og/blog/${encodeURIComponent(slug)}.jpg`;
 
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
@@ -230,6 +236,7 @@ export default async function handler(request: Request): Promise<Response> {
       description,
       shareUrl,
       url: canonical,
+      imageProxyUrl,
       image,
       imageType,
     }),
