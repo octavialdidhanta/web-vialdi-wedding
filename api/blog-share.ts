@@ -45,16 +45,19 @@ function buildPublicCoverUrl({
 function html({
   title,
   description,
+  shareUrl,
   url,
   image,
 }: {
   title: string;
   description: string;
+  shareUrl: string;
   url: string;
   image: string;
 }) {
   const safeTitle = esc(title);
   const safeDesc = esc(description);
+  const safeShareUrl = esc(shareUrl);
   const safeUrl = esc(url);
   const safeImg = esc(image);
   const hasImg = Boolean(image);
@@ -69,16 +72,22 @@ function html({
     <meta property="og:type" content="article" />
     <meta property="og:title" content="${safeTitle}" />
     <meta property="og:description" content="${safeDesc}" />
-    <meta property="og:url" content="${safeUrl}" />
+    <!-- Keep OG URL as the share endpoint so crawlers don't re-scrape SPA /blog/:slug -->
+    <meta property="og:url" content="${safeShareUrl}" />
     ${hasImg ? `<meta property="og:image" content="${safeImg}" />` : ""}
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDesc}" />
     ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
-    <meta http-equiv="refresh" content="0;url=${safeUrl}" />
   </head>
   <body>
     <p>Redirecting… <a href="${safeUrl}">Open article</a></p>
+    <!-- Humans: redirect via JS. Crawlers usually won't execute JS, but they will read OG tags above. -->
+    <script>
+      try {
+        window.location.replace(${JSON.stringify(url)});
+      } catch {}
+    </script>
   </body>
 </html>`;
 }
@@ -139,6 +148,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const origin = `${reqUrl.protocol}//${reqUrl.host}`;
+  const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}`;
   const canonical = `${origin}/blog/${encodeURIComponent(slug)}`;
 
   let title = "Vialdi Wedding — Blog";
@@ -165,6 +175,7 @@ export default async function handler(request: Request): Promise<Response> {
     html({
       title,
       description,
+      shareUrl,
       url: canonical,
       image,
     }),
