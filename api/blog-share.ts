@@ -53,12 +53,14 @@ function html({
   shareUrl,
   url,
   image,
+  imageType,
 }: {
   title: string;
   description: string;
   shareUrl: string;
   url: string;
   image: string;
+  imageType: string;
 }) {
   const safeTitle = esc(title);
   const safeDesc = esc(description);
@@ -66,6 +68,7 @@ function html({
   const safeUrl = esc(url);
   const safeImg = esc(image);
   const hasImg = Boolean(image);
+  const safeImgType = esc(imageType);
 
   return `<!doctype html>
 <html lang="id">
@@ -79,7 +82,15 @@ function html({
     <meta property="og:description" content="${safeDesc}" />
     <!-- Keep OG URL as the share endpoint so crawlers don't re-scrape SPA /blog/:slug -->
     <meta property="og:url" content="${safeShareUrl}" />
-    ${hasImg ? `<meta property="og:image" content="${safeImg}" />` : ""}
+    ${
+      hasImg
+        ? [
+            `<meta property="og:image" content="${safeImg}" />`,
+            `<meta property="og:image:secure_url" content="${safeImg}" />`,
+            `<meta property="og:image:type" content="${safeImgType}" />`,
+          ].join("\n    ")
+        : ""
+    }
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDesc}" />
@@ -135,6 +146,14 @@ async function fetchPostPreview(slug: string, base: string, anonKey: string): Pr
   return rows?.[0] ?? null;
 }
 
+function guessImageContentType(url: string) {
+  const u = url.toLowerCase();
+  if (u.includes(".png")) return "image/png";
+  if (u.includes(".webp")) return "image/webp";
+  if (u.includes(".gif")) return "image/gif";
+  return "image/jpeg";
+}
+
 export default async function handler(request: Request): Promise<Response> {
   const reqUrl = new URL(request.url);
   const slug = (reqUrl.searchParams.get("slug") ?? "").trim().toLowerCase();
@@ -178,6 +197,18 @@ export default async function handler(request: Request): Promise<Response> {
     // ignore and still serve basic HTML + redirect
   }
 
+  // Ensure og:image is always present for reliable WhatsApp/Facebook previews.
+  // Fallback to a stable public asset in /public (served at site root).
+  if (!image) {
+    image = `${origin}/octa.jpeg`;
+  } else if (image.startsWith("/")) {
+    image = `${origin}${image}`;
+  }
+
+  // WhatsApp/Facebook tend to prefer https for images.
+  image = image.replace(/^http:\/\//i, "https://");
+  const imageType = guessImageContentType(image);
+
   return new Response(
     html({
       title,
@@ -185,6 +216,7 @@ export default async function handler(request: Request): Promise<Response> {
       shareUrl,
       url: canonical,
       image,
+      imageType,
     }),
     {
       status: 200,
