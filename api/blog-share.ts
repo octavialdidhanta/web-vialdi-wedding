@@ -45,18 +45,22 @@ function buildPublicCoverUrl({
 function html({
   title,
   description,
-  url,
+  shareUrl,
+  canonicalUrl,
   image,
 }: {
   title: string;
   description: string;
-  url: string;
+  shareUrl: string;
+  canonicalUrl: string;
   image: string;
 }) {
   const safeTitle = esc(title);
   const safeDesc = esc(description);
-  const safeUrl = esc(url);
-  const safeImg = esc(image);
+  const safeShareUrl = esc(shareUrl);
+  const safeCanonicalUrl = esc(canonicalUrl);
+  const normalizedImg = image ? image.replace(/^http:\/\//i, "https://") : "";
+  const safeImg = esc(normalizedImg);
   const hasImg = Boolean(image);
 
   return `<!doctype html>
@@ -69,16 +73,25 @@ function html({
     <meta property="og:type" content="article" />
     <meta property="og:title" content="${safeTitle}" />
     <meta property="og:description" content="${safeDesc}" />
-    <meta property="og:url" content="${safeUrl}" />
-    ${hasImg ? `<meta property="og:image" content="${safeImg}" />` : ""}
+    <!-- Keep OG URL as the share endpoint so crawlers don't re-scrape SPA /blog/:slug -->
+    <meta property="og:url" content="${safeShareUrl}" />
+    ${
+      hasImg
+        ? [
+            `<meta property="og:image" content="${safeImg}" />`,
+            `<meta property="og:image:secure_url" content="${safeImg}" />`,
+          ].join("\n    ")
+        : ""
+    }
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDesc}" />
     ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
-    <meta http-equiv="refresh" content="0;url=${safeUrl}" />
+    <link rel="canonical" href="${safeCanonicalUrl}" />
+    <meta http-equiv="refresh" content="0;url=${safeCanonicalUrl}" />
   </head>
   <body>
-    <p>Redirecting… <a href="${safeUrl}">Open article</a></p>
+    <p>Redirecting… <a href="${safeCanonicalUrl}">Open article</a></p>
   </body>
 </html>`;
 }
@@ -140,6 +153,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   const origin = `${reqUrl.protocol}//${reqUrl.host}`;
   const canonical = `${origin}/blog/${encodeURIComponent(slug)}`;
+  const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}`;
 
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
@@ -165,7 +179,8 @@ export default async function handler(request: Request): Promise<Response> {
     html({
       title,
       description,
-      url: canonical,
+      shareUrl,
+      canonicalUrl: canonical,
       image,
     }),
     {
