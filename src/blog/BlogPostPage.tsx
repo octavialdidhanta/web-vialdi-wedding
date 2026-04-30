@@ -7,11 +7,16 @@ import { blogPostMeta, blogPostUi } from "@/blog/content";
 import type { BlogPostPublic } from "@/blog/types";
 import { getRelatedPosts } from "@/blog/agencySupabaseBlog";
 import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQueries";
-import { useBlogMeta } from "@/blog/useBlogMeta";
+import { useBlogMetaWithOgImage } from "@/blog/useBlogMeta";
 import { useBlogPostCoverPreload } from "@/blog/useBlogPostCoverPreload";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
 import { BlogPostBody } from "@/blog/BlogPostBody";
+import {
+  BlogPostShareStickyFooter,
+  blogPostShareStickyFooterPageBottomPaddingClass,
+} from "@/blog/BlogPostShareStickyFooter";
+import { cn } from "@/share/lib/utils";
 
 function formatPostDate(iso: string) {
   return new Date(iso + "T12:00:00").toLocaleDateString("id-ID", {
@@ -58,9 +63,16 @@ export function BlogPostPage() {
   const { data: post, isLoading: loadingPost, error: errPost } = usePublishedPostQuery(slug);
   const { data: allPosts = [] } = usePublishedPostsQuery();
 
+  const origin = window.location.origin;
+  const shareUrl = slug ? `${origin}/s/blog/${slug}` : window.location.href;
+
   const title = post ? blogPostMeta.documentTitle(post.title) : blogPostMeta.notFoundDocumentTitle;
   const description = post?.excerpt ?? blogPostMeta.notFoundDescription;
-  useBlogMeta(title, description.slice(0, 165));
+  useBlogMetaWithOgImage(title, description.slice(0, 165), {
+    url: shareUrl,
+    image: post?.coverImage,
+    type: post ? "article" : "website",
+  });
 
   const { older, newer } = useMemo(() => {
     if (!post) {
@@ -130,7 +142,7 @@ export function BlogPostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/25">
+    <div className={cn("min-h-screen bg-muted/25", blogPostShareStickyFooterPageBottomPaddingClass)}>
       <Header />
       <ReadingProgress />
 
@@ -364,6 +376,7 @@ export function BlogPostPage() {
         </div>
       </article>
 
+      <BlogPostShareStickyFooter title={post.title} url={shareUrl} />
       <Footer />
     </div>
   );

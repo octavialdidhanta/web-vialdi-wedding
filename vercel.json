@@ -6,6 +6,10 @@
       "destination": "/api/shortlink-redirect?slug=:slug"
     },
     {
+      "source": "/s/blog/:slug",
+      "destination": "/api/blog-share?slug=:slug"
+    },
+    {
       "source": "/((?!robots\\.txt|assets/).*)",
       "destination": "/index.html"
     }
