@@ -39,7 +39,12 @@ function buildPublicCoverUrl({
   if (!path) return "";
   const cleanBase = base.replace(/\/+$/, "");
   const cleanPath = path.replace(/^\/+/, "");
-  return `${cleanBase}/storage/v1/object/public/${encodeURIComponent(bucket)}/${cleanPath}`;
+  const encodedPath = cleanPath
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+  // Do not encode bucket name; only path segments.
+  return `${cleanBase}/storage/v1/object/public/${bucket}/${encodedPath}`;
 }
 
 function html({
@@ -95,20 +100,22 @@ function html({
 async function fetchPostPreview(slug: string, base: string, anonKey: string): Promise<PostPreviewRow | null> {
   const cleanBase = base.replace(/\/+$/, "");
   const endpoint = new URL(`${cleanBase}/rest/v1/posts`);
-  endpoint.searchParams.set("select", "slug,title,excerpt,cover_image_path,cover_image_url,status,published_at,scheduled_at");
+  endpoint.searchParams.set(
+    "select",
+    "slug,title,excerpt,cover_image_path,cover_image_url,status,published_at,scheduled_at",
+  );
   endpoint.searchParams.set("slug", `eq.${slug}`);
   endpoint.searchParams.set("limit", "1");
 
-  const nowIso = new Date().toISOString();
-
-  // Try published first (matches frontend logic).
+  // Try published first (matches frontend logic; keep it simple for crawlers).
   const pub = new URL(endpoint.toString());
   pub.searchParams.set("status", "eq.published");
-  pub.searchParams.set("published_at", `lte.${nowIso}`);
+  pub.searchParams.set("published_at", "not.is.null");
 
   const headers = {
     apikey: anonKey,
     Authorization: `Bearer ${anonKey}`,
+    Accept: "application/json",
   };
 
   const pubRes = await fetch(pub.toString(), { headers });
@@ -120,7 +127,7 @@ async function fetchPostPreview(slug: string, base: string, anonKey: string): Pr
   // Fallback: scheduled due.
   const sch = new URL(endpoint.toString());
   sch.searchParams.set("status", "eq.scheduled");
-  sch.searchParams.set("scheduled_at", `lte.${nowIso}`);
+  sch.searchParams.set("scheduled_at", "not.is.null");
 
   const schRes = await fetch(sch.toString(), { headers });
   if (!schRes.ok) return null;
