@@ -171,6 +171,7 @@ function isSocialCrawler(userAgent: string | null) {
 export default async function handler(request: Request): Promise<Response> {
   const reqUrl = new URL(request.url);
   const slug = (reqUrl.searchParams.get("slug") ?? "").trim().toLowerCase();
+  const v = (reqUrl.searchParams.get("v") ?? "").trim();
   if (!/^[a-z0-9-]{3,128}$/.test(slug)) {
     return new Response("Not found", {
       status: 404,
@@ -188,9 +189,9 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-  const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}`;
+  const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}${v ? `?v=${encodeURIComponent(v)}` : ""}`;
   const canonical = `${origin}/blog/${encodeURIComponent(slug)}`;
-  const imageProxyUrl = `${origin}/og/blog/${encodeURIComponent(slug)}.jpg`;
+  const imageProxyUrl = `${origin}/og/blog/${encodeURIComponent(slug)}.jpg${v ? `?v=${encodeURIComponent(v)}` : ""}`;
 
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
