@@ -1,18 +1,16 @@
 /**
- * Vercel Edge: HTML share-preview endpoint.
- * Rewrite `/s/blog/:slug` → `/api/blog-share?slug=:slug` (see vercel.json).
+ * Vercel Edge: Serve OG/Twitter meta for `/blog/:slug` (for social crawlers),
+ * while still delivering the SPA for humans.
  *
- * Social crawlers (WhatsApp/Facebook/LinkedIn/X) fetch this URL and read OpenGraph/Twitter tags
- * without executing SPA JS. Then we redirect humans to `/blog/:slug`.
+ * Strategy:
+ * - Crawlers: return HTML with OG meta (incl. og:image) so WhatsApp/Facebook show rich cards.
+ * - Humans: redirect to same URL with `__spa=1` to return the SPA shell (`/index.html`).
  */
 export const config = { runtime: "edge" };
 
 type PostPreviewRow = {
-  slug: string;
   title: string;
   excerpt: string | null;
-  cover_image_path: string | null;
-  cover_image_url: string | null;
 };
 
 function esc(s: string) {
@@ -24,22 +22,24 @@ function esc(s: string) {
     .replaceAll("'", "&#039;");
 }
 
-function buildPublicCoverUrl({
-  base,
-  bucket,
-  path,
-  url,
-}: {
-  base: string;
-  bucket: string;
-  path: string | null;
-  url: string | null;
-}) {
-  if (url) return url;
-  if (!path) return "";
-  const cleanBase = base.replace(/\/+$/, "");
-  const cleanPath = path.replace(/^\/+/, "");
-  return `${cleanBase}/storage/v1/object/public/${encodeURIComponent(bucket)}/${cleanPath}`;
+function isSocialCrawler(userAgent: string | null) {
+  const ua = (userAgent ?? "").toLowerCase();
+  return (
+    ua.includes("facebookexternalhit") ||
+    ua.includes("facebot") ||
+    ua.includes("whatsapp") ||
+    ua.includes("twitterbot") ||
+    ua.includes("linkedinbot") ||
+    ua.includes("slackbot") ||
+    ua.includes("discordbot") ||
+    ua.includes("telegrambot")
+  );
+}
+
+function buildSpaUrl(reqUrl: URL) {
+  const next = new URL(reqUrl.toString());
+  next.searchParams.set("__spa", "1");
+  return next.toString();
 }
 
 function html({
@@ -73,7 +73,6 @@ function html({
     <meta property="og:type" content="article" />
     <meta property="og:title" content="${safeTitle}" />
     <meta property="og:description" content="${safeDesc}" />
-    <!-- Keep OG URL as the share endpoint so crawlers don't re-scrape SPA /blog/:slug -->
     <meta property="og:url" content="${safeShareUrl}" />
     ${
       hasImg
@@ -83,7 +82,7 @@ function html({
             `<meta property="og:image:type" content="image/jpeg" />`,
             `<meta property="og:image:width" content="1200" />`,
             `<meta property="og:image:height" content="630" />`,
-          ].join("\n    ")
+          ].join("\\n    ")
         : ""
     }
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
@@ -91,10 +90,9 @@ function html({
     <meta name="twitter:description" content="${safeDesc}" />
     ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
     <link rel="canonical" href="${safeCanonicalUrl}" />
-    <meta http-equiv="refresh" content="0;url=${safeCanonicalUrl}" />
   </head>
   <body>
-    <p>Redirecting… <a href="${safeCanonicalUrl}">Open article</a></p>
+    <p>Open article: <a href="${safeCanonicalUrl}">${safeCanonicalUrl}</a></p>
   </body>
 </html>`;
 }
@@ -102,33 +100,28 @@ function html({
 async function fetchPostPreview(slug: string, base: string, anonKey: string): Promise<PostPreviewRow | null> {
   const cleanBase = base.replace(/\/+$/, "");
   const endpoint = new URL(`${cleanBase}/rest/v1/posts`);
-  endpoint.searchParams.set("select", "slug,title,excerpt,cover_image_path,cover_image_url,status,published_at,scheduled_at");
+  endpoint.searchParams.set("select", "title,excerpt,status,published_at,scheduled_at");
   endpoint.searchParams.set("slug", `eq.${slug}`);
   endpoint.searchParams.set("limit", "1");
 
   const nowIso = new Date().toISOString();
-
-  // Try published first (matches frontend logic).
-  const pub = new URL(endpoint.toString());
-  pub.searchParams.set("status", "eq.published");
-  pub.searchParams.set("published_at", `lte.${nowIso}`);
-
   const headers = {
     apikey: anonKey,
     Authorization: `Bearer ${anonKey}`,
   };
 
+  const pub = new URL(endpoint.toString());
+  pub.searchParams.set("status", "eq.published");
+  pub.searchParams.set("published_at", `lte.${nowIso}`);
   const pubRes = await fetch(pub.toString(), { headers });
   if (pubRes.ok) {
     const rows = (await pubRes.json()) as PostPreviewRow[];
     if (rows?.[0]) return rows[0];
   }
 
-  // Fallback: scheduled due.
   const sch = new URL(endpoint.toString());
   sch.searchParams.set("status", "eq.scheduled");
   sch.searchParams.set("scheduled_at", `lte.${nowIso}`);
-
   const schRes = await fetch(sch.toString(), { headers });
   if (!schRes.ok) return null;
   const rows = (await schRes.json()) as PostPreviewRow[];
@@ -139,10 +132,29 @@ export default async function handler(request: Request): Promise<Response> {
   const reqUrl = new URL(request.url);
   const slug = (reqUrl.searchParams.get("slug") ?? "").trim().toLowerCase();
   if (!/^[a-z0-9-]{3,128}$/.test(slug)) {
-    return new Response("Not found", {
-      status: 404,
-      headers: { "content-type": "text/plain; charset=utf-8" },
+    return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
+
+  // If this is the human SPA pass-through request, return the SPA shell directly.
+  if ((reqUrl.searchParams.get("__spa") ?? "") === "1") {
+    const origin = `${reqUrl.protocol}//${reqUrl.host}`;
+    const spaRes = await fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } });
+    return new Response(spaRes.body, {
+      status: spaRes.status,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        // Keep caching conservative; the SPA shell can change per deploy.
+        "cache-control": "public, max-age=0, must-revalidate",
+      },
     });
+  }
+
+  const ua = request.headers.get("user-agent");
+  const isCrawler = isSocialCrawler(ua);
+
+  // Humans should go to SPA shell (same URL + __spa=1) so the address bar stays /blog/:slug?utm=...
+  if (!isCrawler) {
+    return Response.redirect(buildSpaUrl(reqUrl), 302);
   }
 
   const base = process.env.VITE_SUPABASE_URL;
@@ -155,8 +167,8 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-  const canonical = `${origin}/blog/${encodeURIComponent(slug)}`;
-  const shareUrl = `${origin}/s/blog/${encodeURIComponent(slug)}`;
+  const shareUrl = `${origin}/blog/${encodeURIComponent(slug)}${reqUrl.search ? reqUrl.search : ""}`;
+  const canonicalUrl = `${origin}/blog/${encodeURIComponent(slug)}`;
   const imageProxyUrl = `${origin}/og/blog/${encodeURIComponent(slug)}.jpg`;
 
   let title = "Vialdi Wedding — Blog";
@@ -171,7 +183,7 @@ export default async function handler(request: Request): Promise<Response> {
       description = (post.excerpt ?? "").trim() || description;
     }
   } catch {
-    // ignore and still serve basic HTML + redirect
+    // ignore
   }
 
   return new Response(
@@ -179,14 +191,13 @@ export default async function handler(request: Request): Promise<Response> {
       title,
       description,
       shareUrl,
-      canonicalUrl: canonical,
+      canonicalUrl,
       imageProxyUrl: hasPost ? imageProxyUrl : "",
     }),
     {
       status: 200,
       headers: {
         "content-type": "text/html; charset=utf-8",
-        // allow crawlers to cache; keep modest so updates propagate
         "cache-control": "public, max-age=300",
       },
     },

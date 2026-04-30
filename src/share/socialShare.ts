@@ -5,6 +5,16 @@ export function buildShareText(title: string, url: string) {
   return t || u;
 }
 
+export type BlogShareUtmSource = "facebook" | "whatsapp" | "x" | "linkedin";
+
+export function withBlogShareUtm(url: string, source: BlogShareUtmSource) {
+  const u = new URL(url);
+  u.searchParams.set("utm_source", source);
+  u.searchParams.set("utm_medium", "share_footer");
+  u.searchParams.set("utm_campaign", "blog_share");
+  return u.toString();
+}
+
 export function buildFacebookShareUrl(url: string) {
   return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
 }

@@ -5,6 +5,7 @@ import {
   buildLinkedInShareUrl,
   buildShareText,
   buildTwitterShareUrl,
+  withBlogShareUtm,
   buildWhatsAppShareUrl,
 } from "@/share/socialShare";
 
@@ -23,18 +24,34 @@ type ShareItem = {
 };
 
 export function BlogPostShareStickyFooter({ title, url }: { title: string; url: string }) {
+  const facebookUrl = withBlogShareUtm(url, "facebook");
+  const xUrl = withBlogShareUtm(url, "x");
+  const linkedinUrl = withBlogShareUtm(url, "linkedin");
+  const whatsappUrl = withBlogShareUtm(url, "whatsapp");
+
   const shareText = buildShareText(title, url);
+  const shareTextWa = buildShareText(title, whatsappUrl);
 
   const items: ShareItem[] = [
-    { id: "facebook", label: "Share ke Facebook", href: buildFacebookShareUrl(url), Icon: Facebook },
+    { id: "facebook", label: "Share ke Facebook", href: buildFacebookShareUrl(facebookUrl), Icon: Facebook },
     {
       id: "twitter",
       label: "Share ke X",
-      href: buildTwitterShareUrl(shareText, url),
+      href: buildTwitterShareUrl(shareText, xUrl),
       Icon: Twitter,
     },
-    { id: "linkedin", label: "Share ke LinkedIn", href: buildLinkedInShareUrl(url), Icon: Linkedin },
-    { id: "whatsapp", label: "Share ke WhatsApp", href: buildWhatsAppShareUrl(shareText), Icon: MessageCircle },
+    {
+      id: "linkedin",
+      label: "Share ke LinkedIn",
+      href: buildLinkedInShareUrl(linkedinUrl),
+      Icon: Linkedin,
+    },
+    {
+      id: "whatsapp",
+      label: "Share ke WhatsApp",
+      href: buildWhatsAppShareUrl(shareTextWa),
+      Icon: MessageCircle,
+    },
   ];
 
   return (
