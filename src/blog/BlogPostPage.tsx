@@ -64,10 +64,7 @@ export function BlogPostPage() {
   const { data: allPosts = [] } = usePublishedPostsQuery();
 
   const origin = window.location.origin;
-  const shareCacheBust = useMemo(() => Date.now().toString(), [slug]);
-  const shareUrl = slug
-    ? `${origin}/s/blog/${slug}?v=${encodeURIComponent(shareCacheBust)}`
-    : window.location.href;
+  const shareUrl = slug ? `${origin}/s/blog/${slug}` : window.location.href;
 
   const title = post ? blogPostMeta.documentTitle(post.title) : blogPostMeta.notFoundDocumentTitle;
   const description = post?.excerpt ?? blogPostMeta.notFoundDescription;
