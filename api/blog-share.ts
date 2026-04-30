@@ -95,15 +95,10 @@ function html({
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDesc}" />
     ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
+    <link rel="canonical" href="${safeUrl}" />
   </head>
   <body>
     <p>Redirecting… <a href="${safeUrl}">Open article</a></p>
-    <!-- Humans: redirect via JS. Crawlers usually won't execute JS, but they will read OG tags above. -->
-    <script>
-      try {
-        window.location.replace(${JSON.stringify(url)});
-      } catch {}
-    </script>
   </body>
 </html>`;
 }
@@ -152,6 +147,20 @@ function guessImageContentType(url: string) {
   if (u.includes(".webp")) return "image/webp";
   if (u.includes(".gif")) return "image/gif";
   return "image/jpeg";
+}
+
+function isSocialCrawler(userAgent: string | null) {
+  const ua = (userAgent ?? "").toLowerCase();
+  return (
+    ua.includes("facebookexternalhit") ||
+    ua.includes("facebot") ||
+    ua.includes("twitterbot") ||
+    ua.includes("whatsapp") ||
+    ua.includes("linkedinbot") ||
+    ua.includes("slackbot") ||
+    ua.includes("discordbot") ||
+    ua.includes("telegrambot")
+  );
 }
 
 export default async function handler(request: Request): Promise<Response> {
@@ -208,6 +217,12 @@ export default async function handler(request: Request): Promise<Response> {
   // WhatsApp/Facebook tend to prefer https for images.
   image = image.replace(/^http:\/\//i, "https://");
   const imageType = guessImageContentType(image);
+
+  const ua = request.headers.get("user-agent");
+  if (!isSocialCrawler(ua)) {
+    // Humans: go straight to the article. Crawlers must not be redirected or they'll pick SPA OG (home).
+    return Response.redirect(canonical, 302);
+  }
 
   return new Response(
     html({
