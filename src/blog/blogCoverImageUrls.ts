@@ -1,10 +1,20 @@
 /**
  * Bangun URL gambar cover yang lebih ringan untuk layar (Supabase Image Transformation).
  * Jika URL bukan object public Supabase, kembalikan as-is (CDN eksternal / asset lokal).
+ *
+ * Endpoint `/storage/v1/render/image/...` hanya jalan jika Image Transformations aktif
+ * (biasanya Supabase Pro / pengaturan Storage). Di Free tier URL ini sering 404 → gambar putus.
+ * Set `VITE_SUPABASE_IMAGE_TRANSFORM=true` di Vercel bila proyek Anda mendukung transform.
  */
 const OBJECT_PUBLIC = "/storage/v1/object/public/";
 
+function supabaseImageTransformEnabled(): boolean {
+  const v = import.meta.env.VITE_SUPABASE_IMAGE_TRANSFORM;
+  return v === "true" || v === "1";
+}
+
 export function buildSupabaseCoverRenderUrl(originalUrl: string, width: number): string | null {
+  if (!supabaseImageTransformEnabled()) return null;
   try {
     const u = new URL(originalUrl);
     if (!u.hostname.endsWith(".supabase.co")) return null;
