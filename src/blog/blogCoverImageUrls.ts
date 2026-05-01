@@ -60,8 +60,9 @@ const BLOG_HERO_SIZES =
 
 const HERO_QUALITY = "76";
 
-/** Lebar srcset hero — cukup sampai ~2× 22rem @2x; tanpa 1200w+ yang membebani mobile. */
+/** Lebar srcset hero — `src` default 480w selaras preload Edge + unduhan LCP lebih ringan. */
 const HERO_WIDTHS = [360, 480, 640, 800, 960] as const;
+const HERO_DEFAULT_W = 480 as const;
 
 function heroTransformUrl(originalUrl: string, width: number): string | null {
   return buildSupabaseCoverRenderUrl(originalUrl, width, HERO_QUALITY);
@@ -69,8 +70,8 @@ function heroTransformUrl(originalUrl: string, width: number): string | null {
 
 export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps {
   if (!originalUrl?.trim()) return emptyCoverImgProps();
-  const base640 = heroTransformUrl(originalUrl, 640);
-  if (!base640) {
+  const base480 = heroTransformUrl(originalUrl, HERO_DEFAULT_W);
+  if (!base480) {
     return {
       src: originalUrl,
       sizes: BLOG_HERO_SIZES,
@@ -83,7 +84,7 @@ export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps
     .filter(Boolean)
     .join(", ");
   return {
-    src: heroTransformUrl(originalUrl, 640) ?? base640,
+    src: heroTransformUrl(originalUrl, HERO_DEFAULT_W) ?? base480,
     srcSet,
     sizes: BLOG_HERO_SIZES,
   };

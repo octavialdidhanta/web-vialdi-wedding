@@ -15,6 +15,81 @@ type PostPreviewRow = {
   cover_image_url: string | null;
 };
 
+const BLOG_MEDIA_BUCKET = "blog-media";
+
+/** Selaras `BLOG_HERO_SIZES` di `blogCoverImageUrls.ts` */
+const HERO_IMG_SIZES =
+  "(max-width: 1023px) min(100vw - 2rem, 22rem), min(26vw, 22rem)" as const;
+
+function escAttr(s: string) {
+  return s.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+}
+
+function publicStorageObjectUrl(supabaseBase: string, objectPath: string): string {
+  const base = supabaseBase.replace(/\/+$/, "");
+  const path = objectPath.replace(/^\/+/, "");
+  return `${base}/storage/v1/object/public/${BLOG_MEDIA_BUCKET}/${path}`;
+}
+
+function supabaseRenderUrl(originalUrl: string, width: number, quality: string): string | null {
+  try {
+    const u = new URL(originalUrl);
+    if (!u.hostname.endsWith(".supabase.co")) return null;
+    const marker = "/storage/v1/object/public/";
+    const i = u.pathname.indexOf(marker);
+    if (i === -1) return null;
+    const rest = u.pathname.slice(i + marker.length);
+    const slash = rest.indexOf("/");
+    if (slash <= 0) return null;
+    const bucket = rest.slice(0, slash);
+    const obj = rest.slice(slash + 1);
+    if (!obj) return null;
+    const params = new URLSearchParams({
+      width: String(width),
+      quality,
+      format: "webp",
+    });
+    return `${u.origin}/storage/v1/render/image/public/${bucket}/${obj}?${params.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tag `<link rel=preload as=image>` untuk LCP — browser mulai unduh sebelum bundle React.
+ */
+function buildCoverPreloadLinkTag(
+  post: PostPreviewRow,
+  supabaseBase: string,
+  imageTransform: boolean,
+): string | null {
+  const urlRaw = post.cover_image_url?.trim();
+  const pathRaw = post.cover_image_path?.trim();
+  const original = urlRaw || (pathRaw ? publicStorageObjectUrl(supabaseBase, pathRaw) : "");
+  if (!original) return null;
+
+  if (!imageTransform) {
+    const href = escAttr(original);
+    return `<link rel="preload" as="image" href="${href}" imagesizes="${HERO_IMG_SIZES}" fetchpriority="high" />`;
+  }
+
+  const q = "76";
+  const u360 = supabaseRenderUrl(original, 360, q);
+  const u480 = supabaseRenderUrl(original, 480, q);
+  const u640 = supabaseRenderUrl(original, 640, q);
+  const href = u480 ?? u360 ?? original;
+  const srcParts: string[] = [];
+  if (u360) srcParts.push(`${u360} 360w`);
+  if (u480) srcParts.push(`${u480} 480w`);
+  if (u640) srcParts.push(`${u640} 640w`);
+  const srcSet = srcParts.join(", ");
+  if (!srcSet) {
+    const safe = escAttr(href);
+    return `<link rel="preload" as="image" href="${safe}" imagesizes="${HERO_IMG_SIZES}" fetchpriority="high" />`;
+  }
+  return `<link rel="preload" as="image" href="${escAttr(href)}" imagesrcset="${escAttr(srcSet)}" imagesizes="${HERO_IMG_SIZES}" fetchpriority="high" />`;
+}
+
 function esc(s: string) {
   return s
     .replaceAll("&", "&amp;")
@@ -143,8 +218,30 @@ export default async function handler(request: Request): Promise<Response> {
   // If this is the human SPA pass-through request, return the SPA shell directly.
   if ((reqUrl.searchParams.get("__spa") ?? "") === "1") {
     const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-    const spaRes = await fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } });
-    return new Response(spaRes.body, {
+    const base = process.env.VITE_SUPABASE_URL;
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    const transformRaw = process.env.VITE_SUPABASE_IMAGE_TRANSFORM ?? "";
+    const imageTransform = transformRaw === "true" || transformRaw === "1";
+
+    const [spaRes, post] = await Promise.all([
+      fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } }),
+      typeof base === "string" && base && typeof anonKey === "string" && anonKey
+        ? fetchPostPreview(slug, base, anonKey).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    let htmlOut = await spaRes.text();
+    if (post && typeof base === "string" && base) {
+      const preload = buildCoverPreloadLinkTag(post, base, imageTransform);
+      if (preload) {
+        htmlOut = htmlOut.replace(
+          /<meta\s+charset=["']UTF-8["']\s*\/?>/i,
+          (m) => `${m}\n    ${preload}`,
+        );
+      }
+    }
+
+    return new Response(htmlOut, {
       status: spaRes.status,
       headers: {
         "content-type": "text/html; charset=utf-8",

@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
 import { getBlogCardCoverImgProps } from "@/blog/blogCoverImageUrls";
+import { prefetchBlogPostDetail } from "@/blog/prefetchBlogPostDetail";
 import type { BlogPostPublic } from "@/blog/types";
 import { postAccentClass } from "@/blog/postAccentClass";
 import { cn } from "@/share/lib/utils";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 function TagPills({ tags, compact }: { tags: string[]; compact?: boolean }) {
   return (
@@ -37,6 +39,10 @@ export function PostCard({
 }) {
   const isList = layout === "list";
   const compact = layout === "compact";
+  const queryClient = useQueryClient();
+  const warmDetail = useCallback(() => {
+    prefetchBlogPostDetail(queryClient, post.slug);
+  }, [queryClient, post.slug]);
   const hasCover = Boolean(post.coverImage?.trim());
   const coverImg = useMemo(
     () =>
@@ -57,6 +63,9 @@ export function PostCard({
     >
       <Link
         to={`/blog/${post.slug}`}
+        onMouseEnter={warmDetail}
+        onFocus={warmDetail}
+        onTouchStart={warmDetail}
         className={cn(
           "group flex h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
           hasCover && isList && "flex-col items-stretch md:flex-row md:items-center",
