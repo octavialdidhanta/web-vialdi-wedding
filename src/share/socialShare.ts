@@ -7,6 +7,40 @@ export function buildShareText(title: string, url: string) {
 
 export type BlogShareUtmSource = "facebook" | "whatsapp" | "x" | "linkedin";
 
+export type BlogShareUtmFull = {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_content: string;
+};
+
+/** Menempelkan keempat parameter UTM ke URL artikel (mengganti nilai jika kunci sudah ada). */
+export function withBlogShareUtmParams(baseUrl: string, params: BlogShareUtmFull): string {
+  const u = new URL(baseUrl);
+  u.searchParams.set("utm_source", params.utm_source);
+  u.searchParams.set("utm_medium", params.utm_medium);
+  u.searchParams.set("utm_campaign", params.utm_campaign);
+  u.searchParams.set("utm_content", params.utm_content);
+  return u.toString();
+}
+
+/** Nilai UTM untuk tombol salin tautan di footer artikel (selain `utm_content` = slug). */
+export const BLOG_FOOTER_COPY_UTM = {
+  utm_source: "copy",
+  utm_medium: "share_footer",
+  utm_campaign: "blog_share",
+} as const;
+
+/** Tautan lengkap dengan `?utm_source=copy&utm_medium=share_footer&utm_campaign=blog_share&utm_content=<slug>`. */
+export function buildBlogFooterCopyUrl(articleBaseUrl: string, slug: string): string {
+  return withBlogShareUtmParams(articleBaseUrl, {
+    utm_source: BLOG_FOOTER_COPY_UTM.utm_source,
+    utm_medium: BLOG_FOOTER_COPY_UTM.utm_medium,
+    utm_campaign: BLOG_FOOTER_COPY_UTM.utm_campaign,
+    utm_content: slug.trim() || "blog",
+  });
+}
+
 export function withBlogShareUtm(url: string, source: BlogShareUtmSource) {
   const u = new URL(url);
   u.searchParams.set("utm_source", source);

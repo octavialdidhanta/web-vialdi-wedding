@@ -435,7 +435,7 @@ export function BlogPostPage() {
         </div>
       </article>
 
-      <BlogPostShareStickyFooter title={post.title} url={shareUrl} />
+      <BlogPostShareStickyFooter title={post.title} url={shareUrl} slug={post.slug} />
       <Footer />
     </div>
   );
