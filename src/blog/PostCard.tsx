@@ -68,9 +68,9 @@ export function PostCard({
             isList
               ? cn(
                   "shrink-0 overflow-hidden bg-muted",
-                  // Mobile: thumbnail lebar penuh di atas. md+: kotak kiri seperti list desktop.
-                  "h-40 w-full border-b border-border/70 sm:h-44 md:h-44 md:w-44 md:border-b-0 md:border-r",
-                  priority && "h-44 sm:h-48 md:h-48 md:w-48",
+                  // Mobile: thumbnail lebar di atas. md+: lebar tetap, tinggi mengikuti baris (tanpa celah bawah).
+                  "h-40 w-full border-b border-border/70 sm:h-44 md:h-auto md:min-h-0 md:w-44 md:self-stretch md:border-b-0 md:border-r",
+                  priority && "h-44 sm:h-48 md:w-48",
                 )
               : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
             !isList &&
