@@ -100,8 +100,26 @@ function esc(s: string) {
     .replaceAll("'", "&#039;");
 }
 
-function isSocialCrawler(userAgent: string | null) {
+/**
+ * Pratinjau tautan (tanpa JS) — bukan WebView in-app yang bisa jalankan SPA.
+ * WebView WhatsApp/Instagram/Facebook memakai UA berisi "whatsapp"/"instagram"/FB IAB
+ * plus Mozilla + AppleWebKit; itu pengguna sungguhan → jangan layan HTML OG minimal.
+ */
+function isSocialLinkPreviewCrawler(userAgent: string | null) {
   const ua = (userAgent ?? "").toLowerCase();
+  const hasWebKitEngine = ua.includes("mozilla/") && ua.includes("applewebkit/");
+  if (
+    hasWebKitEngine &&
+    (ua.includes("whatsapp/") ||
+      ua.includes("instagram") ||
+      ua.includes("fbav/") ||
+      ua.includes("fban/") ||
+      ua.includes("fb_iab") ||
+      ua.includes("line/"))
+  ) {
+    return false;
+  }
+
   return (
     ua.includes("facebookexternalhit") ||
     ua.includes("facebot") ||
@@ -154,7 +172,7 @@ function html({
             `<meta property="og:image:type" content="image/jpeg" />`,
             `<meta property="og:image:width" content="1200" />`,
             `<meta property="og:image:height" content="630" />`,
-          ].join("\\n    ")
+          ].join("\n    ")
         : ""
     }
     <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
@@ -261,7 +279,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const ua = request.headers.get("user-agent");
-  const isCrawler = isSocialCrawler(ua);
+  const isCrawler = isSocialLinkPreviewCrawler(ua);
 
   // Humans: SPA shell in one round-trip (no ?__spa=1 redirect). `__spa=1` is ignored but harmless in the bar.
   if (!isCrawler) {
