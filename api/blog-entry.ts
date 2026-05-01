@@ -108,11 +108,25 @@ function esc(s: string) {
  * WebView WhatsApp/Instagram/Facebook memakai UA berisi "whatsapp"/"instagram"/FB IAB
  * plus Mozilla + AppleWebKit; itu pengguna sungguhan → jangan layan HTML OG minimal.
  */
-/** Navigasi dokumen tingkat atas dari browser modern (bukan fetcher pratinjau tanpa header ini). */
-function isBrowserTopLevelNavigation(request: Request): boolean {
+/**
+ * Klien browser mengirim keluarga Sec-Fetch-*; bot pratinjau (curl, facebookexternalhit, dll.) biasanya tidak.
+ * Lebih luas dari navigate+document saja agar WebView yang header-nya tidak lengkap tetap dapat SPA.
+ */
+function isLikelyBrowserClient(request: Request): boolean {
   const mode = (request.headers.get("sec-fetch-mode") ?? "").toLowerCase();
   const dest = (request.headers.get("sec-fetch-dest") ?? "").toLowerCase();
-  return mode === "navigate" && dest === "document";
+  if (mode === "navigate" && dest === "document") return true;
+
+  const nonEmpty = (name: string) => {
+    const v = request.headers.get(name);
+    return v != null && v !== "";
+  };
+  return (
+    nonEmpty("sec-fetch-site") ||
+    nonEmpty("sec-fetch-mode") ||
+    nonEmpty("sec-fetch-dest") ||
+    nonEmpty("sec-fetch-user")
+  );
 }
 
 function isSocialLinkPreviewCrawler(userAgent: string | null) {
@@ -168,6 +182,7 @@ function html({
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
+    <script>location.replace(${JSON.stringify(spaDirectUrl)})</script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle}</title>
     <meta name="description" content="${safeDesc}" />
@@ -192,10 +207,7 @@ function html({
     ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
     <link rel="canonical" href="${safeCanonicalUrl}" />
   </head>
-  <body>
-    <p>Open article: <a href="${safeCanonicalUrl}">${safeCanonicalUrl}</a></p>
-    <script>location.replace(${JSON.stringify(spaDirectUrl)})</script>
-  </body>
+  <body></body>
 </html>`;
 }
 
@@ -296,7 +308,7 @@ export default async function handler(request: Request): Promise<Response> {
     return serveBlogSpaShell(reqUrl, slug);
   }
 
-  if (isBrowserTopLevelNavigation(request)) {
+  if (isLikelyBrowserClient(request)) {
     return serveBlogSpaShell(reqUrl, slug);
   }
 
