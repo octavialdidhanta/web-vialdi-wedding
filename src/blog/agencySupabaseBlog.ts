@@ -1,3 +1,4 @@
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
 import type { BlogAccent, BlogPostPublic, PostStatus, TocEntry } from "@/blog/types";
 import { randomUuidV4 } from "@/share/lib/randomUuid";
@@ -230,6 +231,27 @@ export async function adminFetchPosts(): Promise<AdminPostRow[]> {
   const { data, error } = await supabase.from("posts").select(adminSelect).order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as AdminPostRow[];
+}
+
+/** Map slug → jumlah tampilan halaman /blog/:slug (analytics_page_views, sepanjang waktu). */
+export async function adminFetchBlogPostPageViewTotalsBySlug(): Promise<Map<string, number>> {
+  const webId = getRequiredWebId();
+  const { data, error } = await supabase.rpc("admin_blog_post_page_view_totals", { p_web_id: webId });
+  if (error) throw error;
+  const m = new Map<string, number>();
+  const rows = (data ?? []) as { path: string; total_views: number | string }[];
+  for (const row of rows) {
+    const path = (row.path ?? "").trim();
+    if (!path.startsWith("/blog/")) continue;
+    const slug = path.slice("/blog/".length).trim();
+    if (!slug) continue;
+    const n =
+      typeof row.total_views === "number"
+        ? row.total_views
+        : Number.parseInt(String(row.total_views), 10);
+    m.set(slug, Number.isFinite(n) ? n : 0);
+  }
+  return m;
 }
 
 export async function adminFetchPost(id: string): Promise<AdminPostRow | null> {

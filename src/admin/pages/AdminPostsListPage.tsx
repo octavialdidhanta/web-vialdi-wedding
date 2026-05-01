@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminDeletePost, adminFetchPosts } from "@/blog/agencySupabaseBlog";
+import {
+  adminDeletePost,
+  adminFetchBlogPostPageViewTotalsBySlug,
+  adminFetchPosts,
+} from "@/blog/agencySupabaseBlog";
 import type { PostStatus } from "@/blog/types";
 import { Button } from "@/share/ui/button";
 import {
@@ -29,6 +33,14 @@ export function AdminPostsListPage() {
     queryKey: ["admin", "posts"],
     queryFn: adminFetchPosts,
   });
+
+  const { data: viewBySlug, isLoading: viewsLoading } = useQuery({
+    queryKey: ["admin", "blog-post-page-view-totals"],
+    queryFn: adminFetchBlogPostPageViewTotalsBySlug,
+    staleTime: 60_000,
+  });
+
+  const viewFmt = useMemo(() => new Intl.NumberFormat("id-ID"), []);
 
   const filtered = useMemo(() => {
     if (statusFilter === "all") {
@@ -83,6 +95,7 @@ export function AdminPostsListPage() {
               <th className="px-4 py-3 font-medium">Judul</th>
               <th className="px-4 py-3 font-medium">Slug</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium text-right tabular-nums">Visitor</th>
               <th className="hidden px-4 py-3 font-medium lg:table-cell">Terbit</th>
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
@@ -90,13 +103,13 @@ export function AdminPostsListPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-muted-foreground">
                   Memuat…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-muted-foreground">
                   Tidak ada post.
                 </td>
               </tr>
@@ -113,6 +126,9 @@ export function AdminPostsListPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.slug}</td>
                   <td className="px-4 py-3 text-muted-foreground">{p.status}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                    {viewsLoading ? "—" : viewFmt.format(viewBySlug?.get(p.slug) ?? 0)}
+                  </td>
                   <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
                     {p.published_at ? new Date(p.published_at).toLocaleDateString("id-ID") : "—"}
                   </td>
