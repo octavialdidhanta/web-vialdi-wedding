@@ -162,6 +162,7 @@ export default async function handler(request: Request): Promise<Response> {
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
   let hasPost = false;
+  let hasCover = false;
 
   try {
     const post = await fetchPostPreview(slug, base, anonKey);
@@ -169,6 +170,7 @@ export default async function handler(request: Request): Promise<Response> {
       hasPost = true;
       title = post.title || title;
       description = (post.excerpt ?? "").trim() || description;
+      hasCover = Boolean(post.cover_image_path?.trim() || post.cover_image_url?.trim());
     }
   } catch {
     // ignore and still serve basic HTML + redirect
@@ -180,7 +182,7 @@ export default async function handler(request: Request): Promise<Response> {
       description,
       shareUrl,
       canonicalUrl: canonical,
-      imageProxyUrl: hasPost ? imageProxyUrl : "",
+      imageProxyUrl: hasPost && hasCover ? imageProxyUrl : "",
     }),
     {
       status: 200,

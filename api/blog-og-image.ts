@@ -111,8 +111,12 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   if (!imageUrl) {
-    imageUrl = `${origin}/octa.jpeg`;
-  } else if (imageUrl.startsWith("/")) {
+    return new Response(null, {
+      status: 404,
+      headers: { "cache-control": "public, max-age=300" },
+    });
+  }
+  if (imageUrl.startsWith("/")) {
     imageUrl = `${origin}${imageUrl}`;
   }
 
@@ -121,13 +125,9 @@ export default async function handler(request: Request): Promise<Response> {
 
   const imgRes = await fetch(imageUrl, { headers: { Accept: "image/*" } });
   if (!imgRes.ok) {
-    const fallbackRes = await fetch(`${origin}/octa.jpeg`, { headers: { Accept: "image/*" } });
-    return new Response(fallbackRes.body, {
-      status: 200,
-      headers: {
-        "content-type": fallbackRes.headers.get("content-type") ?? "image/jpeg",
-        "cache-control": "public, max-age=86400",
-      },
+    return new Response(null, {
+      status: 404,
+      headers: { "cache-control": "public, max-age=120" },
     });
   }
 

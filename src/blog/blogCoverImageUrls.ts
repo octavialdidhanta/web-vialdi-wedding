@@ -43,10 +43,15 @@ export type BlogCoverImgProps = {
   sizes: string;
 };
 
+function emptyCoverImgProps(): BlogCoverImgProps {
+  return { src: "", sizes: "1px" };
+}
+
 /** Lebar untuk srcset — cukup untuk hero blog (mobile + desktop kolom kanan). */
 const HERO_WIDTHS = [480, 720, 960, 1200] as const;
 
 export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps {
+  if (!originalUrl?.trim()) return emptyCoverImgProps();
   const base720 = buildSupabaseCoverRenderUrl(originalUrl, 720);
   if (!base720) {
     return {
@@ -69,6 +74,7 @@ export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps
 
 /** Thumbnail daftar / sidebar — lebar kecil saja. */
 export function getBlogThumbCoverSrc(originalUrl: string, width = 140): string {
+  if (!originalUrl?.trim()) return "";
   return buildSupabaseCoverRenderUrl(originalUrl, width) ?? originalUrl;
 }
 
@@ -83,6 +89,7 @@ export function getBlogCardCoverImgProps(
   originalUrl: string,
   opts?: { featured?: boolean; list?: boolean },
 ): BlogCoverImgProps {
+  if (!originalUrl?.trim()) return emptyCoverImgProps();
   if (opts?.list) {
     const large = Boolean(opts?.featured);
     const widths = large ? LIST_FEATURED_WIDTHS : LIST_ROW_WIDTHS;

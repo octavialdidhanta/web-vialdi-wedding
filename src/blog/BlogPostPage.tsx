@@ -38,11 +38,18 @@ function SidebarHeading({ children }: { children: React.ReactNode }) {
 /** LCP: preload di `<head>` + `fetchpriority` di DOM (Lighthouse memeriksa literal atribut). */
 function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   const ref = useRef<HTMLImageElement>(null);
-  const imgProps = useMemo(() => getBlogHeroCoverImgProps(src), [src]);
+  const trimmed = src.trim();
+  const imgProps = useMemo(
+    () => (trimmed ? getBlogHeroCoverImgProps(trimmed) : undefined),
+    [trimmed],
+  );
   useBlogPostCoverPreload(imgProps);
   useLayoutEffect(() => {
+    if (!trimmed) return;
     ref.current?.setAttribute("fetchpriority", "high");
-  }, [src]);
+  }, [trimmed]);
+
+  if (!trimmed || !imgProps?.src) return null;
 
   return (
     <div className="relative flex w-full justify-center overflow-hidden">
@@ -181,11 +188,20 @@ export function BlogPostPage() {
               {blogPostUi.backToBlog}
             </Link>
 
-            <div className="mt-4 grid gap-6 lg:mt-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,36%)] lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-10">
+            <div
+              className={cn(
+                "mt-4 grid gap-6 lg:mt-5 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-10",
+                post.coverImage.trim()
+                  ? "lg:grid-cols-[minmax(0,1fr)_minmax(240px,36%)]"
+                  : "lg:grid-cols-1",
+              )}
+            >
               {/* Mobile: gambar hero dulu agar LCP lebih cepat; desktop: teks kiri, gambar kanan */}
-              <figure className="relative order-1 w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2">
-                <ArticleHeroCoverImage src={post.coverImage} alt="" />
-              </figure>
+              {post.coverImage.trim() ? (
+                <figure className="relative order-1 w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2">
+                  <ArticleHeroCoverImage src={post.coverImage} alt="" />
+                </figure>
+              ) : null}
               <div className="order-2 min-w-0 lg:order-1">
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((t) => (
@@ -232,18 +248,25 @@ export function BlogPostPage() {
                         to={`/blog/${r.slug}`}
                         className="group flex gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/20 focus-visible:ring-offset-2"
                       >
-                        <div className="relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
-                          <img
-                            src={getBlogThumbCoverSrc(r.coverImage, 136)}
-                            alt=""
-                            width={68}
-                            height={68}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                            loading="lazy"
-                            decoding="async"
-                            fetchPriority="low"
+                        {r.coverImage.trim() ? (
+                          <div className="relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                            <img
+                              src={getBlogThumbCoverSrc(r.coverImage, 136)}
+                              alt=""
+                              width={68}
+                              height={68}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                              loading="lazy"
+                              decoding="async"
+                              fetchPriority="low"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="h-[4.25rem] w-[4.25rem] shrink-0 rounded-lg border border-dashed border-border bg-muted/50"
+                            aria-hidden
                           />
-                        </div>
+                        )}
                         <div className="min-w-0 flex-1">
                           <span className="line-clamp-3 text-sm font-semibold leading-snug text-navy transition-colors group-hover:text-accent-orange">
                             {r.title}

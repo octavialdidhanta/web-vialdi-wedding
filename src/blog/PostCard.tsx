@@ -37,12 +37,15 @@ export function PostCard({
 }) {
   const isList = layout === "list";
   const compact = layout === "compact";
+  const hasCover = Boolean(post.coverImage?.trim());
   const coverImg = useMemo(
     () =>
-      isList
-        ? getBlogCardCoverImgProps(post.coverImage, { list: true, featured: priority })
-        : getBlogCardCoverImgProps(post.coverImage, { featured: priority }),
-    [post.coverImage, priority, isList],
+      !hasCover
+        ? { src: "", sizes: "1px" as const }
+        : isList
+          ? getBlogCardCoverImgProps(post.coverImage, { list: true, featured: priority })
+          : getBlogCardCoverImgProps(post.coverImage, { featured: priority }),
+    [post.coverImage, priority, isList, hasCover],
   );
 
   return (
@@ -56,61 +59,63 @@ export function PostCard({
         to={`/blog/${post.slug}`}
         className={cn(
           "group flex h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
-          isList && "flex-col items-stretch md:flex-row md:items-center",
+          hasCover && isList && "flex-col items-stretch md:flex-row md:items-center",
+          !hasCover && isList && "flex-col",
           !isList && "flex-col",
           compact && !isList && "md:flex-row",
         )}
       >
-        <div
-          className={cn(
-            "relative isolate shrink-0 overflow-hidden",
-            !isList && "flex w-full justify-center",
-            isList
-              ? cn(
-                  "shrink-0 overflow-hidden bg-muted",
-                  // Bawah md: persegi penuh lebar kartu. md+: persegi lebar tetap 11rem / sorotan 12rem.
-                  "aspect-square w-full border-b border-border/70 md:w-44 md:shrink-0 md:border-b-0 md:border-r",
-                  priority && "md:w-48",
-                )
-              : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
-            !isList &&
-              compact &&
-              "md:flex md:min-h-[11rem] md:w-[38%] md:max-w-sm md:self-stretch md:items-center md:justify-center",
-          )}
-        >
-          <img
-            src={coverImg.src}
-            srcSet={coverImg.srcSet}
-            sizes={coverImg.sizes}
-            alt={post.title}
+        {hasCover ? (
+          <div
             className={cn(
-              "z-0 transition-transform duration-300 group-hover:scale-[1.02]",
-              isList && "absolute inset-0 h-full w-full object-cover object-center",
+              "relative isolate shrink-0 overflow-hidden",
+              !isList && "flex w-full justify-center",
+              isList
+                ? cn(
+                    "shrink-0 overflow-hidden bg-muted",
+                    "aspect-square w-full border-b border-border/70 md:w-44 md:shrink-0 md:border-b-0 md:border-r",
+                    priority && "md:w-48",
+                  )
+                : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
               !isList &&
-                "relative object-contain h-auto w-auto max-w-full max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
-              !isList && priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
-              !isList && compact && "md:max-h-[min(72vh,560px)]",
+                compact &&
+                "md:flex md:min-h-[11rem] md:w-[38%] md:max-w-sm md:self-stretch md:items-center md:justify-center",
             )}
-            loading={priority ? "eager" : "lazy"}
-            decoding="async"
-            fetchPriority={priority ? "high" : "low"}
-          />
-          {!isList ? (
-            <>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
-              <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">
-                <TagPills tags={post.tags} />
-              </div>
-            </>
-          ) : post.tags.length > 0 ? (
-            <>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90 md:hidden" />
-              <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5 md:hidden">
-                <TagPills tags={post.tags} />
-              </div>
-            </>
-          ) : null}
-        </div>
+          >
+            <img
+              src={coverImg.src}
+              srcSet={coverImg.srcSet}
+              sizes={coverImg.sizes}
+              alt={post.title}
+              className={cn(
+                "z-0 transition-transform duration-300 group-hover:scale-[1.02]",
+                isList && "absolute inset-0 h-full w-full object-cover object-center",
+                !isList &&
+                  "relative object-contain h-auto w-auto max-w-full max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
+                !isList && priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
+                !isList && compact && "md:max-h-[min(72vh,560px)]",
+              )}
+              loading={priority ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={priority ? "high" : "low"}
+            />
+            {!isList ? (
+              <>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
+                <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">
+                  <TagPills tags={post.tags} />
+                </div>
+              </>
+            ) : post.tags.length > 0 ? (
+              <>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90 md:hidden" />
+                <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5 md:hidden">
+                  <TagPills tags={post.tags} />
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         <div
           className={cn(
             "flex min-w-0 flex-1 flex-col p-4 sm:p-4",

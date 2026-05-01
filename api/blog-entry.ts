@@ -11,6 +11,8 @@ export const config = { runtime: "edge" };
 type PostPreviewRow = {
   title: string;
   excerpt: string | null;
+  cover_image_path: string | null;
+  cover_image_url: string | null;
 };
 
 function esc(s: string) {
@@ -100,7 +102,10 @@ function html({
 async function fetchPostPreview(slug: string, base: string, anonKey: string): Promise<PostPreviewRow | null> {
   const cleanBase = base.replace(/\/+$/, "");
   const endpoint = new URL(`${cleanBase}/rest/v1/posts`);
-  endpoint.searchParams.set("select", "title,excerpt,status,published_at,scheduled_at");
+  endpoint.searchParams.set(
+    "select",
+    "title,excerpt,cover_image_path,cover_image_url,status,published_at,scheduled_at",
+  );
   endpoint.searchParams.set("slug", `eq.${slug}`);
   endpoint.searchParams.set("limit", "1");
 
@@ -174,6 +179,7 @@ export default async function handler(request: Request): Promise<Response> {
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
   let hasPost = false;
+  let hasCover = false;
 
   try {
     const post = await fetchPostPreview(slug, base, anonKey);
@@ -181,6 +187,7 @@ export default async function handler(request: Request): Promise<Response> {
       hasPost = true;
       title = post.title || title;
       description = (post.excerpt ?? "").trim() || description;
+      hasCover = Boolean(post.cover_image_path?.trim() || post.cover_image_url?.trim());
     }
   } catch {
     // ignore
@@ -192,7 +199,7 @@ export default async function handler(request: Request): Promise<Response> {
       description,
       shareUrl,
       canonicalUrl,
-      imageProxyUrl: hasPost ? imageProxyUrl : "",
+      imageProxyUrl: hasPost && hasCover ? imageProxyUrl : "",
     }),
     {
       status: 200,

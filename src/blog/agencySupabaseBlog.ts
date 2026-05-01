@@ -1,6 +1,5 @@
 import { supabase } from "@/share/supabaseClient";
 import type { BlogAccent, BlogPostPublic, PostStatus, TocEntry } from "@/blog/types";
-import { DEFAULT_BLOG_COVER } from "@/blog/defaultCover";
 import { randomUuidV4 } from "@/share/lib/randomUuid";
 
 // Reuse same bucket (schema separation is in DB tables).
@@ -29,13 +28,16 @@ type PostRow = {
   post_tags?: TagJoin[] | null;
 };
 
+/** Tanpa sampul di admin → string kosong (bukan gambar placeholder). */
 export function resolveCoverUrl(path: string | null, url: string | null): string {
-  if (url) return url;
-  if (path) {
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const u = url?.trim();
+  if (u) return u;
+  const p = path?.trim();
+  if (p) {
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(p);
     return data.publicUrl;
   }
-  return DEFAULT_BLOG_COVER;
+  return "";
 }
 
 export function resolveBlogMediaPublicUrl(path: string): string {

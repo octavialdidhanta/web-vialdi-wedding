@@ -18,6 +18,7 @@ export type BlogPostPublic = {
   tags: string[];
   featured: boolean;
   accent: BlogAccent;
+  /** URL publik sampul; kosong jika belum diunggah di admin. */
   coverImage: string;
   toc: TocEntry[];
   bodyHtml: string;
