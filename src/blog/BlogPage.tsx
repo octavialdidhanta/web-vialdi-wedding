@@ -167,7 +167,7 @@ export function BlogPage() {
                 <Skeleton className="h-5 w-24 rounded-full" />
               </div>
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <Skeleton className="aspect-[16/9] w-full rounded-none sm:aspect-[5/2]" />
+                <Skeleton className="h-52 w-full rounded-none sm:h-56" />
                 <div className="space-y-2 p-4 sm:p-4">
                   <Skeleton className="h-3 w-32" />
                   <Skeleton className="h-5 w-full max-w-lg" />
@@ -213,7 +213,7 @@ export function BlogPage() {
                     key={i}
                     className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                   >
-                    <Skeleton className="aspect-[16/9] w-full rounded-none sm:aspect-[5/2]" />
+                    <Skeleton className="h-52 w-full rounded-none sm:h-56" />
                     <div className="space-y-2 p-4">
                       <Skeleton className="h-3 w-24" />
                       <Skeleton className="h-5 w-full" />

@@ -1,0 +1,97 @@
+/**
+ * Bangun URL gambar cover yang lebih ringan untuk layar (Supabase Image Transformation).
+ * Jika URL bukan object public Supabase, kembalikan as-is (CDN eksternal / asset lokal).
+ */
+const OBJECT_PUBLIC = "/storage/v1/object/public/";
+
+export function buildSupabaseCoverRenderUrl(originalUrl: string, width: number): string | null {
+  try {
+    const u = new URL(originalUrl);
+    if (!u.hostname.endsWith(".supabase.co")) return null;
+    const i = u.pathname.indexOf(OBJECT_PUBLIC);
+    if (i === -1) return null;
+    const rest = u.pathname.slice(i + OBJECT_PUBLIC.length);
+    const slash = rest.indexOf("/");
+    if (slash <= 0) return null;
+    const bucket = rest.slice(0, slash);
+    const objectPath = rest.slice(slash + 1);
+    if (!objectPath) return null;
+    const params = new URLSearchParams({
+      width: String(width),
+      quality: "82",
+      format: "webp",
+    });
+    return `${u.origin}/storage/v1/render/image/public/${bucket}/${objectPath}?${params.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
+export type BlogCoverImgProps = {
+  src: string;
+  srcSet?: string;
+  sizes: string;
+};
+
+/** Lebar untuk srcset — cukup untuk hero blog (mobile + desktop kolom kanan). */
+const HERO_WIDTHS = [480, 720, 960, 1200] as const;
+
+export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps {
+  const base720 = buildSupabaseCoverRenderUrl(originalUrl, 720);
+  if (!base720) {
+    return {
+      src: originalUrl,
+      sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 36vw",
+    };
+  }
+  const srcSet = HERO_WIDTHS.map((w) => {
+    const url = buildSupabaseCoverRenderUrl(originalUrl, w);
+    return url ? `${url} ${w}w` : null;
+  })
+    .filter(Boolean)
+    .join(", ");
+  return {
+    src: buildSupabaseCoverRenderUrl(originalUrl, 960) ?? base720,
+    srcSet,
+    sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 36vw",
+  };
+}
+
+/** Thumbnail daftar / sidebar — lebar kecil saja. */
+export function getBlogThumbCoverSrc(originalUrl: string, width = 140): string {
+  return buildSupabaseCoverRenderUrl(originalUrl, width) ?? originalUrl;
+}
+
+const CARD_WIDTHS = [360, 480, 640] as const;
+const FEATURED_CARD_WIDTHS = [480, 720, 960, 1200] as const;
+
+/** Kartu daftar blog — resolusi lebih kecil dari hero. */
+export function getBlogCardCoverImgProps(
+  originalUrl: string,
+  opts?: { featured?: boolean },
+): BlogCoverImgProps {
+  const widths = opts?.featured ? FEATURED_CARD_WIDTHS : CARD_WIDTHS;
+  const defaultW = opts?.featured ? 960 : 480;
+  const base = buildSupabaseCoverRenderUrl(originalUrl, defaultW);
+  const sizes = opts?.featured
+    ? "(max-width: 640px) 100vw, (max-width: 1536px) min(90rem, 100vw), 1440px"
+    : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
+  if (!base) {
+    return {
+      src: originalUrl,
+      sizes,
+    };
+  }
+  const srcSet = widths
+    .map((w) => {
+      const url = buildSupabaseCoverRenderUrl(originalUrl, w);
+      return url ? `${url} ${w}w` : null;
+    })
+    .filter(Boolean)
+    .join(", ");
+  return {
+    src: buildSupabaseCoverRenderUrl(originalUrl, defaultW) ?? base,
+    srcSet,
+    sizes,
+  };
+}

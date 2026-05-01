@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { Clock } from "lucide-react";
+import { getBlogCardCoverImgProps } from "@/blog/blogCoverImageUrls";
 import type { BlogPostPublic } from "@/blog/types";
 import { postAccentClass } from "@/blog/postAccentClass";
 import { cn } from "@/share/lib/utils";
+import { useMemo } from "react";
 
 export function PostCard({
   post,
@@ -15,6 +17,10 @@ export function PostCard({
   priority?: boolean;
 }) {
   const compact = layout === "compact";
+  const coverImg = useMemo(
+    () => getBlogCardCoverImgProps(post.coverImage, { featured: priority }),
+    [post.coverImage, priority],
+  );
 
   return (
     <article
@@ -34,25 +40,18 @@ export function PostCard({
           className={cn(
             "relative shrink-0 overflow-hidden bg-gradient-to-br",
             postAccentClass(post.accent),
-            compact
-              ? "aspect-[16/10] md:aspect-auto md:w-[38%] md:min-h-[140px]"
-              : "aspect-[16/9] sm:aspect-[5/2]",
+            compact ? "w-full md:w-[38%] md:max-w-sm md:self-stretch" : "w-full",
           )}
         >
           <img
-            src={post.coverImage}
+            src={coverImg.src}
+            srcSet={coverImg.srcSet}
+            sizes={coverImg.sizes}
             alt={post.title}
-            width={800}
-            height={450}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            className="block h-auto max-h-[min(52vh,420px)] w-full object-contain transition-transform duration-300 group-hover:scale-[1.01] md:max-h-[min(60vh,480px)]"
             loading={priority ? "eager" : "lazy"}
             decoding="async"
-            fetchPriority={priority ? "high" : undefined}
-            sizes={
-              priority
-                ? "(max-width: 640px) 100vw, (max-width: 1536px) min(90rem, 100vw), 1440px"
-                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            }
+            fetchPriority={priority ? "high" : "low"}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
           <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
@@ -8,6 +8,7 @@ import type { BlogPostPublic } from "@/blog/types";
 import { getRelatedPosts } from "@/blog/agencySupabaseBlog";
 import { usePublishedPostQuery, usePublishedPostsQuery } from "@/blog/useBlogQueries";
 import { useBlogMetaWithOgImage } from "@/blog/useBlogMeta";
+import { getBlogHeroCoverImgProps, getBlogThumbCoverSrc } from "@/blog/blogCoverImageUrls";
 import { useBlogPostCoverPreload } from "@/blog/useBlogPostCoverPreload";
 import { Footer } from "@/share/Footer";
 import { Header } from "@/share/Header";
@@ -37,7 +38,8 @@ function SidebarHeading({ children }: { children: React.ReactNode }) {
 /** LCP: preload di `<head>` + `fetchpriority` di DOM (Lighthouse memeriksa literal atribut). */
 function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   const ref = useRef<HTMLImageElement>(null);
-  useBlogPostCoverPreload(src);
+  const imgProps = useMemo(() => getBlogHeroCoverImgProps(src), [src]);
+  useBlogPostCoverPreload(imgProps);
   useLayoutEffect(() => {
     ref.current?.setAttribute("fetchpriority", "high");
   }, [src]);
@@ -45,12 +47,11 @@ function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   return (
     <img
       ref={ref}
-      src={src}
+      src={imgProps.src}
+      srcSet={imgProps.srcSet}
+      sizes={imgProps.sizes}
       alt={alt}
-      width={1920}
-      height={1080}
-      sizes="(max-width: 1024px) 100vw, 36vw"
-      className="h-full w-full object-cover"
+      className="mx-auto block h-auto max-h-[min(72vh,720px)] w-full object-contain"
       loading="eager"
       decoding="async"
       fetchPriority="high"
@@ -62,6 +63,26 @@ export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: post, isLoading: loadingPost, error: errPost } = usePublishedPostQuery(slug);
   const { data: allPosts = [] } = usePublishedPostsQuery();
+  const [readingProgressReady, setReadingProgressReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const enable = () => {
+      if (!cancelled) setReadingProgressReady(true);
+    };
+    if (typeof requestIdleCallback !== "undefined") {
+      const idleHandle = requestIdleCallback(enable, { timeout: 1800 });
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(idleHandle);
+      };
+    }
+    const t = window.setTimeout(enable, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, []);
 
   const origin = window.location.origin;
   const shareUrl = slug ? `${origin}/blog/${slug}` : window.location.href;
@@ -144,7 +165,7 @@ export function BlogPostPage() {
   return (
     <div className={cn("min-h-screen bg-muted/25", blogPostShareStickyFooterPageBottomPaddingClass)}>
       <Header />
-      <ReadingProgress />
+      {readingProgressReady ? <ReadingProgress /> : null}
 
       <article className="overflow-x-hidden border-b border-border/60 bg-background">
         {/* Header artikel: polos, tanpa gradasi */}
@@ -159,7 +180,11 @@ export function BlogPostPage() {
             </Link>
 
             <div className="mt-4 grid gap-6 lg:mt-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,36%)] lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-10">
-              <div className="min-w-0">
+              {/* Mobile: gambar hero dulu agar LCP lebih cepat; desktop: teks kiri, gambar kanan */}
+              <figure className="relative order-1 w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2">
+                <ArticleHeroCoverImage src={post.coverImage} alt="" />
+              </figure>
+              <div className="order-2 min-w-0 lg:order-1">
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((t) => (
                     <span
@@ -187,10 +212,6 @@ export function BlogPostPage() {
                   {post.excerpt}
                 </p>
               </div>
-
-              <figure className="relative aspect-video w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted">
-                <ArticleHeroCoverImage src={post.coverImage} alt="" />
-              </figure>
             </div>
           </div>
         </header>
@@ -211,13 +232,14 @@ export function BlogPostPage() {
                       >
                         <div className="relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
                           <img
-                            src={r.coverImage}
+                            src={getBlogThumbCoverSrc(r.coverImage, 136)}
                             alt=""
                             width={68}
                             height={68}
                             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                             loading="lazy"
                             decoding="async"
+                            fetchPriority="low"
                           />
                         </div>
                         <div className="min-w-0 flex-1">
