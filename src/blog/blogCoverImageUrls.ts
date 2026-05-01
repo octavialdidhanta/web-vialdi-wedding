@@ -74,9 +74,9 @@ export function getBlogThumbCoverSrc(originalUrl: string, width = 140): string {
 
 const CARD_WIDTHS = [360, 480, 640] as const;
 const FEATURED_CARD_WIDTHS = [480, 720, 960, 1200] as const;
-/** Baris list /blog — kolom gambar sempit (~7–13rem). */
-const LIST_ROW_WIDTHS = [120, 160, 200] as const;
-const LIST_FEATURED_WIDTHS = [160, 220, 280] as const;
+/** List /blog: mobile thumbnail lebar + desktop kotak sempit (satu img, `sizes` hybrid). */
+const LIST_ROW_WIDTHS = [200, 360, 480, 640] as const;
+const LIST_FEATURED_WIDTHS = [240, 400, 560, 720] as const;
 
 /** Kartu daftar blog — resolusi lebih kecil dari hero. */
 export function getBlogCardCoverImgProps(
@@ -86,9 +86,11 @@ export function getBlogCardCoverImgProps(
   if (opts?.list) {
     const large = Boolean(opts?.featured);
     const widths = large ? LIST_FEATURED_WIDTHS : LIST_ROW_WIDTHS;
-    const defaultW = large ? 220 : 160;
+    const defaultW = large ? 400 : 360;
     const base = buildSupabaseCoverRenderUrl(originalUrl, defaultW);
-    const sizes = large ? "(max-width: 640px) 144px, 192px" : "(max-width: 640px) 136px, 176px";
+    const sizes = large
+      ? "(max-width: 767px) 100vw, 192px"
+      : "(max-width: 767px) 100vw, 176px";
     if (!base) {
       return { src: originalUrl, sizes };
     }

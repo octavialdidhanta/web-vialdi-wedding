@@ -166,9 +166,9 @@ export function BlogPage() {
                 <Skeleton className="h-3 w-28" />
                 <Skeleton className="h-5 w-24 rounded-full" />
               </div>
-              <div className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <Skeleton className="h-[9rem] w-[9rem] shrink-0 rounded-none sm:h-40 sm:w-40 md:h-48 md:w-48" />
-                <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
+              <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm md:flex-row">
+                <Skeleton className="h-44 w-full shrink-0 rounded-none sm:h-48 md:h-48 md:w-48" />
+                <div className="min-w-0 flex-1 space-y-2 p-4 md:p-3 md:py-4 md:pl-3 md:pr-4">
                   <Skeleton className="h-3 w-28" />
                   <Skeleton className="h-5 w-full max-w-xl" />
                   <Skeleton className="h-4 w-full" />
@@ -211,10 +211,10 @@ export function BlogPage() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                    className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm md:flex-row"
                   >
-                    <Skeleton className="h-[8.5rem] w-[8.5rem] shrink-0 rounded-none sm:h-36 sm:w-36 md:h-44 md:w-44" />
-                    <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
+                    <Skeleton className="h-40 w-full shrink-0 rounded-none sm:h-44 md:h-44 md:w-44" />
+                    <div className="min-w-0 flex-1 space-y-2 p-4 md:p-3 md:py-4 md:pl-3 md:pr-4">
                       <Skeleton className="h-3 w-24" />
                       <Skeleton className="h-4 w-full max-w-2xl" />
                       <Skeleton className="h-3 w-full max-w-xl" />

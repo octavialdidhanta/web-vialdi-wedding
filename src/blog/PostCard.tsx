@@ -56,7 +56,7 @@ export function PostCard({
         to={`/blog/${post.slug}`}
         className={cn(
           "group flex h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
-          isList && "flex-row items-stretch",
+          isList && "flex-col items-stretch md:flex-row",
           !isList && "flex-col",
           compact && !isList && "md:flex-row",
         )}
@@ -67,10 +67,10 @@ export function PostCard({
             !isList && "flex w-full justify-center",
             isList
               ? cn(
-                  "shrink-0 overflow-hidden border-r border-border/70 bg-muted",
-                  // Kotak tetap: gambar object-cover mengisi penuh (tanpa letterbox).
-                  "h-[8.5rem] w-[8.5rem] sm:h-36 sm:w-36 md:h-44 md:w-44",
-                  priority && "h-[9rem] w-[9rem] sm:h-40 sm:w-40 md:h-48 md:w-48",
+                  "shrink-0 overflow-hidden bg-muted",
+                  // Mobile: thumbnail lebar penuh di atas. md+: kotak kiri seperti list desktop.
+                  "h-40 w-full border-b border-border/70 sm:h-44 md:h-44 md:w-44 md:border-b-0 md:border-r",
+                  priority && "h-44 sm:h-48 md:h-48 md:w-48",
                 )
               : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
             !isList &&
@@ -102,12 +102,19 @@ export function PostCard({
                 <TagPills tags={post.tags} />
               </div>
             </>
+          ) : post.tags.length > 0 ? (
+            <>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90 md:hidden" />
+              <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5 md:hidden">
+                <TagPills tags={post.tags} />
+              </div>
+            </>
           ) : null}
         </div>
         <div
           className={cn(
             "flex min-w-0 flex-1 flex-col p-4 sm:p-4",
-            isList && "py-3 pl-3 pr-3 sm:py-4 sm:pl-4 sm:pr-4",
+            isList && "p-4 md:py-3 md:pl-3 md:pr-4",
             compact && !isList && "md:py-4",
           )}
         >
@@ -122,7 +129,7 @@ export function PostCard({
             {post.title}
           </h2>
           {isList && post.tags.length > 0 ? (
-            <div className="mt-2">
+            <div className="mt-2 hidden md:block">
               <TagPills tags={post.tags} compact />
             </div>
           ) : null}
