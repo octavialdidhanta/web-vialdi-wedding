@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
@@ -79,6 +79,15 @@ function BlogArticleBodySkeleton() {
 
 export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
+  /** Hapus `__ui=1` dari URL setelah Edge memaksa SPA (redirect dari HTML pratinjau crawler). */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("__ui") !== "1") return;
+    params.delete("__ui");
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  }, []);
   const { data: allPosts = [] } = usePublishedPostsQuery();
   const listPost = useMemo(
     () => (slug ? allPosts.find((p) => p.slug === slug) : undefined),

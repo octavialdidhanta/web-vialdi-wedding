@@ -5,9 +5,12 @@
  * Strategy:
  * - Crawlers: return HTML with OG meta (incl. og:image) so WhatsApp/Facebook show rich cards.
  * - Humans: return the SPA shell (`/index.html`) with 200 on `/blog/:slug` — no redirect (saves ~1 RTT; PSI "Document request latency").
- * - `__spa=1` is still accepted for old links; same response body.
+ * - `__ui=1` memaksa shell SPA (untuk redirect dari HTML pratinjau; dihapus di klien).
  */
 export const config = { runtime: "edge" };
+
+/** Query memaksa respons SPA meski UA terdeteksi sebagai crawler (bukan untuk dibagikan). */
+const UI_SPA_QUERY = "__ui";
 
 type PostPreviewRow = {
   title: string;
@@ -105,6 +108,13 @@ function esc(s: string) {
  * WebView WhatsApp/Instagram/Facebook memakai UA berisi "whatsapp"/"instagram"/FB IAB
  * plus Mozilla + AppleWebKit; itu pengguna sungguhan → jangan layan HTML OG minimal.
  */
+/** Navigasi dokumen tingkat atas dari browser modern (bukan fetcher pratinjau tanpa header ini). */
+function isBrowserTopLevelNavigation(request: Request): boolean {
+  const mode = (request.headers.get("sec-fetch-mode") ?? "").toLowerCase();
+  const dest = (request.headers.get("sec-fetch-dest") ?? "").toLowerCase();
+  return mode === "navigate" && dest === "document";
+}
+
 function isSocialLinkPreviewCrawler(userAgent: string | null) {
   const ua = (userAgent ?? "").toLowerCase();
   const hasWebKitEngine = ua.includes("mozilla/") && ua.includes("applewebkit/");
@@ -152,6 +162,7 @@ function html({
   const normalizedImg = imageProxyUrl ? imageProxyUrl.replace(/^http:\/\//i, "https://") : "";
   const safeImg = esc(normalizedImg);
   const hasImg = Boolean(imageProxyUrl);
+  const spaDirectUrl = `${canonicalUrl}?${UI_SPA_QUERY}=1`;
 
   return `<!doctype html>
 <html lang="id">
@@ -183,6 +194,7 @@ function html({
   </head>
   <body>
     <p>Open article: <a href="${safeCanonicalUrl}">${safeCanonicalUrl}</a></p>
+    <script>location.replace(${JSON.stringify(spaDirectUrl)})</script>
   </body>
 </html>`;
 }
@@ -279,9 +291,17 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const ua = request.headers.get("user-agent");
+
+  if ((reqUrl.searchParams.get(UI_SPA_QUERY) ?? "") === "1") {
+    return serveBlogSpaShell(reqUrl, slug);
+  }
+
+  if (isBrowserTopLevelNavigation(request)) {
+    return serveBlogSpaShell(reqUrl, slug);
+  }
+
   const isCrawler = isSocialLinkPreviewCrawler(ua);
 
-  // Humans: SPA shell in one round-trip (no ?__spa=1 redirect). `__spa=1` is ignored but harmless in the bar.
   if (!isCrawler) {
     return serveBlogSpaShell(reqUrl, slug);
   }
