@@ -122,17 +122,22 @@ export default defineConfig(({ mode }) => {
 
             let next = stripOldHeroPreloads(html);
 
+            const stripHomeHeroPreloadIfBlog = `<script>(function(){if(/^\\/blog\\/.+/.test(location.pathname||"")){var e=document.getElementById("vialdi-fcp-home-hero-preload");if(e)e.remove();}})();<\/script>\n`;
+
             const injectPreloadAfterCharset = (h: string, href: string) => {
-              const tag = `    <link rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
+              const tag = `    <link id="vialdi-fcp-home-hero-preload" rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
               const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
               if (charsetMeta.test(h)) {
-                return h.replace(charsetMeta, (m) => `${m}\n${tag}`);
+                return h.replace(charsetMeta, (m) => `${m}\n${tag}${stripHomeHeroPreloadIfBlog}`);
               }
-              return h.replace("</head>", `${tag}  </head>`);
+              return h.replace("</head>", `${tag}${stripHomeHeroPreloadIfBlog}  </head>`);
             };
 
             const buildImgTag = (src: string, srcset: string) =>
               `<img id="vialdi-static-hero-lcp" class="vialdi-static-hero-lcp" src="${src}" srcset="${srcset}" sizes="${heroImgSizes}" width="720" height="720" fetchpriority="high" decoding="async" alt="${staticHeroAlt}" />`;
+
+            const homeHeroBootScript = (imgHtml: string) =>
+              `<template id="vialdi-fcp-home-hero-tmpl">${imgHtml}</template><script>(function(){var p=location.pathname||"";var w=document.getElementById("vialdi-fcp-photo-wrap");var t=document.getElementById("vialdi-fcp-home-hero-tmpl");if(!w||!t)return;var blog=/^\\/blog\\/.+/.test(p);if(blog){var d=document.createElement("div");d.id="vialdi-fcp-blog-lcp-slot";d.className="vialdi-static-hero-lcp vialdi-fcp-blog-ph";d.setAttribute("aria-hidden","true");w.appendChild(d);}else{w.appendChild(t.content.cloneNode(true));}t.remove();})();<\/script>`;
 
             if (!ctx.bundle) {
               const dev640 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=640&format=webp";
@@ -143,7 +148,7 @@ export default defineConfig(({ mode }) => {
               next = injectPreloadAfterCharset(next, dev960);
               return next.replaceAll(
                 "__VIALDI_LCP_HERO_IMG__",
-                buildImgTag(dev960, devSrcset),
+                homeHeroBootScript(buildImgTag(dev960, devSrcset)),
               );
             }
 
@@ -172,7 +177,10 @@ export default defineConfig(({ mode }) => {
             const srcForImg = pairs[1]?.href ?? pairs[0]!.href;
 
             next = injectPreloadAfterCharset(next, href);
-            return next.replaceAll("__VIALDI_LCP_HERO_IMG__", buildImgTag(srcForImg, srcset));
+            return next.replaceAll(
+              "__VIALDI_LCP_HERO_IMG__",
+              homeHeroBootScript(buildImgTag(srcForImg, srcset)),
+            );
           },
         },
       },

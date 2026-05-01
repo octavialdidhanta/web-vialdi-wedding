@@ -112,6 +112,12 @@
         border: 1px solid oklch(0.9 0.01 80);
         box-sizing: border-box;
       }
+      /* Slot FCP /blog/{slug}: sama ukuran dengan hero kotak artikel — kurangi CLS */
+      #vialdi-fcp-photo-wrap .vialdi-fcp-blog-ph {
+        object-fit: unset;
+        object-position: unset;
+        background-color: oklch(0.95 0.015 80);
+      }
       #vialdi-fcp-copy {
         width: 100%;
         min-width: 0;

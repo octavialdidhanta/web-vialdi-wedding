@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
@@ -52,46 +52,49 @@ function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   if (!trimmed || !imgProps?.src) return null;
 
   return (
-    <div className="relative flex w-full justify-center overflow-hidden">
-      <img
-        ref={ref}
-        src={imgProps.src}
-        srcSet={imgProps.srcSet}
-        sizes={imgProps.sizes}
-        alt={alt}
-        className="relative z-0 mx-auto block h-auto w-auto max-h-[min(88vh,960px)] max-w-full object-contain"
-        loading="eager"
-        decoding="async"
-        fetchPriority="high"
-      />
-    </div>
+    <img
+      ref={ref}
+      src={imgProps.src}
+      srcSet={imgProps.srcSet}
+      sizes={imgProps.sizes}
+      alt={alt}
+      width={1200}
+      height={1200}
+      className="relative z-0 h-full w-full max-h-full object-contain"
+      loading="eager"
+      decoding="async"
+      fetchPriority="high"
+    />
+  );
+}
+
+function BlogArticleBodySkeleton() {
+  return (
+    <div
+      className="min-h-[18rem] rounded-lg border border-border bg-muted/40 md:min-h-[22rem]"
+      aria-hidden
+    />
   );
 }
 
 export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { data: post, isLoading: loadingPost, error: errPost } = usePublishedPostQuery(slug);
   const { data: allPosts = [] } = usePublishedPostsQuery();
-  const [readingProgressReady, setReadingProgressReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const enable = () => {
-      if (!cancelled) setReadingProgressReady(true);
-    };
-    if (typeof requestIdleCallback !== "undefined") {
-      const idleHandle = requestIdleCallback(enable, { timeout: 1800 });
-      return () => {
-        cancelled = true;
-        cancelIdleCallback(idleHandle);
-      };
-    }
-    const t = window.setTimeout(enable, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, []);
+  const listPost = useMemo(
+    () => (slug ? allPosts.find((p) => p.slug === slug) : undefined),
+    [allPosts, slug],
+  );
+  const {
+    data: fullPost,
+    isPending,
+    isError,
+    error: postQueryError,
+  } = usePublishedPostQuery(slug);
+  /** Gabung daftar artikel (biasanya sudah di-cache) agar header + cover bisa muncul sebelum fetch detail selesai — LCP/CLS mobile. */
+  const post = fullPost !== undefined ? fullPost : listPost;
+  /** Isi penuh hanya setelah fetch by-slug selesai (bukan ringkasan dari daftar). */
+  const articleBodyReady = fullPost != null;
+  const showInitialSpinner = fullPost === undefined && !listPost && isPending;
 
   const origin = window.location.origin;
   const shareUrl = slug ? `${origin}/blog/${slug}` : window.location.href;
@@ -103,6 +106,9 @@ export function BlogPostPage() {
     image: post?.coverImage,
     type: post ? "article" : "website",
   });
+
+  const postQueryErrMessage =
+    postQueryError instanceof Error ? postQueryError.message : "Gagal memuat artikel.";
 
   const { older, newer } = useMemo(() => {
     if (!post) {
@@ -121,7 +127,7 @@ export function BlogPostPage() {
 
   const related = useMemo(() => (post ? getRelatedPosts(post, allPosts, 6) : []), [post, allPosts]);
 
-  if (loadingPost && slug) {
+  if (showInitialSpinner && slug) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -133,13 +139,13 @@ export function BlogPostPage() {
     );
   }
 
-  if (errPost) {
+  if (isError && !post) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="mx-auto max-w-lg px-4 py-16 text-center md:px-6">
           <h1 className="text-xl font-bold text-navy">{blogPostUi.loadErrorHeading}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{(errPost as Error).message}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{postQueryErrMessage}</p>
           <Link
             to="/blog"
             className="mt-6 inline-block text-sm font-semibold text-accent-orange hover:underline"
@@ -152,7 +158,7 @@ export function BlogPostPage() {
     );
   }
 
-  if (!post) {
+  if (fullPost === null || !post) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -174,7 +180,7 @@ export function BlogPostPage() {
   return (
     <div className={cn("min-h-screen bg-muted/25", blogPostShareStickyFooterPageBottomPaddingClass)}>
       <Header />
-      {readingProgressReady ? <ReadingProgress /> : null}
+      <ReadingProgress />
 
       <article className="overflow-x-hidden border-b border-border/60 bg-background">
         {/* Header artikel: polos, tanpa gradasi */}
@@ -192,13 +198,13 @@ export function BlogPostPage() {
               className={cn(
                 "mt-4 grid gap-6 lg:mt-5 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-10",
                 post.coverImage.trim()
-                  ? "lg:grid-cols-[minmax(0,1fr)_minmax(240px,36%)]"
+                  ? "lg:grid-cols-[minmax(0,1fr)_minmax(200px,26%)]"
                   : "lg:grid-cols-1",
               )}
             >
               {/* Mobile: gambar hero dulu agar LCP lebih cepat; desktop: teks kiri, gambar kanan */}
               {post.coverImage.trim() ? (
-                <figure className="relative order-1 w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2">
+                <figure className="relative order-1 aspect-square w-full max-w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2 lg:max-w-[min(100%,22rem)] lg:justify-self-end">
                   <ArticleHeroCoverImage src={post.coverImage} alt="" />
                 </figure>
               ) : null}
@@ -328,7 +334,13 @@ export function BlogPostPage() {
 
             {/* Tengah: isi artikel */}
             <div className="order-1 min-w-0 bg-white py-6 -mx-4 px-4 md:mx-0 md:px-0 xl:order-2 xl:-mx-2 xl:px-8 xl:py-8 2xl:px-10">
-              <BlogPostBody bodyJson={post.bodyJson} bodyHtml={post.bodyHtml} />
+              {isError && fullPost === undefined ? (
+                <p className="text-sm text-destructive">{postQueryErrMessage}</p>
+              ) : articleBodyReady ? (
+                <BlogPostBody bodyJson={post.bodyJson} bodyHtml={post.bodyHtml} />
+              ) : (
+                <BlogArticleBodySkeleton />
+              )}
             </div>
 
             {/* Kanan: informasi lainnya + daftar isi */}

@@ -56,7 +56,7 @@ export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps
   if (!base720) {
     return {
       src: originalUrl,
-      sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 36vw",
+      sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 26vw",
     };
   }
   const srcSet = HERO_WIDTHS.map((w) => {
@@ -68,7 +68,7 @@ export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps
   return {
     src: buildSupabaseCoverRenderUrl(originalUrl, 960) ?? base720,
     srcSet,
-    sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 36vw",
+    sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 26vw",
   };
 }
 
