@@ -74,12 +74,38 @@ export function getBlogThumbCoverSrc(originalUrl: string, width = 140): string {
 
 const CARD_WIDTHS = [360, 480, 640] as const;
 const FEATURED_CARD_WIDTHS = [480, 720, 960, 1200] as const;
+/** Baris list /blog — kolom gambar sempit (~7–13rem). */
+const LIST_ROW_WIDTHS = [120, 160, 200] as const;
+const LIST_FEATURED_WIDTHS = [160, 220, 280] as const;
 
 /** Kartu daftar blog — resolusi lebih kecil dari hero. */
 export function getBlogCardCoverImgProps(
   originalUrl: string,
-  opts?: { featured?: boolean },
+  opts?: { featured?: boolean; list?: boolean },
 ): BlogCoverImgProps {
+  if (opts?.list) {
+    const large = Boolean(opts?.featured);
+    const widths = large ? LIST_FEATURED_WIDTHS : LIST_ROW_WIDTHS;
+    const defaultW = large ? 220 : 160;
+    const base = buildSupabaseCoverRenderUrl(originalUrl, defaultW);
+    const sizes = large ? "(max-width: 640px) 128px, 208px" : "(max-width: 640px) 112px, 176px";
+    if (!base) {
+      return { src: originalUrl, sizes };
+    }
+    const srcSet = widths
+      .map((w) => {
+        const url = buildSupabaseCoverRenderUrl(originalUrl, w);
+        return url ? `${url} ${w}w` : null;
+      })
+      .filter(Boolean)
+      .join(", ");
+    return {
+      src: buildSupabaseCoverRenderUrl(originalUrl, defaultW) ?? base,
+      srcSet,
+      sizes,
+    };
+  }
+
   const widths = opts?.featured ? FEATURED_CARD_WIDTHS : CARD_WIDTHS;
   const defaultW = opts?.featured ? 960 : 480;
   const base = buildSupabaseCoverRenderUrl(originalUrl, defaultW);

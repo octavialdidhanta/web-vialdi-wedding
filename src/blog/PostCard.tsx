@@ -6,41 +6,72 @@ import { postAccentClass } from "@/blog/postAccentClass";
 import { cn } from "@/share/lib/utils";
 import { useMemo } from "react";
 
+function TagPills({ tags, compact }: { tags: string[]; compact?: boolean }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <span
+          key={t}
+          className={cn(
+            "rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-navy shadow-sm md:text-[10px]",
+            compact && "px-1.5 py-0.5 text-[8px] md:text-[9px]",
+          )}
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function PostCard({
   post,
   layout = "default",
   priority = false,
 }: {
   post: BlogPostPublic;
-  layout?: "default" | "compact";
+  /** `list` = baris horizontal (gambar kiri) untuk indeks /blog. */
+  layout?: "default" | "compact" | "list";
   /** Untuk kartu LCP (mis. pilihan editor): muat gambar segera, hindari lazy. */
   priority?: boolean;
 }) {
+  const isList = layout === "list";
   const compact = layout === "compact";
   const coverImg = useMemo(
-    () => getBlogCardCoverImgProps(post.coverImage, { featured: priority }),
-    [post.coverImage, priority],
+    () =>
+      isList
+        ? getBlogCardCoverImgProps(post.coverImage, { list: true, featured: priority })
+        : getBlogCardCoverImgProps(post.coverImage, { featured: priority }),
+    [post.coverImage, priority, isList],
   );
 
   return (
     <article
       className={cn(
         "overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-elegant)]",
-        compact && "md:flex md:flex-row",
+        compact && !isList && "md:flex md:flex-row",
       )}
     >
       <Link
         to={`/blog/${post.slug}`}
         className={cn(
-          "group flex h-full min-h-0 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
-          compact && "md:flex-row",
+          "group flex h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
+          isList && "flex-row items-stretch",
+          !isList && "flex-col",
+          compact && !isList && "md:flex-row",
         )}
       >
         <div
           className={cn(
-            "relative isolate flex w-full shrink-0 justify-center overflow-hidden bg-gradient-to-br",
-            postAccentClass(post.accent),
-            compact &&
+            "relative isolate flex shrink-0 justify-center overflow-hidden",
+            isList
+              ? cn(
+                  "w-[7.25rem] border-r border-border/70 bg-muted/45 p-2 sm:w-32 md:w-40",
+                  priority && "sm:w-40 md:w-[11.5rem]",
+                )
+              : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
+            !isList &&
+              compact &&
               "md:flex md:min-h-[11rem] md:w-[38%] md:max-w-sm md:self-stretch md:items-center md:justify-center",
           )}
         >
@@ -50,28 +81,34 @@ export function PostCard({
             sizes={coverImg.sizes}
             alt={post.title}
             className={cn(
-              "relative z-0 h-auto w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]",
-              "max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
-              priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
-              compact && "md:max-h-[min(72vh,560px)]",
+              "relative z-0 object-contain transition-transform duration-300 group-hover:scale-[1.02]",
+              isList && "h-auto max-h-[5.5rem] w-auto max-w-full sm:max-h-28 md:max-h-32",
+              isList && priority && "sm:max-h-32 md:max-h-40",
+              !isList &&
+                "h-auto w-auto max-w-full max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
+              !isList && priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
+              !isList && compact && "md:max-h-[min(72vh,560px)]",
             )}
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "low"}
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">
-            {post.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-navy shadow-sm md:text-[10px]"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
+          {!isList ? (
+            <>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
+              <div className="absolute bottom-2 left-2 right-2 z-[1] flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">
+                <TagPills tags={post.tags} />
+              </div>
+            </>
+          ) : null}
         </div>
-        <div className={cn("flex min-w-0 flex-1 flex-col p-4 sm:p-4", compact && "md:py-4")}>
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col p-4 sm:p-4",
+            isList && "py-3 pl-3 pr-3 sm:py-4 sm:pl-4 sm:pr-4",
+            compact && !isList && "md:py-4",
+          )}
+        >
           <time className="text-xs font-medium text-muted-foreground" dateTime={post.date}>
             {new Date(post.date + "T12:00:00").toLocaleDateString("id-ID", {
               day: "numeric",
@@ -82,6 +119,11 @@ export function PostCard({
           <h2 className="mt-1.5 text-base font-bold leading-snug tracking-tight text-navy transition-colors group-hover:text-accent-orange md:text-lg">
             {post.title}
           </h2>
+          {isList && post.tags.length > 0 ? (
+            <div className="mt-2">
+              <TagPills tags={post.tags} compact />
+            </div>
+          ) : null}
           <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground md:line-clamp-3 md:text-sm">
             {post.excerpt}
           </p>

@@ -166,13 +166,17 @@ export function BlogPage() {
                 <Skeleton className="h-3 w-28" />
                 <Skeleton className="h-5 w-24 rounded-full" />
               </div>
-              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <Skeleton className="h-52 w-full rounded-none sm:h-56" />
-                <div className="space-y-2 p-4 sm:p-4">
-                  <Skeleton className="h-3 w-32" />
-                  <Skeleton className="h-5 w-full max-w-lg" />
+              <div className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <Skeleton className="h-[7.5rem] w-[7.25rem] shrink-0 rounded-none sm:h-32 sm:w-32 md:w-40" />
+                <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-5 w-full max-w-xl" />
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-4/5" />
+                  <div className="flex justify-between border-t border-transparent pt-3">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -191,7 +195,7 @@ export function BlogPage() {
                   {blogFeatured.badge}
                 </span>
               </div>
-              <PostCard post={featured} priority />
+              <PostCard post={featured} priority layout="list" />
             </div>
           ) : null}
 
@@ -203,22 +207,18 @@ export function BlogPage() {
               {blogList.allArticlesHeading}
             </h2>
             {isLoading ? (
-              <div
-                className="grid gap-5 md:grid-cols-2 md:gap-6"
-                aria-busy="true"
-                aria-label="Memuat daftar artikel"
-              >
-                {Array.from({ length: 4 }).map((_, i) => (
+              <div className="flex flex-col gap-4" aria-busy="true" aria-label="Memuat daftar artikel">
+                {Array.from({ length: 5 }).map((_, i) => (
                   <div
                     key={i}
-                    className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                    className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                   >
-                    <Skeleton className="h-52 w-full rounded-none sm:h-56" />
-                    <div className="space-y-2 p-4">
+                    <Skeleton className="h-24 w-[7.25rem] shrink-0 rounded-none sm:h-28 sm:w-32 md:w-40" />
+                    <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
                       <Skeleton className="h-3 w-24" />
-                      <Skeleton className="h-5 w-full" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-[83%]" />
+                      <Skeleton className="h-4 w-full max-w-2xl" />
+                      <Skeleton className="h-3 w-full max-w-xl" />
+                      <Skeleton className="h-3 w-[70%]" />
                     </div>
                   </div>
                 ))}
@@ -239,9 +239,9 @@ export function BlogPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+              <div className="flex flex-col gap-4">
                 {listPosts.map((p) => (
-                  <PostCard key={p.slug} post={p} />
+                  <PostCard key={p.slug} post={p} layout="list" />
                 ))}
               </div>
             )}
