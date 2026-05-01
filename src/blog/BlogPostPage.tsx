@@ -45,17 +45,19 @@ function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   }, [src]);
 
   return (
-    <img
-      ref={ref}
-      src={imgProps.src}
-      srcSet={imgProps.srcSet}
-      sizes={imgProps.sizes}
-      alt={alt}
-      className="mx-auto block h-auto max-h-[min(72vh,720px)] w-full object-contain"
-      loading="eager"
-      decoding="async"
-      fetchPriority="high"
-    />
+    <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[4/3]">
+      <img
+        ref={ref}
+        src={imgProps.src}
+        srcSet={imgProps.srcSet}
+        sizes={imgProps.sizes}
+        alt={alt}
+        className="absolute inset-0 h-full w-full object-cover object-center"
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+      />
+    </div>
   );
 }
 

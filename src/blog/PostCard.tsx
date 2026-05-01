@@ -38,9 +38,14 @@ export function PostCard({
       >
         <div
           className={cn(
-            "relative shrink-0 overflow-hidden bg-gradient-to-br",
+            "relative isolate shrink-0 overflow-hidden bg-gradient-to-br",
             postAccentClass(post.accent),
-            compact ? "w-full md:w-[38%] md:max-w-sm md:self-stretch" : "w-full",
+            // object-cover perlu bingkai aspect tetap → isi penuh tanpa letterbox (trade-off: crop tepi).
+            compact
+              ? "aspect-[16/10] w-full md:aspect-auto md:min-h-[12.5rem] md:w-[38%] md:max-w-sm md:self-stretch"
+              : priority
+                ? "aspect-[16/10] w-full sm:aspect-[2/1] md:aspect-[21/9]"
+                : "aspect-[16/10] w-full sm:aspect-[16/9]",
           )}
         >
           <img
@@ -48,7 +53,7 @@ export function PostCard({
             srcSet={coverImg.srcSet}
             sizes={coverImg.sizes}
             alt={post.title}
-            className="block h-auto max-h-[min(52vh,420px)] w-full object-contain transition-transform duration-300 group-hover:scale-[1.01] md:max-h-[min(60vh,480px)]"
+            className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "low"}
