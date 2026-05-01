@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { JSONContent } from "@tiptap/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import {
   adminUpdatePost,
   adminUpsertCategory,
   adminDeletePost,
+  resolveCoverUrl,
   uploadBlogImage,
   type AdminPostPayload,
 } from "@/blog/agencySupabaseBlog";
@@ -89,6 +91,7 @@ export function AdminPostEditorPage() {
   const [tagsInput, setTagsInput] = useState("");
   const [coverPath, setCoverPath] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [bodyJson, setBodyJson] = useState<JSONContent | null>(emptyDoc);
   const [bodyHtmlFallback, setBodyHtmlFallback] = useState("");
   const [editorSeed, setEditorSeed] = useState(0);
@@ -120,6 +123,18 @@ export function AdminPostEditorPage() {
       mergePostTargets(adminPostsForLinks.map((p) => ({ id: p.id, title: p.title, slug: p.slug }))),
     [adminPostsForLinks],
   );
+
+  const coverPreviewSrc = useMemo(() => {
+    const src = resolveCoverUrl(coverPath, coverUrl?.trim() ? coverUrl : null);
+    return src.trim() || null;
+  }, [coverPath, coverUrl]);
+
+  const clearCover = useCallback(() => {
+    setCoverPath(null);
+    setCoverUrl(null);
+    const el = coverFileInputRef.current;
+    if (el) el.value = "";
+  }, []);
 
   useQuery({ queryKey: ["admin", "tags"], queryFn: adminListTags });
 
@@ -576,13 +591,39 @@ export function AdminPostEditorPage() {
                 <div className="space-y-2">
                   <Label>Gambar sampul (unggah)</Label>
                   <Input
+                    ref={coverFileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     onChange={(e) => void onCoverFile(e)}
                   />
-                  {coverPath ? (
-                    <p className="break-all text-xs text-muted-foreground">Path: {coverPath}</p>
-                  ) : null}
+                  {coverPreviewSrc ? (
+                    <div className="relative max-w-md rounded-lg border border-border bg-muted/40 p-2">
+                      <img
+                        src={coverPreviewSrc}
+                        alt="Pratinjau sampul"
+                        className="mx-auto block max-h-52 w-auto max-w-full rounded-md object-contain"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute right-3 top-3 h-9 w-9 shadow-md"
+                        onClick={clearCover}
+                        aria-label="Hapus gambar sampul"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                      </Button>
+                      {coverPath ? (
+                        <p className="mt-2 break-all text-[10px] leading-tight text-muted-foreground">
+                          {coverPath}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Belum ada sampul. Unggah file atau isi URL eksternal di bawah.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="coverUrl">URL gambar eksternal (opsional)</Label>
