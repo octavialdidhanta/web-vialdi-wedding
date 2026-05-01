@@ -3,6 +3,9 @@
  *
  * Why: WhatsApp/Facebook can be flaky fetching Supabase Storage URLs directly.
  * We proxy the image through the site domain to make it more reliable and cacheable.
+ *
+ * Sumber gambar: utamakan `cover_image_path` (URL object/public konsisten); lalu coba
+ * `cover_image_url` jika beda — mengatasi URL transform/external yang ditolak atau kadaluarsa.
  */
 export const config = { runtime: "edge" };
 
@@ -11,26 +14,43 @@ type PostPreviewRow = {
   cover_image_url: string | null;
 };
 
-function buildPublicCoverUrl({
-  base,
-  bucket,
-  path,
-  url,
-}: {
-  base: string;
-  bucket: string;
-  path: string | null;
-  url: string | null;
-}) {
-  if (url) return url;
-  if (!path) return "";
-  const cleanBase = base.replace(/\/+$/, "");
+function buildStoragePublicObjectUrl(baseNoSlash: string, bucket: string, path: string): string {
   const cleanPath = path.replace(/^\/+/, "");
   const encodedPath = cleanPath
     .split("/")
     .map((seg) => encodeURIComponent(seg))
     .join("/");
-  return `${cleanBase}/storage/v1/object/public/${bucket}/${encodedPath}`;
+  return `${baseNoSlash}/storage/v1/object/public/${bucket}/${encodedPath}`;
+}
+
+/**
+ * Urutan: path → URL eksternal/tambahan (dedupe). Path dulu agar upload CMS selalu konsisten.
+ */
+function collectCoverImageCandidates(post: PostPreviewRow, supabaseBase: string): string[] {
+  const cleanBase = supabaseBase.replace(/\/+$/, "");
+  const out: string[] = [];
+  const push = (s: string) => {
+    const t = s.trim();
+    if (!t) return;
+    const n = t.replace(/^http:\/\//i, "https://");
+    if (!out.includes(n)) out.push(n);
+  };
+
+  const p = post.cover_image_path?.trim();
+  if (p) {
+    push(buildStoragePublicObjectUrl(cleanBase, "blog-media", p));
+  }
+
+  const u = post.cover_image_url?.trim();
+  if (u) {
+    if (u.startsWith("http://") || u.startsWith("https://")) {
+      push(u);
+    } else if (u.startsWith("/")) {
+      push(`${cleanBase}${u}`);
+    }
+  }
+
+  return out;
 }
 
 async function fetchCover(slug: string, base: string, anonKey: string): Promise<PostPreviewRow | null> {
@@ -47,7 +67,6 @@ async function fetchCover(slug: string, base: string, anonKey: string): Promise<
     Accept: "application/json",
   };
 
-  // Published first
   const pub = new URL(endpoint.toString());
   pub.searchParams.set("status", "eq.published");
   pub.searchParams.set("published_at", `lte.${nowIso}`);
@@ -57,7 +76,6 @@ async function fetchCover(slug: string, base: string, anonKey: string): Promise<
     if (rows?.[0]) return rows[0];
   }
 
-  // Scheduled due fallback
   const sch = new URL(endpoint.toString());
   sch.searchParams.set("status", "eq.scheduled");
   sch.searchParams.set("scheduled_at", `lte.${nowIso}`);
@@ -94,49 +112,40 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
-  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-  let imageUrl = "";
+  let post: PostPreviewRow | null = null;
   try {
-    const post = await fetchCover(slug, base, anonKey);
-    if (post) {
-      imageUrl = buildPublicCoverUrl({
-        base,
-        bucket: "blog-media",
-        path: post.cover_image_path,
-        url: post.cover_image_url,
-      });
-    }
+    post = await fetchCover(slug, base, anonKey);
   } catch {
-    // ignore
+    post = null;
   }
 
-  if (!imageUrl) {
-    return new Response(null, {
-      status: 404,
-      headers: { "cache-control": "public, max-age=300" },
-    });
-  }
-  if (imageUrl.startsWith("/")) {
-    imageUrl = `${origin}${imageUrl}`;
-  }
-
-  imageUrl = imageUrl.replace(/^http:\/\//i, "https://");
-  const imageType = guessImageContentType(imageUrl);
-
-  const imgRes = await fetch(imageUrl, { headers: { Accept: "image/*" } });
-  if (!imgRes.ok) {
+  const candidates = post ? collectCoverImageCandidates(post, base) : [];
+  if (!candidates.length) {
     return new Response(null, {
       status: 404,
       headers: { "cache-control": "public, max-age=120" },
     });
   }
 
-  return new Response(imgRes.body, {
-    status: 200,
-    headers: {
-      "content-type": imgRes.headers.get("content-type") ?? imageType,
-      "cache-control": "public, max-age=86400",
-    },
+  let lastStatus = 404;
+  for (const imageUrl of candidates) {
+    const imgRes = await fetch(imageUrl, { headers: { Accept: "image/*" } });
+    lastStatus = imgRes.status;
+    if (!imgRes.ok) {
+      continue;
+    }
+    const imageType = guessImageContentType(imageUrl);
+    return new Response(imgRes.body, {
+      status: 200,
+      headers: {
+        "content-type": imgRes.headers.get("content-type") ?? imageType,
+        "cache-control": "public, max-age=86400",
+      },
+    });
+  }
+
+  return new Response(null, {
+    status: lastStatus >= 400 ? lastStatus : 404,
+    headers: { "cache-control": "public, max-age=60" },
   });
 }
-
