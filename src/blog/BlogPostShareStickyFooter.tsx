@@ -4,10 +4,12 @@ import { copyTextToClipboard } from "@/share/lib/copyTextToClipboard";
 import { cn } from "@/share/lib/utils";
 import {
   buildBlogFooterCopyUrl,
+  buildBlogFooterTrackedArticleUrl,
   buildFacebookShareUrl,
   buildLinkedInShareUrl,
   buildShareText,
   buildTwitterShareUrl,
+  buildWhatsAppShareMessageForBlog,
   withBlogShareUtm,
   buildWhatsAppShareUrl,
 } from "@/share/socialShare";
@@ -38,12 +40,13 @@ export function BlogPostShareStickyFooter({
   const facebookUrl = withBlogShareUtm(url, "facebook");
   const xUrl = withBlogShareUtm(url, "x");
   const linkedinUrl = withBlogShareUtm(url, "linkedin");
-  const whatsappUrl = withBlogShareUtm(url, "whatsapp");
+  /** Sama pola UTM dengan salin tautan (`utm_content` slug); `utm_source=whatsapp` untuk analytics. */
+  const whatsappTrackedUrl = buildBlogFooterTrackedArticleUrl(url, slug, "whatsapp");
 
   const copyUrlWithUtm = buildBlogFooterCopyUrl(url, slug);
 
   const shareText = buildShareText(title, url);
-  const shareTextWa = buildShareText(title, whatsappUrl);
+  const shareTextWa = buildWhatsAppShareMessageForBlog(title, whatsappTrackedUrl);
 
   const items: ShareItem[] = [
     { id: "facebook", label: "Share ke Facebook", href: buildFacebookShareUrl(facebookUrl), Icon: Facebook },

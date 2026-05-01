@@ -31,14 +31,35 @@ export const BLOG_FOOTER_COPY_UTM = {
   utm_campaign: "blog_share",
 } as const;
 
-/** Tautan lengkap dengan `?utm_source=copy&utm_medium=share_footer&utm_campaign=blog_share&utm_content=<slug>`. */
-export function buildBlogFooterCopyUrl(articleBaseUrl: string, slug: string): string {
+/**
+ * URL artikel + UTM 4 parameter (selaras tombol salin: medium, campaign, content=slug; `utm_source` per kanal).
+ */
+export function buildBlogFooterTrackedArticleUrl(
+  articleBaseUrl: string,
+  slug: string,
+  utmSource: string,
+): string {
   return withBlogShareUtmParams(articleBaseUrl, {
-    utm_source: BLOG_FOOTER_COPY_UTM.utm_source,
+    utm_source: utmSource,
     utm_medium: BLOG_FOOTER_COPY_UTM.utm_medium,
     utm_campaign: BLOG_FOOTER_COPY_UTM.utm_campaign,
     utm_content: slug.trim() || "blog",
   });
+}
+
+/** Tautan salin: `utm_source=copy` + tiga parameter lain sama seperti kanal footer lain. */
+export function buildBlogFooterCopyUrl(articleBaseUrl: string, slug: string): string {
+  return buildBlogFooterTrackedArticleUrl(articleBaseUrl, slug, BLOG_FOOTER_COPY_UTM.utm_source);
+}
+
+/**
+ * Teks untuk wa.me: URL di baris pertama agar pratinjau (sampul) terdeteksi seperti paste tautan manual.
+ */
+export function buildWhatsAppShareMessageForBlog(title: string, trackedArticleUrl: string): string {
+  const u = trackedArticleUrl.trim();
+  const t = title.trim();
+  if (!t) return u;
+  return `${u}\n\n${t}`;
 }
 
 export function withBlogShareUtm(url: string, source: BlogShareUtmSource) {
