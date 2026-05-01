@@ -19,6 +19,95 @@ type PostPreviewRow = {
   cover_image_url: string | null;
 };
 
+/** Origin publik (hindari host internal saat URL rewrite ke /api/blog-entry). */
+function resolvePublicOrigin(request: Request): string {
+  const fwdHost = request.headers.get("x-forwarded-host");
+  const fwdProto = (request.headers.get("x-forwarded-proto") ?? "https").split(",")[0].trim();
+  if (fwdHost) {
+    const host = fwdHost.split(",")[0].trim();
+    return `${fwdProto}://${host}`;
+  }
+  const u = new URL(request.url);
+  return `${u.protocol}//${u.host}`;
+}
+
+/** URL dibagikan ke WhatsApp: canonical + query marketing (bukan ?slug= internal). */
+function buildPublicShareUrl(publicOrigin: string, slug: string, reqUrl: URL): string {
+  const canonical = `${publicOrigin}/blog/${encodeURIComponent(slug)}`;
+  if (!reqUrl.search || reqUrl.pathname.includes("/api/")) {
+    return canonical;
+  }
+  const params = new URLSearchParams(reqUrl.search);
+  params.delete("slug");
+  params.delete(UI_SPA_QUERY);
+  const q = params.toString();
+  return q ? `${canonical}?${q}` : canonical;
+}
+
+function guessOgImageMimeFromPost(post: PostPreviewRow): string {
+  const s = `${post.cover_image_url ?? ""} ${post.cover_image_path ?? ""}`.toLowerCase();
+  if (s.includes(".png")) return "image/png";
+  if (s.includes(".webp")) return "image/webp";
+  if (s.includes(".gif")) return "image/gif";
+  return "image/jpeg";
+}
+
+/** Blok meta OG/Twitter untuk satu artikel (dipakai template crawler + injeksi shell SPA). */
+function buildArticleOgMetaBlock(opts: {
+  title: string;
+  description: string;
+  shareUrl: string;
+  canonicalUrl: string;
+  imageProxyUrl: string;
+  post?: PostPreviewRow;
+}): string {
+  const safeTitle = esc(opts.title);
+  const safeDesc = esc(opts.description);
+  const safeShareUrl = esc(opts.shareUrl);
+  const safeCanonicalUrl = esc(opts.canonicalUrl);
+  const normalizedImg = opts.imageProxyUrl ? opts.imageProxyUrl.replace(/^http:\/\//i, "https://") : "";
+  const safeImg = esc(normalizedImg);
+  const hasImg = Boolean(opts.imageProxyUrl);
+  const mime = opts.post ? guessOgImageMimeFromPost(opts.post) : "image/jpeg";
+
+  const lines: string[] = [
+    `<title>${safeTitle}</title>`,
+    `<meta name="description" content="${safeDesc}" />`,
+    `<meta property="og:type" content="article" />`,
+    `<meta property="og:title" content="${safeTitle}" />`,
+    `<meta property="og:description" content="${safeDesc}" />`,
+    `<meta property="og:url" content="${safeShareUrl}" />`,
+  ];
+  if (hasImg) {
+    lines.push(
+      `<meta property="og:image" content="${safeImg}" />`,
+      `<meta property="og:image:secure_url" content="${safeImg}" />`,
+      `<meta property="og:image:type" content="${mime}" />`,
+      `<meta property="og:image:width" content="1200" />`,
+      `<meta property="og:image:height" content="630" />`,
+    );
+  }
+  lines.push(
+    `<meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />`,
+    `<meta name="twitter:title" content="${safeTitle}" />`,
+    `<meta name="twitter:description" content="${safeDesc}" />`,
+  );
+  if (hasImg) {
+    lines.push(`<meta name="twitter:image" content="${safeImg}" />`);
+  }
+  lines.push(`<link rel="canonical" href="${safeCanonicalUrl}" />`);
+  return lines.join("\n    ");
+}
+
+/** Hapus og + meta description bawaan beranda dari index.html. */
+function stripDefaultSiteOgFromShell(html: string): string {
+  return html
+    .replace(/<meta\s+property="og:title"[^>]*\/>\s*/gi, "")
+    .replace(/<meta\s+property="og:type"[^>]*\/>\s*/gi, "")
+    .replace(/<meta\s+property="og:description"[\s\S]*?\/>/gi, "")
+    .replace(/<meta\s+name="description"[\s\S]*?\/>/i, "");
+}
+
 const BLOG_MEDIA_BUCKET = "blog-media";
 
 /** Selaras `BLOG_HERO_SIZES` di `blogCoverImageUrls.ts` */
@@ -162,50 +251,32 @@ function html({
   shareUrl,
   canonicalUrl,
   imageProxyUrl,
+  post,
 }: {
   title: string;
   description: string;
   shareUrl: string;
   canonicalUrl: string;
   imageProxyUrl: string;
+  post?: PostPreviewRow;
 }) {
-  const safeTitle = esc(title);
-  const safeDesc = esc(description);
-  const safeShareUrl = esc(shareUrl);
-  const safeCanonicalUrl = esc(canonicalUrl);
-  const normalizedImg = imageProxyUrl ? imageProxyUrl.replace(/^http:\/\//i, "https://") : "";
-  const safeImg = esc(normalizedImg);
-  const hasImg = Boolean(imageProxyUrl);
   const spaDirectUrl = `${canonicalUrl}?${UI_SPA_QUERY}=1`;
+  const ogBlock = buildArticleOgMetaBlock({
+    title,
+    description,
+    shareUrl,
+    canonicalUrl,
+    imageProxyUrl,
+    post,
+  });
 
   return `<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
+    ${ogBlock}
     <script>location.replace(${JSON.stringify(spaDirectUrl)})</script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${safeTitle}</title>
-    <meta name="description" content="${safeDesc}" />
-    <meta property="og:type" content="article" />
-    <meta property="og:title" content="${safeTitle}" />
-    <meta property="og:description" content="${safeDesc}" />
-    <meta property="og:url" content="${safeShareUrl}" />
-    ${
-      hasImg
-        ? [
-            `<meta property="og:image" content="${safeImg}" />`,
-            `<meta property="og:image:secure_url" content="${safeImg}" />`,
-            `<meta property="og:image:type" content="image/jpeg" />`,
-            `<meta property="og:image:width" content="1200" />`,
-            `<meta property="og:image:height" content="630" />`,
-          ].join("\n    ")
-        : ""
-    }
-    <meta name="twitter:card" content="${hasImg ? "summary_large_image" : "summary"}" />
-    <meta name="twitter:title" content="${safeTitle}" />
-    <meta name="twitter:description" content="${safeDesc}" />
-    ${hasImg ? `<meta name="twitter:image" content="${safeImg}" />` : ""}
-    <link rel="canonical" href="${safeCanonicalUrl}" />
   </head>
   <body></body>
 </html>`;
@@ -245,15 +316,17 @@ async function fetchPostPreview(slug: string, base: string, anonKey: string): Pr
   return rows?.[0] ?? null;
 }
 
-async function serveBlogSpaShell(reqUrl: URL, slug: string): Promise<Response> {
-  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
+async function serveBlogSpaShell(request: Request, slug: string): Promise<Response> {
+  const publicOrigin = resolvePublicOrigin(request);
+  const reqUrl = new URL(request.url);
+  const fetchOrigin = `${reqUrl.protocol}//${reqUrl.host}`;
   const base = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   const transformRaw = process.env.VITE_SUPABASE_IMAGE_TRANSFORM ?? "";
   const imageTransform = transformRaw === "true" || transformRaw === "1";
 
   const [spaRes, post] = await Promise.all([
-    fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } }),
+    fetch(`${fetchOrigin}/index.html`, { headers: { Accept: "text/html" } }),
     typeof base === "string" && base && typeof anonKey === "string" && anonKey
       ? fetchPostPreview(slug, base, anonKey).catch(() => null)
       : Promise.resolve(null),
@@ -271,6 +344,27 @@ async function serveBlogSpaShell(reqUrl: URL, slug: string): Promise<Response> {
   }
 
   const headInjections: string[] = [];
+
+  if (post) {
+    htmlOut = stripDefaultSiteOgFromShell(htmlOut);
+    htmlOut = htmlOut.replace(/<title>[^<]*<\/title>\s*/i, "");
+    const shareUrl = buildPublicShareUrl(publicOrigin, slug, reqUrl);
+    const canonicalUrl = `${publicOrigin}/blog/${encodeURIComponent(slug)}`;
+    const hasCover = Boolean(post.cover_image_path?.trim() || post.cover_image_url?.trim());
+    const imageProxy = hasCover ? `${publicOrigin}/og/blog/${encodeURIComponent(slug)}.jpg` : "";
+    const desc = (post.excerpt ?? "").trim() || "Artikel Vialdi Wedding.";
+    headInjections.push(
+      buildArticleOgMetaBlock({
+        title: post.title || "Vialdi Wedding — Blog",
+        description: desc,
+        shareUrl,
+        canonicalUrl,
+        imageProxyUrl: imageProxy,
+        post,
+      }),
+    );
+  }
+
   if (supabaseOrigin) {
     headInjections.push(`<link rel="preconnect" href="${escAttr(supabaseOrigin)}" crossorigin />`);
   }
@@ -305,17 +399,17 @@ export default async function handler(request: Request): Promise<Response> {
   const ua = request.headers.get("user-agent");
 
   if ((reqUrl.searchParams.get(UI_SPA_QUERY) ?? "") === "1") {
-    return serveBlogSpaShell(reqUrl, slug);
+    return serveBlogSpaShell(request, slug);
   }
 
   if (isLikelyBrowserClient(request)) {
-    return serveBlogSpaShell(reqUrl, slug);
+    return serveBlogSpaShell(request, slug);
   }
 
   const isCrawler = isSocialLinkPreviewCrawler(ua);
 
   if (!isCrawler) {
-    return serveBlogSpaShell(reqUrl, slug);
+    return serveBlogSpaShell(request, slug);
   }
 
   const base = process.env.VITE_SUPABASE_URL;
@@ -327,27 +421,26 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
-  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-  const shareUrl = `${origin}/blog/${encodeURIComponent(slug)}${reqUrl.search ? reqUrl.search : ""}`;
-  const canonicalUrl = `${origin}/blog/${encodeURIComponent(slug)}`;
-  const imageProxyUrl = `${origin}/og/blog/${encodeURIComponent(slug)}.jpg`;
+  const publicOrigin = resolvePublicOrigin(request);
+  const shareUrl = buildPublicShareUrl(publicOrigin, slug, reqUrl);
+  const canonicalUrl = `${publicOrigin}/blog/${encodeURIComponent(slug)}`;
+  const imageProxyUrl = `${publicOrigin}/og/blog/${encodeURIComponent(slug)}.jpg`;
 
   let title = "Vialdi Wedding — Blog";
   let description = "Artikel Vialdi Wedding.";
-  let hasPost = false;
-  let hasCover = false;
+  let post: PostPreviewRow | null = null;
 
   try {
-    const post = await fetchPostPreview(slug, base, anonKey);
+    post = await fetchPostPreview(slug, base, anonKey);
     if (post) {
-      hasPost = true;
       title = post.title || title;
       description = (post.excerpt ?? "").trim() || description;
-      hasCover = Boolean(post.cover_image_path?.trim() || post.cover_image_url?.trim());
     }
   } catch {
     // ignore
   }
+
+  const hasCover = Boolean(post?.cover_image_path?.trim() || post?.cover_image_url?.trim());
 
   return new Response(
     html({
@@ -355,7 +448,8 @@ export default async function handler(request: Request): Promise<Response> {
       description,
       shareUrl,
       canonicalUrl,
-      imageProxyUrl: hasPost && hasCover ? imageProxyUrl : "",
+      imageProxyUrl: post && hasCover ? imageProxyUrl : "",
+      post: post ?? undefined,
     }),
     {
       status: 200,
