@@ -167,7 +167,7 @@ export function BlogPage() {
                 <Skeleton className="h-5 w-24 rounded-full" />
               </div>
               <div className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <Skeleton className="h-[7.5rem] w-[7.25rem] shrink-0 rounded-none sm:h-32 sm:w-32 md:w-40" />
+                <Skeleton className="h-[9rem] w-[9rem] shrink-0 rounded-none sm:h-40 sm:w-40 md:h-48 md:w-48" />
                 <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
                   <Skeleton className="h-3 w-28" />
                   <Skeleton className="h-5 w-full max-w-xl" />
@@ -213,7 +213,7 @@ export function BlogPage() {
                     key={i}
                     className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                   >
-                    <Skeleton className="h-24 w-[7.25rem] shrink-0 rounded-none sm:h-28 sm:w-32 md:w-40" />
+                    <Skeleton className="h-[8.5rem] w-[8.5rem] shrink-0 rounded-none sm:h-36 sm:w-36 md:h-44 md:w-44" />
                     <div className="min-w-0 flex-1 space-y-2 p-3 sm:p-4">
                       <Skeleton className="h-3 w-24" />
                       <Skeleton className="h-4 w-full max-w-2xl" />

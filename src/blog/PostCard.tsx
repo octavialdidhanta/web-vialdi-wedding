@@ -63,11 +63,14 @@ export function PostCard({
       >
         <div
           className={cn(
-            "relative isolate flex shrink-0 justify-center overflow-hidden",
+            "relative isolate shrink-0 overflow-hidden",
+            !isList && "flex w-full justify-center",
             isList
               ? cn(
-                  "w-[7.25rem] border-r border-border/70 bg-muted/45 p-2 sm:w-32 md:w-40",
-                  priority && "sm:w-40 md:w-[11.5rem]",
+                  "shrink-0 overflow-hidden border-r border-border/70 bg-muted",
+                  // Kotak tetap: gambar object-cover mengisi penuh (tanpa letterbox).
+                  "h-[8.5rem] w-[8.5rem] sm:h-36 sm:w-36 md:h-44 md:w-44",
+                  priority && "h-[9rem] w-[9rem] sm:h-40 sm:w-40 md:h-48 md:w-48",
                 )
               : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
             !isList &&
@@ -81,11 +84,10 @@ export function PostCard({
             sizes={coverImg.sizes}
             alt={post.title}
             className={cn(
-              "relative z-0 object-contain transition-transform duration-300 group-hover:scale-[1.02]",
-              isList && "h-auto max-h-[5.5rem] w-auto max-w-full sm:max-h-28 md:max-h-32",
-              isList && priority && "sm:max-h-32 md:max-h-40",
+              "z-0 transition-transform duration-300 group-hover:scale-[1.02]",
+              isList && "absolute inset-0 h-full w-full object-cover object-center",
               !isList &&
-                "h-auto w-auto max-w-full max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
+                "relative object-contain h-auto w-auto max-w-full max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
               !isList && priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
               !isList && compact && "md:max-h-[min(72vh,560px)]",
             )}

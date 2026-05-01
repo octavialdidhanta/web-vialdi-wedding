@@ -88,7 +88,7 @@ export function getBlogCardCoverImgProps(
     const widths = large ? LIST_FEATURED_WIDTHS : LIST_ROW_WIDTHS;
     const defaultW = large ? 220 : 160;
     const base = buildSupabaseCoverRenderUrl(originalUrl, defaultW);
-    const sizes = large ? "(max-width: 640px) 128px, 208px" : "(max-width: 640px) 112px, 176px";
+    const sizes = large ? "(max-width: 640px) 144px, 192px" : "(max-width: 640px) 136px, 176px";
     if (!base) {
       return { src: originalUrl, sizes };
     }
