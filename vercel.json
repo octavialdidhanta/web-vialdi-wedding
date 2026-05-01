@@ -21,15 +21,7 @@
       "destination": "/api/blog-entry?slug=:slug"
     },
     {
-      "source": "/blog/:slug/",
-      "destination": "/api/blog-entry?slug=:slug"
-    },
-    {
       "source": "/s/blog/:slug",
-      "destination": "/api/blog-share?slug=:slug"
-    },
-    {
-      "source": "/s/blog/:slug/",
       "destination": "/api/blog-share?slug=:slug"
     },
     {
