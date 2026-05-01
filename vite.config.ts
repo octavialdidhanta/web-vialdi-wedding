@@ -52,8 +52,9 @@ export default defineConfig(({ mode }) => {
     .filter(Boolean)
     .join("\n    ");
 
+  /** Hanya `/blog` (daftar): artikel `/blog/slug` sudah disuntik preconnect statis di Edge `api/blog-entry`. */
   const blogSupabasePreconnectScript = supabaseOrigin
-    ? `<script>(function(){try{var p=location.pathname||"";if(p==="/blog"||p==="/blog/"||p.indexOf("/blog/")===0){var l=document.createElement("link");l.rel="preconnect";l.href=${JSON.stringify(supabaseOrigin)};l.setAttribute("crossorigin","");document.head.appendChild(l);}}catch(e){}})();<\/script>`
+    ? `<script>(function(){try{var p=location.pathname||"";if(p==="/blog"||p==="/blog/"){var l=document.createElement("link");l.rel="preconnect";l.href=${JSON.stringify(supabaseOrigin)};l.setAttribute("crossorigin","");document.head.appendChild(l);}}catch(e){}})();<\/script>`
     : "";
 
   return {

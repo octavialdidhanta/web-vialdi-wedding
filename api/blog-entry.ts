@@ -4,7 +4,8 @@
  *
  * Strategy:
  * - Crawlers: return HTML with OG meta (incl. og:image) so WhatsApp/Facebook show rich cards.
- * - Humans: redirect to same URL with `__spa=1` to return the SPA shell (`/index.html`).
+ * - Humans: return the SPA shell (`/index.html`) with 200 on `/blog/:slug` — no redirect (saves ~1 RTT; PSI "Document request latency").
+ * - `__spa=1` is still accepted for old links; same response body.
  */
 export const config = { runtime: "edge" };
 
@@ -113,12 +114,6 @@ function isSocialCrawler(userAgent: string | null) {
   );
 }
 
-function buildSpaUrl(reqUrl: URL) {
-  const next = new URL(reqUrl.toString());
-  next.searchParams.set("__spa", "1");
-  return next.toString();
-}
-
 function html({
   title,
   description,
@@ -208,6 +203,56 @@ async function fetchPostPreview(slug: string, base: string, anonKey: string): Pr
   return rows?.[0] ?? null;
 }
 
+async function serveBlogSpaShell(reqUrl: URL, slug: string): Promise<Response> {
+  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
+  const base = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const transformRaw = process.env.VITE_SUPABASE_IMAGE_TRANSFORM ?? "";
+  const imageTransform = transformRaw === "true" || transformRaw === "1";
+
+  const [spaRes, post] = await Promise.all([
+    fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } }),
+    typeof base === "string" && base && typeof anonKey === "string" && anonKey
+      ? fetchPostPreview(slug, base, anonKey).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  let htmlOut = await spaRes.text();
+
+  let supabaseOrigin = "";
+  if (typeof base === "string" && base) {
+    try {
+      supabaseOrigin = new URL(base).origin;
+    } catch {
+      supabaseOrigin = "";
+    }
+  }
+
+  const headInjections: string[] = [];
+  if (supabaseOrigin) {
+    headInjections.push(`<link rel="preconnect" href="${escAttr(supabaseOrigin)}" crossorigin />`);
+  }
+  if (post && typeof base === "string" && base) {
+    const preload = buildCoverPreloadLinkTag(post, base, imageTransform);
+    if (preload) headInjections.push(preload);
+  }
+  if (headInjections.length) {
+    htmlOut = htmlOut.replace(
+      /<meta\s+charset=["']UTF-8["']\s*\/?>/i,
+      (m) => `${m}\n    ${headInjections.join("\n    ")}`,
+    );
+  }
+
+  return new Response(htmlOut, {
+    status: spaRes.status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      // Keep caching conservative; the SPA shell can change per deploy.
+      "cache-control": "public, max-age=0, must-revalidate",
+    },
+  });
+}
+
 export default async function handler(request: Request): Promise<Response> {
   const reqUrl = new URL(request.url);
   const slug = (reqUrl.searchParams.get("slug") ?? "").trim().toLowerCase();
@@ -215,48 +260,12 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
   }
 
-  // If this is the human SPA pass-through request, return the SPA shell directly.
-  if ((reqUrl.searchParams.get("__spa") ?? "") === "1") {
-    const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-    const base = process.env.VITE_SUPABASE_URL;
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-    const transformRaw = process.env.VITE_SUPABASE_IMAGE_TRANSFORM ?? "";
-    const imageTransform = transformRaw === "true" || transformRaw === "1";
-
-    const [spaRes, post] = await Promise.all([
-      fetch(`${origin}/index.html`, { headers: { Accept: "text/html" } }),
-      typeof base === "string" && base && typeof anonKey === "string" && anonKey
-        ? fetchPostPreview(slug, base, anonKey).catch(() => null)
-        : Promise.resolve(null),
-    ]);
-
-    let htmlOut = await spaRes.text();
-    if (post && typeof base === "string" && base) {
-      const preload = buildCoverPreloadLinkTag(post, base, imageTransform);
-      if (preload) {
-        htmlOut = htmlOut.replace(
-          /<meta\s+charset=["']UTF-8["']\s*\/?>/i,
-          (m) => `${m}\n    ${preload}`,
-        );
-      }
-    }
-
-    return new Response(htmlOut, {
-      status: spaRes.status,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        // Keep caching conservative; the SPA shell can change per deploy.
-        "cache-control": "public, max-age=0, must-revalidate",
-      },
-    });
-  }
-
   const ua = request.headers.get("user-agent");
   const isCrawler = isSocialCrawler(ua);
 
-  // Humans should go to SPA shell (same URL + __spa=1) so the address bar stays /blog/:slug?utm=...
+  // Humans: SPA shell in one round-trip (no ?__spa=1 redirect). `__spa=1` is ignored but harmless in the bar.
   if (!isCrawler) {
-    return Response.redirect(buildSpaUrl(reqUrl), 302);
+    return serveBlogSpaShell(reqUrl, slug);
   }
 
   const base = process.env.VITE_SUPABASE_URL;
