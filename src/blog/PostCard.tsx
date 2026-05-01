@@ -56,7 +56,7 @@ export function PostCard({
         to={`/blog/${post.slug}`}
         className={cn(
           "group flex h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2",
-          isList && "flex-col items-stretch md:flex-row",
+          isList && "flex-col items-stretch md:flex-row md:items-center",
           !isList && "flex-col",
           compact && !isList && "md:flex-row",
         )}
@@ -68,9 +68,9 @@ export function PostCard({
             isList
               ? cn(
                   "shrink-0 overflow-hidden bg-muted",
-                  // Mobile: thumbnail lebar di atas. md+: lebar tetap, tinggi mengikuti baris (tanpa celah bawah).
-                  "h-40 w-full border-b border-border/70 sm:h-44 md:h-auto md:min-h-0 md:w-44 md:self-stretch md:border-b-0 md:border-r",
-                  priority && "h-44 sm:h-48 md:w-48",
+                  // Bawah md: persegi penuh lebar kartu. md+: persegi lebar tetap 11rem / sorotan 12rem.
+                  "aspect-square w-full border-b border-border/70 md:w-44 md:shrink-0 md:border-b-0 md:border-r",
+                  priority && "md:w-48",
                 )
               : cn("w-full bg-gradient-to-br", postAccentClass(post.accent)),
             !isList &&
