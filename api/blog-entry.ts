@@ -44,14 +44,6 @@ function buildPublicShareUrl(publicOrigin: string, slug: string, reqUrl: URL): s
   return q ? `${canonical}?${q}` : canonical;
 }
 
-function guessOgImageMimeFromPost(post: PostPreviewRow): string {
-  const s = `${post.cover_image_url ?? ""} ${post.cover_image_path ?? ""}`.toLowerCase();
-  if (s.includes(".png")) return "image/png";
-  if (s.includes(".webp")) return "image/webp";
-  if (s.includes(".gif")) return "image/gif";
-  return "image/jpeg";
-}
-
 /** Blok meta OG/Twitter untuk satu artikel (dipakai template crawler + injeksi shell SPA). */
 function buildArticleOgMetaBlock(opts: {
   title: string;
@@ -68,7 +60,6 @@ function buildArticleOgMetaBlock(opts: {
   const normalizedImg = opts.imageProxyUrl ? opts.imageProxyUrl.replace(/^http:\/\//i, "https://") : "";
   const safeImg = esc(normalizedImg);
   const hasImg = Boolean(opts.imageProxyUrl);
-  const mime = opts.post ? guessOgImageMimeFromPost(opts.post) : "image/jpeg";
 
   const lines: string[] = [
     `<title>${safeTitle}</title>`,
@@ -79,12 +70,11 @@ function buildArticleOgMetaBlock(opts: {
     `<meta property="og:url" content="${safeShareUrl}" />`,
   ];
   if (hasImg) {
+    // Tanpa og:image:type / width / height: proxy OG sering mengembalikan WebP hasil render,
+    // sementara sampul asli bisa JPEG/PNG — meta statis 1200×630 menyesatkan dan mengganggu pratinjau WA/FB.
     lines.push(
       `<meta property="og:image" content="${safeImg}" />`,
       `<meta property="og:image:secure_url" content="${safeImg}" />`,
-      `<meta property="og:image:type" content="${mime}" />`,
-      `<meta property="og:image:width" content="1200" />`,
-      `<meta property="og:image:height" content="630" />`,
     );
   }
   lines.push(

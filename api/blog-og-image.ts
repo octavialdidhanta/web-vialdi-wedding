@@ -23,30 +23,76 @@ function buildStoragePublicObjectUrl(baseNoSlash: string, bucket: string, path: 
   return `${baseNoSlash}/storage/v1/object/public/${bucket}/${encodedPath}`;
 }
 
+/** Selaras `supabaseRenderUrl` di `blog-entry.ts` — file kecil & WebP lebih ramah pratinjau WA/FB. */
+function supabaseRenderUrlFromPublicObjectUrl(
+  publicObjectUrl: string,
+  width: number,
+  quality: string,
+): string | null {
+  try {
+    const u = new URL(publicObjectUrl);
+    if (!u.hostname.endsWith(".supabase.co")) return null;
+    const marker = "/storage/v1/object/public/";
+    const i = u.pathname.indexOf(marker);
+    if (i === -1) return null;
+    const rest = u.pathname.slice(i + marker.length);
+    const slash = rest.indexOf("/");
+    if (slash <= 0) return null;
+    const bucket = rest.slice(0, slash);
+    const obj = rest.slice(slash + 1);
+    if (!obj) return null;
+    const params = new URLSearchParams({
+      width: String(width),
+      quality,
+      format: "webp",
+    });
+    return `${u.origin}/storage/v1/render/image/public/${bucket}/${obj}?${params.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
+function pushUniqueOrdered(out: string[], url: string, atFront: boolean) {
+  const t = url.trim();
+  if (!t) return;
+  const n = t.replace(/^http:\/\//i, "https://");
+  if (out.includes(n)) return;
+  if (atFront) out.unshift(n);
+  else out.push(n);
+}
+
 /**
- * Urutan: path → URL eksternal/tambahan (dedupe). Path dulu agar upload CMS selalu konsisten.
+ * Urutan: (1) render Supabase WebP jika ada, (2) object/public, (3) cover_image_url.
+ * Render diprioritaskan agar ukuran mirip antar artikel — JPEG sampul besar sering gagal di pratinjau WhatsApp.
  */
 function collectCoverImageCandidates(post: PostPreviewRow, supabaseBase: string): string[] {
   const cleanBase = supabaseBase.replace(/\/+$/, "");
   const out: string[] = [];
-  const push = (s: string) => {
-    const t = s.trim();
-    if (!t) return;
-    const n = t.replace(/^http:\/\//i, "https://");
-    if (!out.includes(n)) out.push(n);
-  };
 
   const p = post.cover_image_path?.trim();
   if (p) {
-    push(buildStoragePublicObjectUrl(cleanBase, "blog-media", p));
+    const publicUrl = buildStoragePublicObjectUrl(cleanBase, "blog-media", p);
+    const render = supabaseRenderUrlFromPublicObjectUrl(publicUrl, 1200, "80");
+    if (render) pushUniqueOrdered(out, render, true);
+    pushUniqueOrdered(out, publicUrl, false);
   }
 
   const u = post.cover_image_url?.trim();
   if (u) {
+    let full = "";
     if (u.startsWith("http://") || u.startsWith("https://")) {
-      push(u);
+      full = u;
     } else if (u.startsWith("/")) {
-      push(`${cleanBase}${u}`);
+      full = `${cleanBase}${u}`;
+    }
+    if (full) {
+      const render = supabaseRenderUrlFromPublicObjectUrl(
+        full.replace(/^http:\/\//i, "https://"),
+        1200,
+        "80",
+      );
+      if (render) pushUniqueOrdered(out, render, true);
+      pushUniqueOrdered(out, full, false);
     }
   }
 
@@ -87,6 +133,7 @@ async function fetchCover(slug: string, base: string, anonKey: string): Promise<
 
 function guessImageContentType(url: string) {
   const u = url.toLowerCase();
+  if (u.includes("format=webp")) return "image/webp";
   if (u.includes(".png")) return "image/png";
   if (u.includes(".webp")) return "image/webp";
   if (u.includes(".gif")) return "image/gif";
