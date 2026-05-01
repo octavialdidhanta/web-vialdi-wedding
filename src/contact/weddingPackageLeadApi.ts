@@ -1,6 +1,5 @@
-import type { LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
+import type { AnalyticsWebId, LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
 import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
-import type { AnalyticsWebId } from "@/analytics/trackRegistry";
 import { clearWeddingPackageLeadBrowserSession } from "@/contact/weddingPackageLeadSession";
 
 type SupabaseFunctionsErrors = {

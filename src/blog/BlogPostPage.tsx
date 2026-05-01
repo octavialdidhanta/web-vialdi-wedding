@@ -58,8 +58,8 @@ function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
       srcSet={imgProps.srcSet}
       sizes={imgProps.sizes}
       alt={alt}
-      width={1200}
-      height={1200}
+      width={800}
+      height={800}
       className="relative z-0 h-full w-full max-h-full object-contain"
       loading="eager"
       decoding="async"
@@ -204,7 +204,7 @@ export function BlogPostPage() {
             >
               {/* Mobile: gambar hero dulu agar LCP lebih cepat; desktop: teks kiri, gambar kanan */}
               {post.coverImage.trim() ? (
-                <figure className="relative order-1 aspect-square w-full max-w-full shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2 lg:max-w-[min(100%,22rem)] lg:justify-self-end">
+                <figure className="relative order-1 mx-auto aspect-square w-full max-w-[min(100%,22rem)] shrink-0 self-start overflow-hidden rounded-xl border border-border bg-muted lg:order-2 lg:justify-self-end">
                   <ArticleHeroCoverImage src={post.coverImage} alt="" />
                 </figure>
               ) : null}

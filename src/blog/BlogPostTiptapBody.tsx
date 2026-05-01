@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { generateHTML } from "@tiptap/html";
 import type { JSONContent } from "@tiptap/core";
-import { tiptapDocumentExtensions } from "@/admin/lib/documentExtensions";
+import { tiptapArticleReadExtensions } from "@/blog/tiptapArticleReadExtensions";
 import { PackageConsultOpenerProvider } from "@/1-home/context/PackageConsultOpenerContext";
 
 const PackageCarouselStrip = lazy(() =>
@@ -57,7 +57,7 @@ export function BlogPostTiptapBody({ doc }: Props) {
             }
             const html = generateHTML(
               { type: "doc", content: seg.nodes },
-              tiptapDocumentExtensions,
+              tiptapArticleReadExtensions,
             );
             return (
               <div

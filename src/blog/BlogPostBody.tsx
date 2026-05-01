@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import type { JSONContent } from "@tiptap/core";
+import type { JSONContent } from "@/blog/jsonContentTypes";
 import { isPlaceholderTiptapDoc } from "@/admin/lib/isPlaceholderTiptapDoc";
 
 const BlogPostTiptapBody = lazy(() =>

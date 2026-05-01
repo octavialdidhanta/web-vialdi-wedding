@@ -222,8 +222,23 @@ export default defineConfig(({ mode }) => {
            * agar dynamic import tidak memicu banyak request kecil berantai.
            */
           manualChunks(id) {
-            if (id.includes("/src/analytics/")) return "analytics";
+            /**
+             * `trackRegistry` / `trackKeyUtils` ringan — jangan gabung dengan `sendAnalyticsBatch` + Supabase
+             * agar halaman blog/header tidak memuat ~250 KiB analytics hanya untuk `TRACK_KEYS`.
+             */
             if (id.includes("node_modules/lucide-react")) return "icons";
+            if (id.includes("node_modules")) {
+              const base = id.replace(/\\/g, "/");
+              if (base.includes("@tiptap/") || base.includes("prosemirror-")) {
+                return "tiptap-vendor";
+              }
+            }
+            if (id.includes("/src/analytics/")) {
+              if (id.includes("trackRegistry") || id.includes("trackKeyUtils")) {
+                return undefined;
+              }
+              return "analytics";
+            }
             /**
              * Jangan gabungkan semua Radix ke satu chunk.
              * Home butuh `react-accordion`, tapi Select/Menu/ScrollArea hanya dipakai di area lain (admin/forms).

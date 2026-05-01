@@ -13,7 +13,11 @@ function supabaseImageTransformEnabled(): boolean {
   return v === "true" || v === "1";
 }
 
-export function buildSupabaseCoverRenderUrl(originalUrl: string, width: number): string | null {
+export function buildSupabaseCoverRenderUrl(
+  originalUrl: string,
+  width: number,
+  quality: string = "82",
+): string | null {
   if (!supabaseImageTransformEnabled()) return null;
   try {
     const u = new URL(originalUrl);
@@ -28,7 +32,7 @@ export function buildSupabaseCoverRenderUrl(originalUrl: string, width: number):
     if (!objectPath) return null;
     const params = new URLSearchParams({
       width: String(width),
-      quality: "82",
+      quality,
       format: "webp",
     });
     return `${u.origin}/storage/v1/render/image/public/${bucket}/${objectPath}?${params.toString()}`;
@@ -47,28 +51,41 @@ function emptyCoverImgProps(): BlogCoverImgProps {
   return { src: "", sizes: "1px" };
 }
 
-/** Lebar untuk srcset — cukup untuk hero blog (mobile + desktop kolom kanan). */
-const HERO_WIDTHS = [480, 720, 960, 1200] as const;
+/**
+ * Hero artikel: `sizes` selaras `max-w-[22rem]` + kolom ~26% di desktop (BlogPostPage).
+ * Mobile tidak lagi `100vw` mentah — mengurangi unduhan LCP di PageSpeed.
+ */
+const BLOG_HERO_SIZES =
+  "(max-width: 1023px) min(100vw - 2rem, 22rem), min(26vw, 22rem)" as const;
+
+const HERO_QUALITY = "76";
+
+/** Lebar srcset hero — cukup sampai ~2× 22rem @2x; tanpa 1200w+ yang membebani mobile. */
+const HERO_WIDTHS = [360, 480, 640, 800, 960] as const;
+
+function heroTransformUrl(originalUrl: string, width: number): string | null {
+  return buildSupabaseCoverRenderUrl(originalUrl, width, HERO_QUALITY);
+}
 
 export function getBlogHeroCoverImgProps(originalUrl: string): BlogCoverImgProps {
   if (!originalUrl?.trim()) return emptyCoverImgProps();
-  const base720 = buildSupabaseCoverRenderUrl(originalUrl, 720);
-  if (!base720) {
+  const base640 = heroTransformUrl(originalUrl, 640);
+  if (!base640) {
     return {
       src: originalUrl,
-      sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 26vw",
+      sizes: BLOG_HERO_SIZES,
     };
   }
   const srcSet = HERO_WIDTHS.map((w) => {
-    const url = buildSupabaseCoverRenderUrl(originalUrl, w);
+    const url = heroTransformUrl(originalUrl, w);
     return url ? `${url} ${w}w` : null;
   })
     .filter(Boolean)
     .join(", ");
   return {
-    src: buildSupabaseCoverRenderUrl(originalUrl, 960) ?? base720,
+    src: heroTransformUrl(originalUrl, 640) ?? base640,
     srcSet,
-    sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 26vw",
+    sizes: BLOG_HERO_SIZES,
   };
 }
 
