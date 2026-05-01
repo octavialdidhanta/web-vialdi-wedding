@@ -38,14 +38,10 @@ export function PostCard({
       >
         <div
           className={cn(
-            "relative isolate shrink-0 overflow-hidden bg-gradient-to-br",
+            "relative isolate flex w-full shrink-0 justify-center overflow-hidden bg-gradient-to-br",
             postAccentClass(post.accent),
-            // object-cover perlu bingkai aspect tetap → isi penuh tanpa letterbox (trade-off: crop tepi).
-            compact
-              ? "aspect-[16/10] w-full md:aspect-auto md:min-h-[12.5rem] md:w-[38%] md:max-w-sm md:self-stretch"
-              : priority
-                ? "aspect-[16/10] w-full sm:aspect-[2/1] md:aspect-[21/9]"
-                : "aspect-[16/10] w-full sm:aspect-[16/9]",
+            compact &&
+              "md:flex md:min-h-[11rem] md:w-[38%] md:max-w-sm md:self-stretch md:items-center md:justify-center",
           )}
         >
           <img
@@ -53,12 +49,17 @@ export function PostCard({
             srcSet={coverImg.srcSet}
             sizes={coverImg.sizes}
             alt={post.title}
-            className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+            className={cn(
+              "relative z-0 h-auto w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]",
+              "max-h-[min(52vh,440px)] sm:max-h-[min(56vh,480px)]",
+              priority && "max-h-[min(58vh,520px)] sm:max-h-[min(62vh,560px)]",
+              compact && "md:max-h-[min(72vh,560px)]",
+            )}
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "low"}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
           <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 md:bottom-2.5 md:left-2.5">
             {post.tags.map((t) => (
               <span

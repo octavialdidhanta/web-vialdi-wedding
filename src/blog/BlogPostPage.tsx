@@ -45,14 +45,14 @@ function ArticleHeroCoverImage({ src, alt }: { src: string; alt: string }) {
   }, [src]);
 
   return (
-    <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[4/3]">
+    <div className="relative flex w-full justify-center overflow-hidden">
       <img
         ref={ref}
         src={imgProps.src}
         srcSet={imgProps.srcSet}
         sizes={imgProps.sizes}
         alt={alt}
-        className="absolute inset-0 h-full w-full object-cover object-center"
+        className="relative z-0 mx-auto block h-auto w-auto max-h-[min(88vh,960px)] max-w-full object-contain"
         loading="eager"
         decoding="async"
         fetchPriority="high"
