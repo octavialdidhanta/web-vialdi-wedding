@@ -119,12 +119,27 @@ function snapshotHasAttribution(s: LandingAttributionSnapshot): boolean {
 function parseLandingFromLocation(): LandingAttributionSnapshot {
   const url = new URL(window.location.href);
   const sp = url.searchParams;
+  const getParam = (name: string): string | null => {
+    // URLSearchParams is case-sensitive; ads/redirect tools sometimes send UTM in uppercase.
+    const v =
+      sp.get(name) ??
+      sp.get(name.toLowerCase()) ??
+      sp.get(name.toUpperCase()) ??
+      sp.get(
+        name
+          .toLowerCase()
+          .split("_")
+          .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : p))
+          .join("_"),
+      );
+    return v;
+  };
   const q = (name: string) => {
-    const v = sp.get(name);
+    const v = getParam(name);
     return v != null && v.trim() !== "" ? clip(v.trim(), MAX_UTM_FIELD) : undefined;
   };
   const hasNonEmptyParam = (name: string) => {
-    const v = sp.get(name);
+    const v = getParam(name);
     return v != null && v.trim() !== "";
   };
   const explicitMetaParam =
