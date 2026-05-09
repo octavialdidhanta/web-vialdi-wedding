@@ -1,6 +1,7 @@
 import { randomUuidV4 } from "@/share/lib/randomUuid";
 
 const SESSION_KEY_PREFIX = "vw_analytics_session_v1";
+const VISITOR_KEY_PREFIX = "vw_analytics_visitor_v1";
 
 /** Nilai yang sama dengan CHECK di DB + validasi Edge. */
 const ALLOWED_WEB_IDS = ["vialdi-wedding"] as const;
@@ -20,6 +21,10 @@ export function getRequiredWebId(): AnalyticsWebId {
 
 function sessionStorageKey(): string {
   return `${SESSION_KEY_PREFIX}_${getRequiredWebId()}`;
+}
+
+function visitorLocalStorageKey(): string {
+  return `${VISITOR_KEY_PREFIX}_${getRequiredWebId()}`;
 }
 
 const LANDING_SNAPSHOT_PREFIX = "vw_analytics_landing_v1";
@@ -406,6 +411,28 @@ export function getOrCreateSessionId(): string {
   }
 }
 
+/**
+ * Visitor id stabil per origin + web_id (localStorage), sama di semua tab/sesi browser.
+ * Dipakai untuk analytics_sessions.visitor_id (NOT NULL di DB).
+ */
+export function getOrCreateVisitorId(): string {
+  const key = visitorLocalStorageKey();
+  try {
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      const t = existing.trim();
+      if (t.length > 0 && t.length <= 64) {
+        return t;
+      }
+    }
+    const id = randomUuidV4();
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return getOrCreateSessionId();
+  }
+}
+
 export function resetAnalyticsSessionId(): void {
   const key = sessionStorageKey();
   try {
@@ -432,11 +459,13 @@ function isClickEvent(ev: IngestEvent): ev is ClickEvent {
 
 function buildIngestRequest(events: IngestEvent[], options?: { authUserId?: string | null; keepalive?: boolean }) {
   const session_id = getOrCreateSessionId();
+  const visitor_id = getOrCreateVisitorId();
   const web_id = getRequiredWebId();
   const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
   const anon = getAnonKey();
   const body = JSON.stringify({
     session_id,
+    visitor_id,
     web_id,
     auth_user_id: options?.authUserId ?? null,
     events,
@@ -577,6 +606,7 @@ export async function sendAnalyticsBatch(
   }
 
   const session_id = getOrCreateSessionId();
+  const visitor_id = getOrCreateVisitorId();
   const web_id = getRequiredWebId();
   const skipAuthLookup = options?.skipAuthLookup ?? true;
   const auth_user_id = skipAuthLookup
@@ -584,7 +614,7 @@ export async function sendAnalyticsBatch(
     : (options?.authUserId ?? (await getOptionalAuthUserId()));
   const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
   const anon = getAnonKey();
-  const body = JSON.stringify({ session_id, web_id, auth_user_id, events });
+  const body = JSON.stringify({ session_id, visitor_id, web_id, auth_user_id, events });
 
   const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
 

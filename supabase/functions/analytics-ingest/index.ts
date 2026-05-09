@@ -52,6 +52,11 @@ type Body = {
   session_id: string;
   /** Harus salah satu: vialdi | vialdi-wedding | synckerja (sama dengan CHECK di DB). */
   web_id: string;
+  /**
+   * Visitor id stabil (localStorage); opsional — server memakai session_id jika kosong.
+   * DB: analytics_sessions.visitor_id NOT NULL (max 64 chars).
+   */
+  visitor_id?: string;
   auth_user_id?: string | null;
   events: IngestEvent[];
 };
@@ -326,6 +331,12 @@ Deno.serve(async (req) => {
     if (mergedUtmContent.length > 0) mergedMetaAd = mergedUtmContent;
   }
 
+  const visitorRaw =
+    typeof body.visitor_id === "string" && body.visitor_id.trim().length > 0
+      ? body.visitor_id.trim()
+      : body.session_id;
+  const pVisitorId = visitorRaw.length > 64 ? visitorRaw.slice(0, 64) : visitorRaw;
+
   const { error: touchErr } = await supabase.rpc("analytics_session_touch", {
     p_session: body.session_id,
     p_web_id: webId,
@@ -346,6 +357,7 @@ Deno.serve(async (req) => {
     p_has_msclkid: mergedHasMsclkid,
     p_has_gbraid: mergedHasGbraid,
     p_has_wbraid: mergedHasWbraid,
+    p_visitor_id: pVisitorId,
   });
   if (touchErr) {
     console.error("analytics_session_touch", touchErr);
