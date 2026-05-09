@@ -488,7 +488,11 @@ async function flushPendingClicks(opts?: { keepalive?: boolean }) {
   clearClickFlushTimer();
 
   try {
-    await runIngestFetch(buildIngestRequest(batch, { keepalive: opts?.keepalive }));
+    // Selalu sertakan session_touch: batch klik saja membuat Edge memanggil analytics_session_touch
+    // dengan merge kosong → baris sesi baru tanpa UTM (terklasifikasi Direct) bila klik sampai lebih dulu.
+    await runIngestFetch(
+      buildIngestRequest([buildSessionTouchEvent(), ...batch], { keepalive: opts?.keepalive }),
+    );
   } catch (e) {
     // Never throw in analytics; keep pending to retry on next flush opportunity.
     pendingClicks = batch.concat(pendingClicks);
