@@ -185,7 +185,9 @@ export function AdminShortLinksPage() {
               <th className="px-4 py-3 font-medium">Path</th>
               <th className="px-4 py-3 font-medium">UTM</th>
               <th className="px-4 py-3 font-medium">Aktif</th>
-              <th className="px-4 py-3 font-medium tabular-nums">Klik</th>
+              <th className="px-4 py-3 font-medium tabular-nums" title="Unik per browser (cookie situs), bukan jumlah klik mentah">
+                Visitor
+              </th>
               <th className="px-4 py-3 font-medium text-right">Aksi</th>
             </tr>
           </thead>
@@ -219,7 +221,12 @@ export function AdminShortLinksPage() {
                     {utmSummary(r)}
                   </td>
                   <td className="px-4 py-3">{r.active ? "Ya" : "Tidak"}</td>
-                  <td className="px-4 py-3 tabular-nums">{r.click_count}</td>
+                  <td
+                    className="px-4 py-3 tabular-nums"
+                    title={`${r.click_count} total redirect (semua klik)`}
+                  >
+                    {r.visitor_count ?? 0}
+                  </td>
                   <td className="space-x-1 px-4 py-3 text-right whitespace-nowrap">
                     <Button
                       type="button"

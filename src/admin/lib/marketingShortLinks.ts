@@ -11,7 +11,10 @@ export type MarketingShortLinkRow = {
   utm_content: string | null;
   utm_term: string | null;
   active: boolean;
+  /** Total redirects (every hit). */
   click_count: number;
+  /** Distinct visitors per slug (first-party cookie via `/l` proxy). */
+  visitor_count: number;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -109,7 +112,7 @@ export async function adminListMarketingShortLinks(): Promise<MarketingShortLink
   const { data, error } = await supabase
     .from("marketing_short_links")
     .select(
-      "id, slug, site_origin, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active, click_count, created_at, updated_at, created_by",
+      "id, slug, site_origin, pathname, utm_source, utm_medium, utm_campaign, utm_content, utm_term, active, click_count, visitor_count, created_at, updated_at, created_by",
     )
     .order("updated_at", { ascending: false });
   if (error) throw error;

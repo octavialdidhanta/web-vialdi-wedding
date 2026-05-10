@@ -2,10 +2,10 @@
 
 ## Ringkasan
 
-1. **Migrasi Postgres** — tabel `marketing_short_links`, RLS admin, RPC `increment_marketing_short_link_click`.
-2. **Edge Function** `link-redirect` — GET, secret `PUBLIC_SITE_ORIGIN` (mis. `https://jasafotowedding.com`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+1. **Migrasi Postgres** — tabel `marketing_short_links`, RLS admin, RPC `increment_marketing_short_link_click`, kolom `visitor_count`, tabel `marketing_short_link_visitors`, RPC `record_marketing_short_link_visitor`.
+2. **Edge Function** `link-redirect` — GET/HEAD, secret `PUBLIC_SITE_ORIGIN` (mis. `https://jasafotowedding.com`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Membaca header `X-Sl-Visitor` (dari proxy Vercel) atau cookie `vialdi_sl_vid` untuk pengunjung unik per slug.
 3. **Frontend** — `/admin/links`, env `VITE_PUBLIC_SITE_ORIGIN` untuk URL salin.
-4. **Vercel** — rewrite `/l/:slug` → `/api/shortlink-redirect` (sudah di [`vercel.json`](../vercel.json)); API Edge memakai `VITE_SUPABASE_URL` dari env project Vercel (sama seperti build SPA).
+4. **Vercel** — rewrite `/l/:slug` → `/api/shortlink-redirect` (sudah di [`vercel.json`](../vercel.json)); route ini **mem-proxy** ke Supabase (fetch server-side, bukan 307 ke domain Supabase) agar cookie first-party `vialdi_sl_vid` mengikat ke domain situs Anda. Perlu `VITE_SUPABASE_URL` dan **`VITE_SUPABASE_ANON_KEY`** (sama seperti frontend) untuk memanggil function dari Edge Vercel.
 
 ## Supabase
 
@@ -26,6 +26,7 @@ Di **Project Settings → Edge Functions → Secrets** (atau CLI `supabase secre
 Pastikan environment **Production** (dan Preview jika perlu) memuat:
 
 - `VITE_SUPABASE_URL` — sama seperti untuk frontend (wajib untuk `api/shortlink-redirect` dan bundle).
+- `VITE_SUPABASE_ANON_KEY` — wajib untuk `api/shortlink-redirect` (Bearer + `apikey` ke Edge Function).
 - `VITE_PUBLIC_SITE_ORIGIN` = `https://jasafotowedding.com` — agar tombol **Salin** di admin memakai domain benar.
 
 Deploy ulang setelah migrasi & function.
@@ -36,7 +37,8 @@ Deploy ulang setelah migrasi & function.
 - [ ] **UTM:** parameter `utm_source`, `utm_medium`, dll. muncul di URL final.
 - [ ] **Non-admin:** user tanpa baris di `cms_admins` tidak bisa `select/insert` ke `marketing_short_links` (coba dari klien anon / user biasa).
 - [ ] **Slug unik:** buat dua link dengan slug sama → error jelas di UI.
-- [ ] **Klik:** kolom `click_count` bertambah setelah kunjungan (opsional, jika RPC berjalan).
+- [ ] **Klik mentah:** kolom `click_count` bertambah setiap redirect (opsional, jika RPC berjalan).
+- [ ] **Visitor:** kolom `visitor_count` bertambah sekali per browser/cookie per slug; hover baris admin menunjukkan total redirect (`click_count`).
 
 ## Tanpa Vercel
 

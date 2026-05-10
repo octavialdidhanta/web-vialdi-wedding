@@ -1,8 +1,10 @@
 /**
  * Supabase Edge Function: link-redirect
  *
- * GET: 302 redirect to PUBLIC_SITE_ORIGIN + pathname + optional UTM query.
+ * GET/HEAD: 302 redirect to PUBLIC_SITE_ORIGIN + pathname + optional UTM query.
  * Lookup by slug (marketing_short_links), service role.
+ *
+ * Visitor dedupe: prefers `X-Sl-Visitor` (set by Vercel `api/shortlink-redirect`) or cookie `vialdi_sl_vid`.
  *
  * Secrets:
  * - SUPABASE_URL
@@ -94,6 +96,48 @@ function clipUtm(s: string | null): string | null {
   return t.length > MAX_UTM_LEN ? t.slice(0, MAX_UTM_LEN) : t;
 }
 
+/** First-party cookie name when redirect is served directly from this function (dev / non-Vercel). */
+const VISITOR_COOKIE = "vialdi_sl_vid";
+/** Set by `api/shortlink-redirect` (Vercel) so this function does not need to set cookies on Supabase domain. */
+const VISITOR_HEADER = "x-sl-visitor";
+
+function parseCookieHeader(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    if (k !== name) continue;
+    const v = part.slice(idx + 1).trim();
+    return v.length ? decodeURIComponent(v) : null;
+  }
+  return null;
+}
+
+function isValidVisitorKey(s: string): boolean {
+  const t = s.trim();
+  return t.length >= 1 && t.length <= 64 && /^[\w.-]+$/.test(t);
+}
+
+/** Resolve visitor key for dedupe; optionally attach Set-Cookie for direct Supabase hits only. */
+function resolveVisitorKey(req: Request): { key: string; setCookie: string | null } {
+  const fromProxy = (req.headers.get(VISITOR_HEADER) ?? "").trim();
+  if (fromProxy && isValidVisitorKey(fromProxy)) {
+    return { key: fromProxy.trim(), setCookie: null };
+  }
+  const fromCookie = parseCookieHeader(req.headers.get("cookie"), VISITOR_COOKIE);
+  if (fromCookie && isValidVisitorKey(fromCookie)) {
+    return { key: fromCookie.trim(), setCookie: null };
+  }
+  const fresh = crypto.randomUUID();
+  const maxAge = 31536000;
+  const secure = new URL(req.url).protocol === "https:";
+  const cookieVal = `${VISITOR_COOKIE}=${encodeURIComponent(fresh)}; Path=/; Max-Age=${maxAge}; SameSite=Lax; HttpOnly${
+    secure ? "; Secure" : ""
+  }`;
+  return { key: fresh, setCookie: cookieVal };
+}
+
 function buildLocation(origin: string, row: LinkRow): string {
   const params = new URLSearchParams();
   const pairs: [string, string | null][] = [
@@ -172,6 +216,16 @@ Deno.serve(async (req) => {
   }
 
   const location = buildLocation(origin, row);
+  const { key: visitorKey, setCookie } = resolveVisitorKey(req);
+
+  try {
+    await supabase.rpc("record_marketing_short_link_visitor", {
+      p_link_id: row.id,
+      p_visitor_key: visitorKey,
+    });
+  } catch {
+    // non-blocking
+  }
 
   try {
     await supabase.rpc("increment_marketing_short_link_click", { p_id: row.id });
@@ -179,9 +233,12 @@ Deno.serve(async (req) => {
     // non-blocking
   }
 
+  const redirectHeaders: Record<string, string> = { Location: location };
+  if (setCookie) redirectHeaders["Set-Cookie"] = setCookie;
+
   if (req.method === "HEAD") {
-    return new Response(null, { status: 302, headers: { Location: location } });
+    return new Response(null, { status: 302, headers: redirectHeaders });
   }
 
-  return Response.redirect(location, 302);
+  return new Response(null, { status: 302, headers: redirectHeaders });
 });
