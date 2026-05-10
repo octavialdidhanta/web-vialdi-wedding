@@ -6,6 +6,9 @@
  *
  * Visitor dedupe: prefers `X-Sl-Visitor` (set by Vercel `api/shortlink-redirect`) or cookie `vialdi_sl_vid`.
  *
+ * Redirect latency: 302 is returned immediately after slug lookup. Visitor + click counters run in the
+ * background via `EdgeRuntime.waitUntil` so taps from Instagram etc. are not blocked on DB RPCs.
+ *
  * Secrets:
  * - SUPABASE_URL
  * - SUPABASE_SERVICE_ROLE_KEY
@@ -13,6 +16,18 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+/** Keep isolate alive for analytics after sending 302 (Supabase Edge background tasks). */
+function scheduleShortLinkAnalytics(promise: PromiseLike<unknown>): void {
+  const edge = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil: (p: PromiseLike<unknown>) => void };
+  }).EdgeRuntime;
+  if (edge) {
+    edge.waitUntil(Promise.resolve(promise));
+  } else {
+    void Promise.resolve(promise);
+  }
+}
 
 const MAX_PATH_LEN = 512;
 const MAX_UTM_LEN = 200;
@@ -218,20 +233,15 @@ Deno.serve(async (req) => {
   const location = buildLocation(origin, row);
   const { key: visitorKey, setCookie } = resolveVisitorKey(req);
 
-  try {
-    await supabase.rpc("record_marketing_short_link_visitor", {
-      p_link_id: row.id,
-      p_visitor_key: visitorKey,
-    });
-  } catch {
-    // non-blocking
-  }
-
-  try {
-    await supabase.rpc("increment_marketing_short_link_click", { p_id: row.id });
-  } catch {
-    // non-blocking
-  }
+  scheduleShortLinkAnalytics(
+    Promise.all([
+      supabase.rpc("record_marketing_short_link_visitor", {
+        p_link_id: row.id,
+        p_visitor_key: visitorKey,
+      }),
+      supabase.rpc("increment_marketing_short_link_click", { p_id: row.id }),
+    ]).catch(() => undefined),
+  );
 
   const redirectHeaders: Record<string, string> = { Location: location };
   if (setCookie) redirectHeaders["Set-Cookie"] = setCookie;

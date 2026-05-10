@@ -1,5 +1,9 @@
 import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { supabase } from "@/share/supabaseClient";
+import {
+  jakartaTodayYmd as jakartaTodayYmdTz,
+  jakartaYmdAddDays,
+} from "@/admin/lib/trafficDashboardDateRange";
 
 export type AnalyticsTotals = {
   impressions: number;
@@ -13,28 +17,6 @@ export type AnalyticsDailyRow = {
   clicks: number;
 };
 
-export type AnalyticsPathRow = {
-  path: string;
-  impressions: number;
-  /** Distinct session_id pada page_views path ini (rentang started_at). */
-  unique_sessions: number;
-  /** Jumlah analytics_click_events dengan path yang sama (rentang created_at). */
-  path_clicks: number;
-  /** Median active_ms; hanya bermakna jika duration_n > 0 (filter sama duration_by_path). */
-  median_active_ms: number | null;
-  /** Rata-rata active_ms pada subset yang sama dengan median. */
-  avg_active_ms: number | null;
-  /** Jumlah baris page_views yang masuk agregat durasi (ended_at not null OR active_ms > 0). */
-  duration_n: number;
-};
-export type AnalyticsTrackKeyRow = { track_key: string; clicks: number; ctr: number };
-export type AnalyticsBlogRow = {
-  path: string;
-  title: string | null;
-  impressions: number;
-  avg_active_ms: number;
-};
-
 export type AnalyticsDurationRow = { path: string; avg_ms: number };
 export type AnalyticsHeatmapRow = {
   route_bucket: string;
@@ -42,56 +24,11 @@ export type AnalyticsHeatmapRow = {
   avg_ms: number;
 };
 
-export type AnalyticsServiceSlice = {
-  impressions: number;
-  contact_clicks_on_service: number;
-  conversion: number;
-};
-
-/** Sesi dengan aktivitas di rentang, dikelompokkan ke satu channel (heuristik server). */
-export type AnalyticsAcquisitionChannelRow = {
-  channel: string;
-  sessions: number;
-};
-
-export type AnalyticsAcquisitionCampaignRow = {
-  utm_source: string;
-  utm_medium: string;
-  utm_campaign: string;
-  utm_content: string;
-  utm_term: string;
-  /** Max per bucket UTM; dari kolom meta_* (URL meta_* atau mirror Meta). */
-  meta_campaign_name: string;
-  meta_adset_name: string;
-  meta_ad_name: string;
-  sessions: number;
-};
-
-/**
- * Breakdown Meta dari kolom meta_*.
- * Sumber: query `meta_campaign` / `meta_adset` / `meta_ad`, atau (bila tidak ada) mirror dari UTM
- * untuk traffic Meta — sesuai Meta Ads Manager: campaign→utm_campaign, ad set→utm_medium, ad id→utm_content.
- */
-export type AnalyticsAcquisitionMetaAdsRow = {
-  meta_campaign_name: string;
-  meta_adset_name: string;
-  meta_ad_name: string;
-  sessions: number;
-};
-
 export type AdminAnalyticsSummary = {
   totals: AnalyticsTotals;
   daily: AnalyticsDailyRow[];
-  top_paths: AnalyticsPathRow[];
-  top_track_keys: AnalyticsTrackKeyRow[];
-  top_blog: AnalyticsBlogRow[];
   duration_by_path: AnalyticsDurationRow[];
   heatmap: AnalyticsHeatmapRow[];
-  service: AnalyticsServiceSlice;
-  acquisition_channels: AnalyticsAcquisitionChannelRow[];
-  acquisition_top_campaigns: AnalyticsAcquisitionCampaignRow[];
-  /** Agregat terpisah by meta_* saja; UI utama memakai kolom meta_* di acquisition_top_campaigns. */
-  acquisition_top_meta_ads: AnalyticsAcquisitionMetaAdsRow[];
 };
 
 function asNumber(v: unknown, fallback = 0): number {
@@ -111,11 +48,6 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
     string,
     unknown
   >;
-  const svc = (o.service && typeof o.service === "object" ? o.service : {}) as Record<
-    string,
-    unknown
-  >;
-
   const mapRow = (r: unknown): Record<string, unknown> =>
     r && typeof r === "object" ? (r as Record<string, unknown>) : {};
 
@@ -135,48 +67,6 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
           };
         })
       : [],
-    top_paths: Array.isArray(o.top_paths)
-      ? (o.top_paths as unknown[]).map((row) => {
-          const x = mapRow(row);
-          const durationN = asNumber(x.duration_n);
-          const medianRaw = x.median_active_ms;
-          const avgRaw = x.avg_active_ms;
-          return {
-            path: String(x.path ?? ""),
-            impressions: asNumber(x.impressions),
-            unique_sessions: asNumber(x.unique_sessions),
-            path_clicks: asNumber(x.path_clicks),
-            median_active_ms:
-              durationN > 0 && medianRaw != null && medianRaw !== ""
-                ? asNumber(medianRaw)
-                : null,
-            avg_active_ms:
-              durationN > 0 && avgRaw != null && avgRaw !== "" ? asNumber(avgRaw) : null,
-            duration_n: durationN,
-          };
-        })
-      : [],
-    top_track_keys: Array.isArray(o.top_track_keys)
-      ? (o.top_track_keys as unknown[]).map((row) => {
-          const x = mapRow(row);
-          return {
-            track_key: String(x.track_key ?? ""),
-            clicks: asNumber(x.clicks),
-            ctr: asNumber(x.ctr),
-          };
-        })
-      : [],
-    top_blog: Array.isArray(o.top_blog)
-      ? (o.top_blog as unknown[]).map((row) => {
-          const x = mapRow(row);
-          return {
-            path: String(x.path ?? ""),
-            title: x.title != null ? String(x.title) : null,
-            impressions: asNumber(x.impressions),
-            avg_active_ms: asNumber(x.avg_active_ms),
-          };
-        })
-      : [],
     duration_by_path: Array.isArray(o.duration_by_path)
       ? (o.duration_by_path as unknown[]).map((row) => {
           const x = mapRow(row);
@@ -193,71 +83,54 @@ function parseSummary(raw: unknown): AdminAnalyticsSummary {
           };
         })
       : [],
-    service: {
-      impressions: asNumber(svc.impressions),
-      contact_clicks_on_service: asNumber(svc.contact_clicks_on_service),
-      conversion: asNumber(svc.conversion),
-    },
-    acquisition_channels: Array.isArray(o.acquisition_channels)
-      ? (o.acquisition_channels as unknown[]).map((row) => {
-          const x = mapRow(row);
-          return {
-            channel: String(x.channel ?? ""),
-            sessions: asNumber(x.sessions),
-          };
-        })
-      : [],
-    acquisition_top_campaigns: Array.isArray(o.acquisition_top_campaigns)
-      ? (o.acquisition_top_campaigns as unknown[]).map((row) => {
-          const x = mapRow(row);
-          return {
-            utm_source: String(x.utm_source ?? ""),
-            utm_medium: String(x.utm_medium ?? ""),
-            utm_campaign: String(x.utm_campaign ?? ""),
-            utm_content: String(x.utm_content ?? ""),
-            utm_term: String(x.utm_term ?? ""),
-            meta_campaign_name: String(x.meta_campaign_name ?? ""),
-            meta_adset_name: String(x.meta_adset_name ?? ""),
-            meta_ad_name: String(x.meta_ad_name ?? ""),
-            sessions: asNumber(x.sessions),
-          };
-        })
-      : [],
-    acquisition_top_meta_ads: Array.isArray(o.acquisition_top_meta_ads)
-      ? (o.acquisition_top_meta_ads as unknown[]).map((row) => {
-          const x = mapRow(row);
-          return {
-            meta_campaign_name: String(x.meta_campaign_name ?? ""),
-            meta_adset_name: String(x.meta_adset_name ?? ""),
-            meta_ad_name: String(x.meta_ad_name ?? ""),
-            sessions: asNumber(x.sessions),
-          };
-        })
-      : [],
   };
 }
 
 /** yyyy-mm-dd untuk hari kalender saat ini di Asia/Jakarta (sama dengan bucket RPC). */
 export function jakartaTodayYmd(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return jakartaTodayYmdTz();
 }
 
 /** `daysAgo` hari kalender sebelum hari ini di Jakarta (0 = hari ini). */
 export function jakartaDaysAgoYmd(daysAgo: number): string {
-  const today = jakartaTodayYmd();
-  const ref = new Date(`${today}T12:00:00+07:00`);
-  ref.setTime(ref.getTime() - daysAgo * 86_400_000);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(ref);
+  return jakartaYmdAddDays(jakartaTodayYmdTz(), -daysAgo);
+}
+
+/** Min/max tanggal rollup harian (`analytics_daily_source_breakdown`) untuk satu web — dipakai preset Maximum. */
+export async function adminFetchRollupDayBounds(
+  webId: string,
+): Promise<{ min: string | null; max: string | null }> {
+  const { data: minRow, error: e1 } = await supabase
+    .from("analytics_daily_source_breakdown")
+    .select("day")
+    .eq("web_id", webId)
+    .order("day", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: maxRow, error: e2 } = await supabase
+    .from("analytics_daily_source_breakdown")
+    .select("day")
+    .eq("web_id", webId)
+    .order("day", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (e1 || e2) {
+    console.warn("[adminFetchRollupDayBounds]", e1 ?? e2);
+  }
+
+  function rowDay(r: { day: unknown } | null): string | null {
+    if (!r?.day) return null;
+    if (typeof r.day === "string") return r.day.slice(0, 10);
+    if (r.day instanceof Date) return r.day.toISOString().slice(0, 10);
+    return String(r.day).slice(0, 10);
+  }
+
+  return {
+    min: rowDay(minRow),
+    max: rowDay(maxRow),
+  };
 }
 
 /** Rentang inklusif [fromYmd, toYmd] diinterpretasikan sebagai hari kalender Asia/Jakarta. */
@@ -284,4 +157,306 @@ export async function adminFetchAnalyticsSummary(
     throw error;
   }
   return parseSummary(data);
+}
+
+/** Sama dengan Traffic UI lain: `get_traffic_dashboard` → dedup `visit_key` + KPI gabungan PV + klik (WIB per hari). */
+export type TrafficDashboardKpis = {
+  sessions: number;
+  page_views: number;
+  clicks: number;
+};
+
+/** Satu baris `source_breakdown` dari `get_traffic_dashboard` (klasifikasi `source_key` / visit_key). */
+export type TrafficSourceBreakdownRow = {
+  key: string;
+  label: string;
+  sessions: number;
+  page_views: number;
+  clicks: number;
+  max_deep_scroll_pct: number | null;
+  avg_max_deep_scroll_pct: number | null;
+  scroll_sessions: number;
+};
+
+/** Satu baris `utm_table` dari `get_traffic_dashboard` (satu `visit_key`, hanya utm / paid_click_ids). */
+export type UtmTrackingRow = {
+  visit_key: string;
+  visitor_id: string | null;
+  session_id: string;
+  occurred_at: string;
+  time_label: string;
+  /** yyyy-mm-dd kalender WIB */
+  day: string;
+  route: string | null;
+  utm_campaign: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  page_views: number;
+  clicks: number;
+  max_deep_scroll_pct: number | null;
+  avg_max_deep_scroll_pct: number | null;
+};
+
+/** Satu baris `top_pages` dari `get_traffic_dashboard` (page view mentah + traffic_path_key, bukan source_breakdown). */
+export type TrafficTopPagesRow = {
+  path: string;
+  impr: number;
+  unique_sessions: number;
+  clicks: number;
+  median_active_ms: number;
+  avg_active_ms: number;
+  /** Sama dengan unique_sessions di payload backend. */
+  n: number;
+  max_deep_scroll_pct: number | null;
+  avg_max_deep_scroll_pct: number | null;
+};
+
+export type TrafficDashboardPayload = {
+  kpis: TrafficDashboardKpis;
+  sourceBreakdown: TrafficSourceBreakdownRow[];
+  utmTable: UtmTrackingRow[];
+  topPages: TrafficTopPagesRow[];
+};
+
+export async function adminFetchTrafficDashboard(
+  fromYmd: string,
+  toYmd: string,
+): Promise<TrafficDashboardPayload> {
+  const p_web_id = getRequiredWebId();
+  const { data, error } = await supabase.rpc("get_traffic_dashboard", {
+    p_web_id,
+    p_from: fromYmd,
+    p_to: toYmd,
+    p_top_pages_limit: 15,
+    p_top_clicks_limit: 15,
+    p_utm_limit: 2000,
+  });
+  if (error) {
+    throw error;
+  }
+  const root = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const kpis =
+    root.kpis && typeof root.kpis === "object" ? (root.kpis as Record<string, unknown>) : {};
+
+  const rawSb = root.source_breakdown;
+  const sourceBreakdown: TrafficSourceBreakdownRow[] = Array.isArray(rawSb)
+    ? (rawSb as unknown[]).map((row) => {
+        const x = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+        const md = x.max_deep_scroll_pct;
+        const am = x.avg_max_deep_scroll_pct;
+        return {
+          key: String(x.key ?? ""),
+          label: String(x.label ?? ""),
+          sessions: asNumber(x.sessions),
+          page_views: asNumber(x.page_views),
+          clicks: asNumber(x.clicks),
+          max_deep_scroll_pct:
+            md == null || md === "" ? null : asNumber(md as unknown),
+          avg_max_deep_scroll_pct:
+            am == null || am === "" ? null : asNumber(am as unknown),
+          scroll_sessions: asNumber(x.scroll_sessions),
+        };
+      })
+    : [];
+
+  const rawTp = root.top_pages;
+  const topPages: TrafficTopPagesRow[] = Array.isArray(rawTp)
+    ? (rawTp as unknown[]).map((row) => {
+        const x = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+        const md = x.max_deep_scroll_pct;
+        const am = x.avg_max_deep_scroll_pct;
+        return {
+          path: String(x.path ?? ""),
+          impr: asNumber(x.impr),
+          unique_sessions: asNumber(x.unique_sessions),
+          clicks: asNumber(x.clicks),
+          median_active_ms: asNumber(x.median_active_ms),
+          avg_active_ms: asNumber(x.avg_active_ms),
+          n: asNumber(x.n),
+          max_deep_scroll_pct:
+            md == null || md === "" ? null : asNumber(md as unknown),
+          avg_max_deep_scroll_pct:
+            am == null || am === "" ? null : asNumber(am as unknown),
+        };
+      })
+    : [];
+
+  const rawUt = root.utm_table;
+  const utmTable: UtmTrackingRow[] = Array.isArray(rawUt)
+    ? (rawUt as unknown[]).map((row) => {
+        const x = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+        const md = x.max_deep_scroll_pct;
+        const am = x.avg_max_deep_scroll_pct;
+        let dayStr = "";
+        const d = x.day;
+        if (typeof d === "string") {
+          dayStr = d.slice(0, 10);
+        } else if (d instanceof Date) {
+          dayStr = d.toISOString().slice(0, 10);
+        }
+        return {
+          visit_key: String(x.visit_key ?? ""),
+          visitor_id:
+            x.visitor_id != null && String(x.visitor_id).trim() !== ""
+              ? String(x.visitor_id)
+              : null,
+          session_id: String(x.session_id ?? ""),
+          occurred_at: String(x.occurred_at ?? ""),
+          time_label: String(x.time_label ?? ""),
+          day: dayStr,
+          route: x.route != null && String(x.route) !== "" ? String(x.route) : null,
+          utm_campaign: x.utm_campaign != null ? String(x.utm_campaign) : null,
+          utm_source: x.utm_source != null ? String(x.utm_source) : null,
+          utm_medium: x.utm_medium != null ? String(x.utm_medium) : null,
+          utm_content: x.utm_content != null ? String(x.utm_content) : null,
+          utm_term: x.utm_term != null ? String(x.utm_term) : null,
+          page_views: asNumber(x.page_views),
+          clicks: asNumber(x.clicks),
+          max_deep_scroll_pct:
+            md == null || md === "" ? null : asNumber(md as unknown),
+          avg_max_deep_scroll_pct:
+            am == null || am === "" ? null : asNumber(am as unknown),
+        };
+      })
+    : [];
+
+  return {
+    kpis: {
+      sessions: asNumber(kpis.sessions),
+      page_views: asNumber(kpis.page_views),
+      clicks: asNumber(kpis.clicks),
+    },
+    sourceBreakdown,
+    utmTable,
+    topPages,
+  };
+}
+
+/** Baris dari `get_click_targets_for_source_key` (pecahan klik per target untuk satu `source_key`). */
+export type ClickTargetDetailRow = {
+  clicks: number;
+  unique_sessions: number;
+  track_key: string | null;
+  element_type: string | null;
+  element_label: string | null;
+  target_url: string | null;
+  is_internal: boolean;
+};
+
+/**
+ * Path di `analytics_click_events` selalu memenuhi `validPath` (non-kosong, awalan `/`).
+ * Baris UTM dari RPC kadang mengembalikan route beranda sebagai null / "" — harus disamakan ke `/`
+ * agar `get_click_targets_for_*` bisa join ke baris klik.
+ */
+function normalizeRpcPathForClicks(path: string): string {
+  const t = String(path ?? "").trim();
+  return t.length === 0 ? "/" : t;
+}
+
+function parseClickTargetRows(data: unknown): ClickTargetDetailRow[] {
+  let rows: unknown[] = [];
+  if (Array.isArray(data)) {
+    rows = data;
+  } else if (typeof data === "string" && data.trim() !== "") {
+    try {
+      const parsed = JSON.parse(data) as unknown;
+      rows = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      rows = [];
+    }
+  }
+  return rows.map((row) => {
+    const x = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+    return {
+      clicks: asNumber(x.clicks),
+      unique_sessions: asNumber(x.unique_sessions),
+      track_key: x.track_key != null && String(x.track_key) !== "" ? String(x.track_key) : null,
+      element_type: x.element_type != null ? String(x.element_type) : null,
+      element_label: x.element_label != null ? String(x.element_label) : null,
+      target_url: x.target_url != null && String(x.target_url) !== "" ? String(x.target_url) : null,
+      is_internal: Boolean(x.is_internal),
+    };
+  });
+}
+
+export async function adminFetchClickTargetsForPath(
+  fromYmd: string,
+  toYmd: string,
+  p_path: string,
+  p_limit = 50,
+): Promise<ClickTargetDetailRow[]> {
+  const p_web_id = getRequiredWebId();
+  const { data, error } = await supabase.rpc("get_click_targets_for_path", {
+    p_web_id,
+    p_from: fromYmd,
+    p_to: toYmd,
+    p_path: normalizeRpcPathForClicks(p_path),
+    p_limit,
+  });
+  if (error) {
+    throw error;
+  }
+  return parseClickTargetRows(data);
+}
+
+export async function adminFetchClickTargetsForSourceKey(
+  fromYmd: string,
+  toYmd: string,
+  p_source_key: string,
+  p_limit = 50,
+): Promise<ClickTargetDetailRow[]> {
+  const p_web_id = getRequiredWebId();
+  const { data, error } = await supabase.rpc("get_click_targets_for_source_key", {
+    p_web_id,
+    p_from: fromYmd,
+    p_to: toYmd,
+    p_source_key,
+    p_limit,
+  });
+  if (error) {
+    throw error;
+  }
+  return parseClickTargetRows(data);
+}
+
+/** Detail klik untuk satu baris UTM tracking (`get_click_targets_for_utm_row`). */
+export async function adminFetchClickTargetsForUtmRow(args: {
+  fromYmd: string;
+  toYmd: string;
+  route: string;
+  utm_campaign: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_content: string;
+  utm_term: string;
+  session_id: string;
+  session_day: string;
+  visitor_id: string | null;
+  p_limit?: number;
+}): Promise<ClickTargetDetailRow[]> {
+  const p_web_id = getRequiredWebId();
+  const { data, error } = await supabase.rpc("get_click_targets_for_utm_row", {
+    p_web_id,
+    p_from: args.fromYmd,
+    p_to: args.toYmd,
+    p_route: normalizeRpcPathForClicks(args.route),
+    p_utm_campaign: args.utm_campaign,
+    p_utm_source: args.utm_source,
+    p_utm_medium: args.utm_medium,
+    p_utm_content: args.utm_content,
+    p_utm_term: args.utm_term,
+    p_session_id: args.session_id,
+    p_session_day: args.session_day,
+    p_limit: args.p_limit ?? 50,
+    p_visitor_id:
+      args.visitor_id != null && String(args.visitor_id).trim() !== ""
+        ? String(args.visitor_id).trim()
+        : null,
+  });
+  if (error) {
+    throw error;
+  }
+  return parseClickTargetRows(data);
 }

@@ -30,6 +30,11 @@ const AdminFloatingWhatsappPage = lazy(() =>
     default: m.AdminFloatingWhatsappPage,
   })),
 );
+const AdminWebAccessRequestsPage = lazy(() =>
+  import("@/admin/pages/AdminWebAccessRequestsPage").then((m) => ({
+    default: m.AdminWebAccessRequestsPage,
+  })),
+);
 
 function AdminSpinner() {
   return (
@@ -116,6 +121,14 @@ export function AdminRoutes() {
             element={
               <Suspense fallback={<AdminSpinner />}>
                 <AdminFloatingWhatsappPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="requests"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminWebAccessRequestsPage />
               </Suspense>
             }
           />
