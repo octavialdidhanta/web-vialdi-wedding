@@ -41,7 +41,8 @@ type Body = {
   ts?: string | null;
 };
 
-const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+/** Vialdi Wedding site — `vialdi` (agency) diterima sebagai alias lalu disimpan sebagai `vialdi-wedding`. */
+const ALLOWED_WEB_IDS = ["vialdi-wedding", "synckerja"] as const;
 
 /** Sama dengan Edge Function lead lain — organisasi CRM utama. */
 const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
@@ -50,8 +51,9 @@ function normalizeWebId(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const s = raw.trim();
   if (s.length === 0 || s.length > 32) return null;
-  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(s)) return null;
-  return s;
+  const canonical = s === "vialdi" ? "vialdi-wedding" : s;
+  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(canonical)) return null;
+  return canonical;
 }
 
 function json(data: unknown, init: ResponseInit = {}) {
@@ -177,7 +179,6 @@ function parseCsvList(raw: string | null): string[] {
 }
 
 const WA_ORG_LINE_DIGITS: Record<string, string> = {
-  vialdi: "6281118891308",
   "vialdi-wedding": "6281281714855",
 };
 

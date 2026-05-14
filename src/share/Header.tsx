@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import { useIsAgencySite } from "@/site/siteVariant";
 
 const MOBILE_DRAWER_MS = 300;
 
@@ -18,7 +17,6 @@ const navLinks = [
 
 export function Header() {
   const location = useLocation();
-  const isAgencySite = useIsAgencySite();
   const [mobileMounted, setMobileMounted] = useState(false);
   const [mobileEntered, setMobileEntered] = useState(false);
   const mobileMountedRef = useRef(false);
@@ -184,19 +182,10 @@ export function Header() {
           data-track={TRACK_KEYS.navLogoHome}
           className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight md:text-2xl"
         >
-          {isAgencySite ? (
-            <>
-              <span className="text-navy">vialdi</span>
-              <span className="text-accent-orange">.id</span>
-            </>
-          ) : (
-            <>
-              <span className="text-navy">Vialdi</span>
-              <span className="bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] bg-clip-text text-transparent">
-                Wedding
-              </span>
-            </>
-          )}
+          <span className="text-navy">Vialdi</span>
+          <span className="bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] bg-clip-text text-transparent">
+            Wedding
+          </span>
         </Link>
         <nav className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (

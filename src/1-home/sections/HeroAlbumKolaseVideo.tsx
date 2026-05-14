@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Play } from "lucide-react";
 import posterMAo from "../assets/youtube/mAoEjRTJKC4-hqdefault.jpg";
 import posterK9 from "../assets/youtube/K9anWRATqdo-hqdefault.jpg";
-import { isWeddingSite } from "@/site/siteVariant";
-
 /** Privacy Enhanced embed — host `youtube-nocookie.com`. */
 function embedSrc(videoId: string) {
   const q = new URLSearchParams({
@@ -92,7 +90,6 @@ function AutoplayYoutubeSlot({ videoId, iframeTitle, placeholder, className }: S
  * Di bawah baris hero: mobile bertumpuk, desktop (`lg+`) dua video berdampingan.
  */
 export function HeroAlbumKolaseVideo() {
-  const wedding = isWeddingSite();
   return (
     <div className="relative left-1/2 right-1/2 -mx-[50vw] mt-8 w-screen max-w-[100vw] sm:mt-10 lg:relative lg:left-auto lg:right-auto lg:mx-auto lg:mt-10 lg:w-full lg:max-w-[90rem]">
       <div className="flex flex-col gap-6 px-2.5 pb-2 md:px-6 lg:flex-row lg:gap-8 lg:pb-0">
@@ -102,11 +99,7 @@ export function HeroAlbumKolaseVideo() {
           </p>
           <AutoplayYoutubeSlot
             videoId="mAoEjRTJKC4"
-            iframeTitle={
-              wedding
-                ? "Contoh album kolase untuk klien Vialdi Wedding"
-                : "Contoh album kolase untuk klien Vialdi.ID"
-            }
+            iframeTitle="Contoh album kolase untuk klien Vialdi Wedding"
             placeholder="Ketuk tombol putar untuk menonton cuplikan album (memuat pemutar YouTube)."
           />
         </div>
@@ -116,7 +109,7 @@ export function HeroAlbumKolaseVideo() {
           </p>
           <AutoplayYoutubeSlot
             videoId="K9anWRATqdo"
-            iframeTitle={wedding ? "Cuplikan video album Vialdi Wedding" : "Cuplikan video album Vialdi.ID"}
+            iframeTitle="Cuplikan video album Vialdi Wedding"
             placeholder="Ketuk putar untuk cuplikan berikutnya (memuat pemutar YouTube)."
           />
         </div>

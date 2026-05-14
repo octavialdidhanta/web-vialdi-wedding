@@ -26,11 +26,9 @@ export default defineConfig(({ mode }) => {
       : [];
 
   const env = loadEnv(mode, process.cwd(), "");
-  /** Judul bar statis FCP (index.html) — selaras Header wedding vs agency. */
+  /** Judul bar statis FCP (index.html) — selaras Header Vialdi Wedding. */
   const fcpBrandHtml =
-    env.VITE_WEB_ID === "vialdi"
-      ? '<span style="color:oklch(0.22 0.03 250)">vialdi</span><span style="color:oklch(0.72 0.13 55)">.id</span>'
-      : '<span style="color:oklch(0.22 0.03 250)">Vialdi Wedding</span>';
+    '<span style="color:oklch(0.22 0.03 250)">Vialdi Wedding</span>';
   let supabaseOrigin = "";
   try {
     const u = env.VITE_SUPABASE_URL?.trim();

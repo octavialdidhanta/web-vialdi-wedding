@@ -90,7 +90,7 @@ const serviceSectionsAgency: ServiceSection[] = [
     title: "Creative & Social Media:",
     description: [
       "Untuk memperkenalkan produk atau jasa secara efektif, diperlukan konten yang profesional dan menarik.",
-      "Vialdi.ID siapkan content yang menarik dan siap viral untuk brand anda:",
+      "Vialdi Wedding siapkan content yang menarik dan siap viral untuk brand anda:",
     ],
     fee: "Agency Fee Start From 350rb",
     items: [

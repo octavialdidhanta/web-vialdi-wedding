@@ -50,7 +50,7 @@ type IngestEvent = SessionTouch | PageView | ActivePing | PageEnd | Click;
 
 type Body = {
   session_id: string;
-  /** Harus salah satu: vialdi | vialdi-wedding | synckerja (sama dengan CHECK di DB). */
+  /** `vialdi-wedding` | `synckerja` — `vialdi` (agency) diterima sebagai alias → disimpan `vialdi-wedding`. */
   web_id: string;
   /**
    * Visitor id stabil (localStorage); opsional — server memakai session_id jika kosong.
@@ -61,14 +61,15 @@ type Body = {
   events: IngestEvent[];
 };
 
-const ALLOWED_WEB_IDS = ["vialdi", "vialdi-wedding", "synckerja"] as const;
+const ALLOWED_WEB_IDS = ["vialdi-wedding", "synckerja"] as const;
 
 function normalizeWebId(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const s = raw.trim();
   if (s.length === 0 || s.length > 32) return null;
-  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(s)) return null;
-  return s;
+  const canonical = s === "vialdi" ? "vialdi-wedding" : s;
+  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(canonical)) return null;
+  return canonical;
 }
 
 function json(data: unknown, init: ResponseInit = {}) {

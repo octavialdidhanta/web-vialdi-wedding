@@ -8,7 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_IMAGE_TRANSFORM?: string;
   /** Origin publik untuk menyalin short link (tanpa trailing slash), mis. https://jasafotowedding.com */
   readonly VITE_PUBLIC_SITE_ORIGIN?: string;
-  /** Slug properti analytics (wajib di build publik): vialdi | vialdi-wedding | synckerja */
+  /** Slug properti analytics (wajib di build publik): `vialdi-wedding` (alias lama: `vialdi`), `synckerja` */
   readonly VITE_WEB_ID?: string;
 }
 

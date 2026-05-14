@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 
-export type SiteVariant = "agency" | "wedding" | "unknown";
+/** Repo ini untuk situs Vialdi Wedding. Slug analytics lama `vialdi` dipetakan ke wedding. */
+export type SiteVariant = "wedding" | "unknown";
 
 export function getSiteVariant(): SiteVariant {
   const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
   if (!raw) return "unknown";
-  if (raw === "vialdi") return "agency";
-  if (raw === "vialdi-wedding") return "wedding";
+  if (raw === "vialdi" || raw === "vialdi-wedding") return "wedding";
   return "unknown";
 }
 
+/** Tetap ada agar import lama tidak pecah; varian agensi tidak dipakai di codebase wedding. */
 export function isAgencySite(): boolean {
-  return getSiteVariant() === "agency";
+  return false;
 }
 
 export function isWeddingSite(): boolean {
@@ -25,4 +26,3 @@ export function useIsAgencySite(): boolean {
 export function useIsWeddingSite(): boolean {
   return useMemo(() => isWeddingSite(), []);
 }
-

@@ -1,5 +1,5 @@
 ﻿import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 /** Declare Deno global for IDE when edge-runtime.d.ts is not resolved */
 declare const Deno: {
@@ -42,6 +42,255 @@ function messageContainsContactRequest(text: string | null | undefined): boolean
   const normalized = text.toLowerCase().trim().replace(/\s+/g, " ");
   if (normalized.length === 0) return false;
   return CONTACT_REQUEST_PHRASES.some((phrase) => normalized.includes(phrase));
+}
+
+/** Meta outbound status webhook values (sent → delivered → read); failed is terminal. */
+function metaDeliveryRank(status: string): number | null {
+  const s = status.trim().toLowerCase();
+  if (s === "read") return 4;
+  if (s === "delivered") return 3;
+  if (s === "sent") return 2;
+  if (s === "failed") return -1;
+  return null;
+}
+
+function shouldUpgradeMetaDelivery(current: string | null | undefined, incoming: string): boolean {
+  const incRank = metaDeliveryRank(incoming.trim());
+  if (incRank === null) return false;
+  if (incRank === -1) return true;
+
+  const cur = String(current ?? "").trim();
+  if (cur.toLowerCase() === "failed") return false;
+
+  const curRank = metaDeliveryRank(cur);
+  if (curRank === null || curRank === -1) return true;
+  return incRank >= curRank;
+}
+
+/** Digits-only WA identity — same idea as contact-lead `customerWaIdFromE164` for stable conversation dedupe. */
+function waCustomerDigits(raw: string): string {
+  return String(raw ?? "").replace(/[^\d]/g, "");
+}
+
+/** Default status for new `whatsapp_conversations` (Open preferred, else Unread). */
+async function fetchDefaultConversationLeadStatusId(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+): Promise<string | null> {
+  const orgOrGlobal = `organization_id.eq.${orgId},organization_id.is.null`;
+  const { data: openStatus } = await supabase
+    .from("lead_statuses")
+    .select("id")
+    .or(orgOrGlobal)
+    .eq("name", "Open")
+    .maybeSingle();
+  if (openStatus?.id) return openStatus.id as string;
+  const { data: unreadStatus } = await supabase
+    .from("lead_statuses")
+    .select("id")
+    .or(orgOrGlobal)
+    .eq("name", "Unread")
+    .maybeSingle();
+  return (unreadStatus?.id as string) ?? null;
+}
+
+/**
+ * Find existing conversation for (org, channel, phone_number_id + customer).
+ * Exact match on digits-only `customer_wa_id` first; then scan recent rows for digit-normalized equality
+ * so outbound-created rows (contact-lead) still match inbound `msg.from` variants.
+ */
+async function findExistingWhatsappConversationId(
+  supabase: ReturnType<typeof createClient>,
+  args: { organizationId: string; phoneNumberId: string; customerDigits: string },
+): Promise<string | null> {
+  const { organizationId, phoneNumberId, customerDigits } = args;
+  if (!customerDigits) return null;
+  const { data: exact } = await supabase
+    .from("whatsapp_conversations")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("customer_wa_id", customerDigits)
+    .eq("channel", "whatsapp")
+    .eq("phone_number_id", phoneNumberId)
+    .maybeSingle();
+  if (exact?.id) return exact.id as string;
+
+  const anyLine = await findExistingWhatsappConversationIdAnyLine(supabase, {
+    organizationId,
+    customerDigits,
+    preferredPhoneNumberId: phoneNumberId,
+  });
+  if (anyLine) return anyLine;
+
+  const { data: candidates, error } = await supabase
+    .from("whatsapp_conversations")
+    .select("id, customer_wa_id, lead_status_id, created_at")
+    .eq("organization_id", organizationId)
+    .eq("channel", "whatsapp")
+    .eq("phone_number_id", phoneNumberId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (error || !candidates?.length) return null;
+  const matches = candidates.filter((r: { customer_wa_id?: unknown }) =>
+    waCustomerDigits(String(r.customer_wa_id ?? "")) === customerDigits,
+  );
+  if (!matches.length) return null;
+  matches.sort(
+    (
+      a: { lead_status_id?: unknown; created_at?: unknown },
+      b: { lead_status_id?: unknown; created_at?: unknown },
+    ) => {
+    const aNull = a.lead_status_id == null ? 1 : 0;
+    const bNull = b.lead_status_id == null ? 1 : 0;
+    if (aNull !== bNull) return aNull - bNull;
+    return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+  });
+  return (matches[0]?.id as string) ?? null;
+}
+
+type WhatsappConvDedupeRow = {
+  id: string;
+  phone_number_id?: string | null;
+  customer_wa_id?: string | null;
+  last_message_at?: string | null;
+  created_at?: string | null;
+};
+
+function waTicketIdFromConversationUuid(convId: string): string {
+  return WA_TICKET_PREFIX + String(convId).replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+/** Pilih satu `id` percakapan kanonik; utamakan baris dengan `phone_number_id` = inbound Meta. */
+function pickCanonicalWhatsappConversationId(
+  rows: WhatsappConvDedupeRow[],
+  preferredPhoneNumberId: string,
+): string {
+  const pref = String(preferredPhoneNumberId ?? "").trim();
+  const preferred = rows.filter((r) => String(r.phone_number_id ?? "").trim() === pref);
+  const pool = preferred.length > 0 ? preferred : [...rows];
+  pool.sort((a, b) => {
+    const tb = String(b.last_message_at ?? "");
+    const ta = String(a.last_message_at ?? "");
+    if (tb !== ta) return tb.localeCompare(ta);
+    return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+  });
+  return pool[0]!.id;
+}
+
+/**
+ * Gabungkan duplikat (org + channel + digit pelanggan sama): pindahkan pesan, rapikan tiket lead,
+ * hapus baris percakapan cadangan. Idempotent untuk webhook berulang.
+ */
+async function consolidateDuplicateWhatsappConversations(
+  supabase: ReturnType<typeof createClient>,
+  organizationId: string,
+  keepConversationId: string,
+  removeConversationIds: string[],
+): Promise<void> {
+  const keepId = String(keepConversationId).trim();
+  const newTicket = waTicketIdFromConversationUuid(keepId);
+  const now = new Date().toISOString();
+
+  for (const raw of removeConversationIds) {
+    const rid = String(raw ?? "").trim();
+    if (!rid || rid === keepId) continue;
+    const oldTicket = waTicketIdFromConversationUuid(rid);
+
+    const { error: msgErr } = await supabase
+      .from("whatsapp_messages")
+      .update({ conversation_id: keepId })
+      .eq("conversation_id", rid);
+    if (msgErr) {
+      console.warn("consolidateDuplicateWhatsappConversations: move messages failed", rid, msgErr.message);
+    }
+
+    const { error: cycErr } = await supabase.from("whatsapp_conversation_cycles").delete().eq("conversation_id", rid);
+    if (cycErr) {
+      console.warn("consolidateDuplicateWhatsappConversations: delete cycles failed", rid, cycErr.message);
+    }
+
+    const { data: newTicketLead } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("ticket_id", newTicket)
+      .maybeSingle();
+
+    const { data: oldLeads } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("ticket_id", oldTicket);
+
+    for (const ol of oldLeads ?? []) {
+      const oldLeadId = String((ol as { id?: unknown }).id ?? "").trim();
+      if (!oldLeadId) continue;
+      const keepLeadId = newTicketLead?.id != null ? String(newTicketLead.id).trim() : "";
+      if (keepLeadId && keepLeadId !== oldLeadId) {
+        await supabase.from("leads_vialdi_wedding").update({ lead_id: keepLeadId }).eq("lead_id", oldLeadId);
+        const { error: delLeadErr } = await supabase.from("leads").delete().eq("id", oldLeadId);
+        if (delLeadErr) {
+          console.warn("consolidateDuplicateWhatsappConversations: delete duplicate lead failed", delLeadErr.message);
+        }
+      } else {
+        const { error: upLeadErr } = await supabase
+          .from("leads")
+          .update({ ticket_id: newTicket, updated_at: now })
+          .eq("id", oldLeadId);
+        if (upLeadErr) {
+          console.warn("consolidateDuplicateWhatsappConversations: reticket lead failed", upLeadErr.message);
+        }
+      }
+    }
+
+    const { error: delConvErr } = await supabase.from("whatsapp_conversations").delete().eq("id", rid);
+    if (delConvErr) {
+      console.warn("consolidateDuplicateWhatsappConversations: delete conversation failed", rid, delConvErr.message);
+    }
+  }
+}
+
+/**
+ * Satu percakapan per pelanggan (per org): gabungkan semua baris `(org, whatsapp, customer_wa_id)`
+ * ke satu `id` kanonik — termasuk jika DB sudah berisi duplikat (sebelumnya filter `length === 1`
+ * membuat merge tidak pernah jalan).
+ */
+async function findExistingWhatsappConversationIdAnyLine(
+  supabase: ReturnType<typeof createClient>,
+  args: { organizationId: string; customerDigits: string; preferredPhoneNumberId: string },
+): Promise<string | null> {
+  const { organizationId, customerDigits, preferredPhoneNumberId } = args;
+  if (!customerDigits) return null;
+  const { data: rowsRaw, error } = await supabase
+    .from("whatsapp_conversations")
+    .select("id, phone_number_id, customer_wa_id, last_message_at, created_at")
+    .eq("organization_id", organizationId)
+    .eq("channel", "whatsapp")
+    .eq("customer_wa_id", customerDigits);
+  if (error || !rowsRaw?.length) return null;
+
+  const rows: WhatsappConvDedupeRow[] = (rowsRaw as WhatsappConvDedupeRow[]).map((r) => ({
+    id: String(r.id ?? "").trim(),
+    phone_number_id: r.phone_number_id,
+    customer_wa_id: r.customer_wa_id,
+    last_message_at: r.last_message_at,
+    created_at: r.created_at,
+  })).filter((r) => r.id.length > 0);
+
+  if (!rows.length) return null;
+  if (rows.length === 1) return rows[0]!.id;
+
+  const keepId = pickCanonicalWhatsappConversationId(rows, preferredPhoneNumberId);
+  const removeIds = rows.map((r) => r.id).filter((id) => id !== keepId);
+  if (removeIds.length > 0) {
+    await consolidateDuplicateWhatsappConversations(supabase, organizationId, keepId, removeIds);
+    console.log("findExistingWhatsappConversationIdAnyLine: consolidated duplicate conversations", {
+      organization_id: organizationId,
+      keep_id: keepId,
+      removed_ids: removeIds,
+    });
+  }
+  return keepId;
 }
 
 function getMediaIdAndType(msg: Record<string, unknown>): { id: string; type: string; mime?: string; filename?: string } | null {
@@ -263,6 +512,68 @@ async function reconcileFormLeadWithWaTicket(
   if (!formLeadId) return;
 
   if (waTicketLead && waTicketLead.id !== formLeadId) {
+    const { data: waLeadFull } = await supabase
+      .from("leads")
+      .select("analytics_session_id, attribution, web_id")
+      .eq("id", waTicketLead.id)
+      .maybeSingle();
+    const waIsSessionRich =
+      (waLeadFull?.analytics_session_id != null && String(waLeadFull.analytics_session_id).trim() !== "") ||
+      leadAttributionIsMeaningful(waLeadFull?.attribution);
+    if (waIsSessionRich) {
+      const { data: formLead } = await supabase
+        .from("leads")
+        .select("attribution, analytics_session_id, web_id")
+        .eq("id", formLeadId)
+        .maybeSingle();
+      const now = new Date().toISOString();
+      const phone = String(customerWaId).trim();
+      const patch: Record<string, unknown> = {
+        ticket_id: ticketId,
+        phone_number: phone || null,
+        updated_at: now,
+      };
+      if (!leadAttributionIsMeaningful(formLead?.attribution) && leadAttributionIsMeaningful(waLeadFull?.attribution)) {
+        patch.attribution = waLeadFull?.attribution ?? null;
+      }
+      if (
+        (formLead?.analytics_session_id == null || String(formLead.analytics_session_id).trim() === "") &&
+        waLeadFull?.analytics_session_id != null &&
+        String(waLeadFull.analytics_session_id).trim() !== ""
+      ) {
+        patch.analytics_session_id = waLeadFull.analytics_session_id;
+      }
+      if (
+        (formLead?.web_id == null || String(formLead.web_id).trim() === "") &&
+        waLeadFull?.web_id != null &&
+        String(waLeadFull.web_id).trim() !== ""
+      ) {
+        patch.web_id = waLeadFull.web_id;
+      }
+      const { error: mergeUpErr } = await supabase.from("leads").update(patch).eq("id", formLeadId);
+      if (mergeUpErr) {
+        console.error("reconcileFormLeadWithWaTicket: merge WA rich fields into form lead failed", mergeUpErr);
+        return;
+      }
+      const { error: wWedErr } = await supabase
+        .from("leads_vialdi_wedding")
+        .update({ lead_id: formLeadId })
+        .eq("lead_id", waTicketLead.id);
+      if (wWedErr) {
+        console.warn("reconcileFormLeadWithWaTicket: repoint leads_vialdi_wedding failed", wWedErr.message);
+      }
+      const { error: delRichErr } = await supabase.from("leads").delete().eq("id", waTicketLead.id);
+      if (delRichErr) {
+        console.error("reconcileFormLeadWithWaTicket: delete merged WA stub failed", delRichErr);
+        return;
+      }
+      console.log("reconcileFormLeadWithWaTicket: merged rich WA stub into form lead", {
+        kept_lead_id: formLeadId,
+        removed_wa_lead_id: waTicketLead.id,
+        ticket_id: ticketId,
+      });
+      return;
+    }
     const { error: delErr } = await supabase.from("leads").delete().eq("id", waTicketLead.id);
     if (delErr) {
       console.error("reconcileFormLeadWithWaTicket: delete duplicate WA lead failed", delErr);
@@ -287,6 +598,143 @@ async function reconcileFormLeadWithWaTicket(
   console.log("reconcileFormLeadWithWaTicket: merged into form lead", { lead_id: formLeadId, ticket_id: ticketId });
 }
 
+/** Repo ini = Vialdi Wedding; nomor marketing agency lama tetap dipetakan ke `web_id` wedding untuk CRM/analytics. */
+function resolveClientWebIdFromDisplayPhoneNumber(
+  displayPhoneNumber: string | null | undefined,
+): "vialdi-wedding" | null {
+  const d = digitsOnly(displayPhoneNumber ?? null);
+  if (d === "6281281714855" || d === "6281118891308") return "vialdi-wedding";
+  return null;
+}
+
+function leadAttributionIsMeaningful(att: unknown): boolean {
+  if (att == null) return false;
+  if (typeof att === "object" && !Array.isArray(att)) return Object.keys(att as Record<string, unknown>).length > 0;
+  if (typeof att === "string") return att.trim().length > 0;
+  return false;
+}
+
+/**
+ * Pilih baris `analytics_wa_clicks` yang relevan untuk inbound WA.
+ * `wedding-package-lead` mengisi `phone_number` di klik dengan nomor form — filter `.is(null)` saja
+ * membuat merge session gagal dan muncul lead stub kedua (attribution NULL).
+ */
+function pickWaClickRowForInboundSession(
+  rows: Array<{ session_id?: unknown; phone_number?: unknown }> | null | undefined,
+  inboundCustomerDigits: string | null | undefined,
+): { session_id: string } | null {
+  if (!rows?.length) return null;
+  const digits = String(inboundCustomerDigits ?? "").replace(/\D/g, "");
+  const rowSession = (r: { session_id?: unknown; phone_number?: unknown }) => {
+    const sid = r.session_id != null ? String(r.session_id).trim() : "";
+    const ph = r.phone_number != null ? String(r.phone_number).trim() : "";
+    return { sid, ph };
+  };
+  if (digits) {
+    for (const r of rows) {
+      const { sid, ph } = rowSession(r);
+      if (!sid || !ph) continue;
+      if (waPhonesMatch(ph, digits)) return { session_id: sid };
+    }
+  }
+  for (const r of rows) {
+    const { sid, ph } = rowSession(r);
+    if (!sid) continue;
+    if (!ph) return { session_id: sid };
+  }
+  return null;
+}
+
+/**
+ * Floating WhatsApp click (`analytics_wa_clicks`) carries `session_id`. Contact / package funnels
+ * create `leads` rows with the same `analytics_session_id` + `web_id` before the first inbound WA.
+ * Merge the WA ticket into that row so we do not insert a second lead with NULL attribution.
+ */
+async function findMergeableSessionLeadFromLatestWaClick(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  displayPhoneNumber: string | null | undefined,
+  inboundTimestampIso: string,
+  inboundCustomerDigits: string | null | undefined,
+): Promise<{ leadId: string } | null> {
+  const webId = resolveClientWebIdFromDisplayPhoneNumber(displayPhoneNumber);
+  if (!webId) return null;
+
+  const { data: waRows, error: waSelErr } = await supabase
+    .from("analytics_wa_clicks")
+    .select("session_id, phone_number")
+    .eq("web_id", webId)
+    .lte("created_at", inboundTimestampIso)
+    .order("created_at", { ascending: false })
+    .limit(25);
+  if (waSelErr) return null;
+
+  const waClick = pickWaClickRowForInboundSession(waRows, inboundCustomerDigits);
+  if (!waClick?.session_id) return null;
+
+  const sessionId = String(waClick.session_id);
+  const { data: leadRows, error: leadErr } = await supabase
+    .from("leads")
+    .select("id, ticket_id, attribution, created_at")
+    .eq("organization_id", orgId)
+    .eq("analytics_session_id", sessionId)
+    .eq("web_id", webId)
+    .order("created_at", { ascending: false })
+    .limit(25);
+  if (leadErr || !leadRows?.length) return null;
+
+  const ticketMergeable = (tid: unknown) => {
+    const t = String(tid ?? "").trim();
+    if (!t) return true;
+    return t.toUpperCase().startsWith("LEAD");
+  };
+
+  const mergeable = leadRows.filter((r: { ticket_id?: unknown }) => ticketMergeable(r.ticket_id));
+  if (!mergeable.length) return null;
+
+  mergeable.sort(
+    (
+      a: { attribution?: unknown; created_at?: unknown },
+      b: { attribution?: unknown; created_at?: unknown },
+    ) => {
+      const aAttr = leadAttributionIsMeaningful(a.attribution) ? 0 : 1;
+      const bAttr = leadAttributionIsMeaningful(b.attribution) ? 0 : 1;
+      if (aAttr !== bAttr) return aAttr - bAttr;
+      return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+    },
+  );
+  const id = mergeable[0]?.id;
+  return typeof id === "string" && id.trim() ? { leadId: id.trim() } : null;
+}
+
+/** Remove extra `leads` rows for the same session+web_id with no attribution (e.g. WA stub insert). */
+async function dedupeSessionLeadsAfterWaAttributionPatch(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  keepLeadId: string,
+  sessionId: string,
+  webId: string,
+): Promise<void> {
+  const { data: siblings, error } = await supabase
+    .from("leads")
+    .select("id, attribution, ticket_id")
+    .eq("organization_id", orgId)
+    .eq("analytics_session_id", sessionId)
+    .eq("web_id", webId)
+    .neq("id", keepLeadId);
+  if (error || !siblings?.length) return;
+
+  for (const s of siblings) {
+    if (leadAttributionIsMeaningful(s.attribution)) continue;
+    const tid = String(s.ticket_id ?? "").trim();
+    if (tid.toUpperCase().startsWith("LEAD")) continue;
+    const { error: delErr } = await supabase.from("leads").delete().eq("id", s.id);
+    if (delErr) {
+      console.warn("dedupeSessionLeadsAfterWaAttributionPatch: delete failed", delErr);
+    }
+  }
+}
+
 /** Insert a lead row when a new WhatsApp conversation is created. Link by ticket_id (WA-xxx). */
 async function ensureLeadForNewConversation(
   supabase: ReturnType<typeof createClient>,
@@ -296,7 +744,9 @@ async function ensureLeadForNewConversation(
   client: string,
   title: string,
   customerWaId: string | null | undefined,
-  createdByDisplayName: string
+  createdByDisplayName: string,
+  displayPhoneNumber?: string | null,
+  inboundTimestampIso?: string,
 ): Promise<void> {
   const ticketId = WA_TICKET_PREFIX + String(convId).replace(/-/g, "").slice(0, 8).toUpperCase();
   const { data: existing } = await supabase.from("leads").select("id").eq("ticket_id", ticketId).maybeSingle();
@@ -318,8 +768,36 @@ async function ensureLeadForNewConversation(
   const safeClient = (client && String(client).trim()) || source;
   const safeTitle = (title && String(title).trim().slice(0, 100)) || source;
   const phoneNumber = source === "WhatsApp" && customerWaId ? String(customerWaId).trim() || null : null;
+  const inboundTs = inboundTimestampIso?.trim() || new Date().toISOString();
 
   if (phoneNumber) {
+    const sessionLead = await findMergeableSessionLeadFromLatestWaClick(
+      supabase,
+      orgId,
+      displayPhoneNumber ?? null,
+      inboundTs,
+      phoneNumber,
+    );
+    if (sessionLead) {
+      const now = new Date().toISOString();
+      const { error: sessionMergeErr } = await supabase
+        .from("leads")
+        .update({
+          ticket_id: ticketId,
+          phone_number: phoneNumber,
+          updated_at: now,
+        })
+        .eq("id", sessionLead.leadId);
+      if (!sessionMergeErr) {
+        console.log("ensureLeadForNewConversation: merged WA ticket into session-scoped lead", {
+          lead_id: sessionLead.leadId,
+          ticket_id: ticketId,
+        });
+        return;
+      }
+      console.warn("ensureLeadForNewConversation: session-scoped merge failed", sessionMergeErr);
+    }
+
     const formLeadId = await findMergeableFormLeadId(supabase, orgId, {
       customerWaId: phoneNumber,
       waProfileClientLabel: safeClient,
@@ -368,15 +846,6 @@ async function ensureLeadForNewConversation(
   console.log("ensureLeadForNewConversation: lead created", { ticket_id: ticketId, source });
 }
 
-function resolveVialdiWeddingWebIdFromDisplayPhoneNumber(
-  displayPhoneNumber: string | null | undefined
-): "vialdi-wedding" | null {
-  // Kontrol: hanya inject ke `leads_vialdi_wedding` untuk vanity number yang memang milik web vialdi-wedding.
-  // Format di DB biasanya `+62...` sehingga kita ambil digits-nya saja.
-  const digits = digitsOnly(displayPhoneNumber ?? null);
-  return digits === "6281281714855" ? "vialdi-wedding" : null;
-}
-
 async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
   supabase: ReturnType<typeof createClient>;
   orgId: string;
@@ -388,7 +857,7 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
 }): Promise<void> {
   const { supabase, orgId, convId, customerWaId, customerName, displayPhoneNumber, timestampIso } = args;
 
-  const webId = resolveVialdiWeddingWebIdFromDisplayPhoneNumber(displayPhoneNumber);
+  const webId = resolveClientWebIdFromDisplayPhoneNumber(displayPhoneNumber);
   if (!webId) return;
 
   const ticketId = WA_TICKET_PREFIX + String(convId).replace(/-/g, "").slice(0, 8).toUpperCase();
@@ -409,20 +878,47 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
     const leadId = leadRow?.id;
     if (!leadId) return;
 
-    // Find the most recent WhatsApp click (same web) that has not yet received `phone_number`.
-    const { data: waClick, error: waSelErr } = await supabase
+    // Klik terbaru per web (boleh sudah punya phone_number dari form) — cocokkan ke nomor inbound bila ada.
+    const { data: waRows, error: waSelErr } = await supabase
       .from("analytics_wa_clicks")
-      .select("id, session_id, attribution")
+      .select("id, session_id, attribution, phone_number")
       .eq("web_id", webId)
-      .is("phone_number", null)
       .lte("created_at", timestampIso)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(25);
 
     if (waSelErr) {
       console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: analytics_wa_clicks select error", waSelErr);
       return;
+    }
+
+    let waClick: { id: string; session_id: string; attribution: unknown } | null = null;
+    const rowParts = (r: { id?: unknown; session_id?: unknown; attribution?: unknown; phone_number?: unknown }) => {
+      const id = r.id != null ? String(r.id).trim() : "";
+      const sid = r.session_id != null ? String(r.session_id).trim() : "";
+      const ph = r.phone_number != null ? String(r.phone_number).trim() : "";
+      return { id, sid, ph, attribution: r.attribution };
+    };
+    const custDigits = String(customerWaId ?? "").replace(/\D/g, "");
+    if (custDigits) {
+      for (const r of waRows ?? []) {
+        const row = rowParts(r as { id?: unknown; session_id?: unknown; attribution?: unknown; phone_number?: unknown });
+        if (!row.id || !row.sid || !row.ph) continue;
+        if (waPhonesMatch(row.ph, custDigits)) {
+          waClick = { id: row.id, session_id: row.sid, attribution: row.attribution };
+          break;
+        }
+      }
+    }
+    if (!waClick) {
+      for (const r of waRows ?? []) {
+        const row = rowParts(r as { id?: unknown; session_id?: unknown; attribution?: unknown; phone_number?: unknown });
+        if (!row.id || !row.sid) continue;
+        if (!row.ph) {
+          waClick = { id: row.id, session_id: row.sid, attribution: row.attribution };
+          break;
+        }
+      }
     }
     const analyticsSessionId = waClick?.session_id;
     if (!waClick?.id || !analyticsSessionId) return;
@@ -454,32 +950,41 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
 
     if (leadPatchErr) {
       console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: leads patch error", leadPatchErr);
+    } else {
+      await dedupeSessionLeadsAfterWaAttributionPatch(
+        supabase,
+        orgId,
+        String(leadId),
+        String(analyticsSessionId),
+        webId,
+      );
     }
 
-    // Insert/upsert into the wedding lead draft row (step=1) using the generated dedupe key.
-    const safeName = (customerName ?? customerWaId ?? "WhatsApp").toString().trim().slice(0, 200);
-    const { error: upsertErr } = await supabase.from("leads_vialdi_wedding").upsert(
-      {
-        organization_id: orgId,
-        lead_id: leadId,
-        name: safeName,
-        phone_number: customerWaId || null,
-        email: null,
-        package_label: "WhatsApp",
-        event_date: null,
-        event_time: null,
-        event_address: null,
-        step: 1,
-        source: "WhatsApp",
-        analytics_session_id: analyticsSessionId,
-        attribution: waClick?.attribution ?? null,
-        attribution_label: null,
-      },
-      { onConflict: "organization_id,step1_dedupe_key" }
-    );
+    if (webId === "vialdi-wedding") {
+      const safeName = (customerName ?? customerWaId ?? "WhatsApp").toString().trim().slice(0, 200);
+      const { error: upsertErr } = await supabase.from("leads_vialdi_wedding").upsert(
+        {
+          organization_id: orgId,
+          lead_id: leadId,
+          name: safeName,
+          phone_number: customerWaId || null,
+          email: null,
+          package_label: "WhatsApp",
+          event_date: null,
+          event_time: null,
+          event_address: null,
+          step: 1,
+          source: "WhatsApp",
+          analytics_session_id: analyticsSessionId,
+          attribution: waClick?.attribution ?? null,
+          attribution_label: null,
+        },
+        { onConflict: "organization_id,step1_dedupe_key" },
+      );
 
-    if (upsertErr) {
-      console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: leads_vialdi_wedding upsert error", upsertErr);
+      if (upsertErr) {
+        console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: leads_vialdi_wedding upsert error", upsertErr);
+      }
     }
   } catch (e) {
     console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: unexpected error", e);
@@ -723,10 +1228,10 @@ Deno.serve(async (req: Request) => {
                 );
               }
 
-              // === UPDATED: Handle status updates + save error details into raw_metadata ===
+              // Status updates (sent | delivered | read | failed): inbox raw_metadata + campaign blast recipients
               for (const st of statuses) {
-                const waMessageId = st.id;
-                const status = st.status; // sent | delivered | read | failed
+                const waMessageId = st.id != null ? String(st.id).trim() : "";
+                const status = st.status != null ? String(st.status).trim() : "";
                 const statusTimestamp = st.timestamp
                   ? new Date(Number(st.timestamp) * 1000).toISOString()
                   : new Date().toISOString();
@@ -734,11 +1239,27 @@ Deno.serve(async (req: Request) => {
 
                 await updateWhatsappMessageStatusWithDebug({
                   supabase,
-                  waMessageId: String(waMessageId),
-                  status: String(status),
+                  waMessageId,
+                  status,
                   statusTimestampIso: statusTimestamp,
                   statusPayload: st as Record<string, unknown>,
                 });
+
+                const { data: campRec } = await supabase
+                  .from("whatsapp_campaign_recipients")
+                  .select("id, wa_delivery_status")
+                  .eq("wa_message_id", waMessageId)
+                  .maybeSingle();
+
+                if (campRec && typeof campRec === "object" && "id" in campRec) {
+                  const row = campRec as { id: string; wa_delivery_status: string | null };
+                  if (shouldUpgradeMetaDelivery(row.wa_delivery_status, status)) {
+                    await supabase
+                      .from("whatsapp_campaign_recipients")
+                      .update({ wa_delivery_status: status, wa_delivery_status_at: statusTimestamp })
+                      .eq("id", row.id);
+                  }
+                }
               }
 
               if (!phoneNumberId || messages.length === 0) {
@@ -824,7 +1345,11 @@ Deno.serve(async (req: Request) => {
 
               const contactMap: Record<string, string> = {};
               for (const c of contacts) {
-                if (c.wa_id && c.profile?.name) contactMap[c.wa_id] = c.profile.name;
+                if (c.wa_id && c.profile?.name) {
+                  contactMap[c.wa_id] = c.profile.name;
+                  const d = waCustomerDigits(c.wa_id);
+                  if (d) contactMap[d] = c.profile.name;
+                }
               }
               const sortedMessages = [...messages].sort(
                 (a, b) => (Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0))
@@ -838,6 +1363,8 @@ Deno.serve(async (req: Request) => {
                   console.error("No token for org/phone_number_id:", orgId, phoneNumberId);
                   continue;
                 }
+
+                const defaultConversationLeadStatusId = await fetchDefaultConversationLeadStatusId(supabase, orgId);
 
                 // Backfill display_phone_number on organization_whatsapp_accounts from webhook metadata
                 const rawDisplayNumber = value.metadata?.display_phone_number;
@@ -860,7 +1387,8 @@ Deno.serve(async (req: Request) => {
                   if (msg.type === "unsupported") {
                     continue;
                   }
-                  const customerWaId = String(msg.from ?? "");
+                  const customerWaRaw = String(msg.from ?? "");
+                  const customerDigits = waCustomerDigits(customerWaRaw);
                   const mediaCaption = getInboundMediaCaption(msg as Record<string, unknown>);
                   const bodyText =
                     msg.text?.body ?? mediaCaption ?? (msg.type === "text" ? "" : `[${msg.type}]`);
@@ -871,13 +1399,14 @@ Deno.serve(async (req: Request) => {
                   const timestamp = msg.timestamp
                     ? new Date(Number(msg.timestamp) * 1000).toISOString()
                     : new Date().toISOString();
-                  const customerName = contactMap[customerWaId] ?? null;
+                  const customerName =
+                    contactMap[customerWaRaw] ?? (customerDigits ? contactMap[customerDigits] : null) ?? null;
 
                   const lastBody = typeof bodyText === "string" ? bodyText.slice(0, 200) : "";
                   const convPayload: Record<string, unknown> = {
                     organization_id: orgId,
-                    customer_wa_id: customerWaId,
-                    customer_external_id: customerWaId,
+                    customer_wa_id: customerDigits,
+                    customer_external_id: customerDigits,
                     channel: "whatsapp",
                     phone_number_id: phoneNumberId,
                     last_message_at: timestamp,
@@ -885,30 +1414,33 @@ Deno.serve(async (req: Request) => {
                     last_inbound_at: timestamp,
                     updated_at: timestamp,
                   };
+                  if (defaultConversationLeadStatusId) {
+                    convPayload.lead_status_id = defaultConversationLeadStatusId;
+                  }
                   if (customerName) convPayload.customer_name = customerName;
 
                   // One conversation per (org, channel, customer, phone_number_id) – list and messages separated by account (Synckerja, Vialdi Wedding, etc.).
-                  const { data: existingConv } = await supabase
-                    .from("whatsapp_conversations")
-                    .select("id")
-                    .eq("organization_id", orgId)
-                    .eq("customer_wa_id", customerWaId)
-                    .eq("channel", "whatsapp")
-                    .eq("phone_number_id", phoneNumberId)
-                    .maybeSingle();
+                  const existingConvId = await findExistingWhatsappConversationId(supabase, {
+                    organizationId: orgId,
+                    phoneNumberId,
+                    customerDigits,
+                  });
 
                   let conv: { id: string } | null = null;
-                  if (existingConv) {
+                  if (existingConvId) {
                     const { data: updated } = await supabase
                       .from("whatsapp_conversations")
                       .update({
+                        phone_number_id: phoneNumberId,
+                        customer_wa_id: customerDigits,
+                        customer_external_id: customerDigits,
                         last_message_at: timestamp,
                         last_message_body: lastBody,
                         last_inbound_at: timestamp,
                         customer_name: customerName ?? undefined,
                         updated_at: timestamp,
                       })
-                      .eq("id", existingConv.id)
+                      .eq("id", existingConvId)
                       .select("id")
                       .single();
                     conv = updated;
@@ -928,10 +1460,12 @@ Deno.serve(async (req: Request) => {
                       orgId,
                       conv!.id,
                       "whatsapp",
-                      customerName ?? customerWaId ?? "WhatsApp",
+                      customerName ?? customerDigits ?? "WhatsApp",
                       lastBody ?? "WhatsApp",
-                      customerWaId,
-                      account.created_by_display_name
+                      customerDigits,
+                      account.created_by_display_name,
+                      account.display_phone_number ?? null,
+                      timestamp,
                     );
                   }
 
@@ -943,17 +1477,16 @@ Deno.serve(async (req: Request) => {
                     supabase,
                     orgId,
                     conv.id,
-                    customerWaId,
-                    customerName ?? customerWaId ?? "",
+                    customerDigits,
+                    customerName ?? customerDigits ?? "",
                   );
 
-                  // Ensure `leads_vialdi_wedding` draft row exists for inbound WA conversations
-                  // linked to the most recent `analytics_wa_clicks` (web_id='vialdi-wedding').
-                  void ensureLeadsVialdiWeddingFromAnalyticsWaClick({
+                  // Link CRM lead + attribution from `analytics_wa_clicks` (floating click); await so dedupe runs before downstream reads.
+                  await ensureLeadsVialdiWeddingFromAnalyticsWaClick({
                     supabase,
                     orgId,
                     convId: conv.id,
-                    customerWaId,
+                    customerWaId: customerDigits,
                     customerName: customerName ?? null,
                     displayPhoneNumber: account.display_phone_number,
                     timestampIso: timestamp,
@@ -1018,7 +1551,7 @@ Deno.serve(async (req: Request) => {
                               : "[Pesan]";
                         insertPayload.reply_to_message_type = repliedType;
                         insertPayload.reply_to_sender =
-                          repliedToRow.direction === "outbound" ? "You" : (customerName ?? customerWaId ?? "Contact");
+                          repliedToRow.direction === "outbound" ? "You" : (customerName ?? customerDigits ?? "Contact");
                       } else {
                         insertPayload.reply_to_body = "[Pesan]";
                       }
