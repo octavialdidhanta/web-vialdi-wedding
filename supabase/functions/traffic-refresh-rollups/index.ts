@@ -19,10 +19,9 @@
  * Mode default (tanpa tanggal, tanpa kunci `web_id` lama): p_from ≈ 35 hari lalu UTC, p_to hari ini, p_web_id opsional.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveActiveProperty } from "./resolveWebId.ts";
 
 type ServiceClient = ReturnType<typeof createClient>;
-
-const ALLOWED_WEB_IDS = ["vialdi-wedding", "synckerja"] as const;
 
 type PgLikeErr = { message?: string; code?: string; details?: string; hint?: string };
 
@@ -99,20 +98,27 @@ function defaultToYmd(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Normalisasi untuk RPC harian + filter edge (vialdi → vialdi-wedding). */
-function normalizeWebId(raw: unknown): string | null {
+/** Parse raw web_id from body (allowlist checked via `properties` before RPC). */
+function parseWebIdRaw(raw: unknown): string | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== "string") return null;
   const s = raw.trim();
-  if (s === "") return null;
-  const canonical = s === "vialdi" ? "vialdi-wedding" : s;
-  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(canonical)) return null;
-  return canonical;
+  return s || null;
 }
 
-/** Seperti kode lama: untuk lookup `analytics_web_access` (lowercase). */
+/** Untuk lookup `analytics_web_access` (lowercase). */
 function normalizeWebIdLegacyLookup(raw: unknown): string {
   return String(raw ?? "").trim().toLowerCase();
+}
+
+async function resolveWebIdForRpc(
+  service: ServiceClient,
+  raw: string | null,
+): Promise<string | null> {
+  if (!raw) return null;
+  const r = await resolveActiveProperty(service, raw);
+  if (!r.ok) return null;
+  return r.property.slug;
 }
 
 function mustGetEnv(name: string): string {
@@ -142,7 +148,7 @@ function classifyBody(body: Record<string, unknown>): Classified {
       return { kind: "legacy_maximum", web_id_lower: w };
     }
     if (hasKey(body, "p_web_id")) {
-      const pw = normalizeWebId(body.p_web_id);
+      const pw = parseWebIdRaw(body.p_web_id);
       if (body.p_web_id != null && String(body.p_web_id).trim() !== "" && !pw) {
         return { kind: "error", status: 400, message: "Invalid p_web_id" };
       }
@@ -173,9 +179,9 @@ function classifyBody(body: Record<string, unknown>): Classified {
     }
     if (t < f) return { kind: "error", status: 400, message: "Invalid range" };
     const pw = hasKey(body, "p_web_id")
-      ? normalizeWebId(body.p_web_id)
+      ? parseWebIdRaw(body.p_web_id)
       : hasKey(body, "web_id")
-        ? normalizeWebId(body.web_id)
+        ? parseWebIdRaw(body.web_id)
         : null;
     return { kind: "explicit", p_from: f, p_to: t, p_web_id: pw };
   }
@@ -204,9 +210,9 @@ function classifyBody(body: Record<string, unknown>): Classified {
 
   const effFrom = p_from ?? defaultFromYmd();
   const pw = hasKey(body, "p_web_id")
-    ? normalizeWebId(body.p_web_id)
+    ? parseWebIdRaw(body.p_web_id)
     : hasKey(body, "web_id")
-      ? normalizeWebId(body.web_id)
+      ? parseWebIdRaw(body.web_id)
       : null;
   if (hasKey(body, "p_web_id") && body.p_web_id != null && String(body.p_web_id).trim() !== "" && !pw) {
     return { kind: "error", status: 400, message: "Invalid p_web_id" };
@@ -295,13 +301,10 @@ async function resolveOrgWebAccessCanonical(args: {
   return { ok: true, canonical_web_id: String(mapping.web_id).trim() };
 }
 
-/** Untuk jalur org: pakai canonical dari DB (harus valid di RPC Postgres). */
+/** Untuk jalur org: canonical dari analytics_web_access (validated via properties di RPC). */
 function rpcWebIdForPostgres(canonicalFromDb: string): string | null {
   const t = canonicalFromDb.trim();
-  if (!t) return null;
-  const lower = t.toLowerCase();
-  if (lower === "vialdi") return "vialdi-wedding";
-  return t;
+  return t || null;
 }
 
 /** Wajib untuk user org (selain mode legacy_maximum yang sudah diverifikasi). */
@@ -396,7 +399,7 @@ Deno.serve(async (req) => {
         }
         p_web_id = rpcWebIdForPostgres(acc.canonical_web_id);
       } else {
-        const n = normalizeWebId(classified.web_id_lower);
+        const n = await resolveWebIdForRpc(service, classified.web_id_lower);
         if (!n) {
           return json({ error: "Invalid web_id for refresh" }, { status: 400, headers: corsHeaders(origin) });
         }
@@ -468,6 +471,14 @@ Deno.serve(async (req) => {
         return json({ error: g.message }, { status: g.status, headers: corsHeaders(origin) });
       }
       p_web_id = g.p_web_id;
+    }
+
+    if (p_web_id) {
+      const canonical = await resolveWebIdForRpc(service, p_web_id);
+      if (!canonical) {
+        return json({ error: "Invalid p_web_id" }, { status: 400, headers: corsHeaders(origin) });
+      }
+      p_web_id = canonical;
     }
 
     const rpcArgs = { p_from, p_to: p_to ?? null, p_web_id };

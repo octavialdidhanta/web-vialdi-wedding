@@ -24,6 +24,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveActiveProperty } from "./resolveWebId.ts";
 
 const MAX_PATH_LEN = 512;
 const MAX_URL_LEN = 2000;
@@ -40,21 +41,6 @@ type Body = {
   /** Optional client timestamp (ISO). Server also stores created_at. */
   ts?: string | null;
 };
-
-/** Vialdi Wedding site — `vialdi` (agency) diterima sebagai alias lalu disimpan sebagai `vialdi-wedding`. */
-const ALLOWED_WEB_IDS = ["vialdi-wedding", "synckerja"] as const;
-
-/** Sama dengan Edge Function lead lain — organisasi CRM utama. */
-const ORG_ID = "663c9336-8cb6-4a36-9ad9-313126e70a1a";
-
-function normalizeWebId(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const s = raw.trim();
-  if (s.length === 0 || s.length > 32) return null;
-  const canonical = s === "vialdi" ? "vialdi-wedding" : s;
-  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(canonical)) return null;
-  return canonical;
-}
 
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
@@ -430,10 +416,6 @@ Deno.serve(async (req) => {
   if (!body?.session_id || !isUuid(body.session_id)) {
     return badRequest("Invalid session_id", origin);
   }
-  const webId = normalizeWebId(body.web_id);
-  if (!webId) {
-    return badRequest("Invalid web_id", origin);
-  }
   if (!validPath(body.path)) {
     return badRequest("Invalid path", origin);
   }
@@ -451,7 +433,17 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
-  const graphPhoneNumberId = await resolveWhatsappPhoneNumberIdFromOrgTable(admin, ORG_ID, webId);
+  const resolved = await resolveActiveProperty(admin, body.web_id);
+  if (!resolved.ok) {
+    return json(
+      { error: resolved.error },
+      { status: resolved.status === 403 ? 403 : 400, headers: corsHeaders(origin) },
+    );
+  }
+  const webId = resolved.property.slug;
+  const orgId = resolved.property.organization_id;
+
+  const graphPhoneNumberId = await resolveWhatsappPhoneNumberIdFromOrgTable(admin, orgId, webId);
 
   const attribution = extractAttributionForDb(body.attribution ?? null);
   const ipHash = ip !== "unknown" ? toIpHash(ip) : null;

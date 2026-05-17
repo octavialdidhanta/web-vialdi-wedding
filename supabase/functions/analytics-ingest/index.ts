@@ -3,6 +3,7 @@
  * Batched first-party analytics from the SPA. Service role + RPC for session touch.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveActiveProperty } from "./resolveWebId.ts";
 
 const MAX_EVENTS = 50;
 const MAX_PATH_LEN = 512;
@@ -50,7 +51,7 @@ type IngestEvent = SessionTouch | PageView | ActivePing | PageEnd | Click;
 
 type Body = {
   session_id: string;
-  /** `vialdi-wedding` | `synckerja` — `vialdi` (agency) diterima sebagai alias → disimpan `vialdi-wedding`. */
+  /** Canonical slug from `properties` (aliases resolved server-side). */
   web_id: string;
   /**
    * Visitor id stabil (localStorage); opsional — server memakai session_id jika kosong.
@@ -60,17 +61,6 @@ type Body = {
   auth_user_id?: string | null;
   events: IngestEvent[];
 };
-
-const ALLOWED_WEB_IDS = ["vialdi-wedding", "synckerja"] as const;
-
-function normalizeWebId(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const s = raw.trim();
-  if (s.length === 0 || s.length > 32) return null;
-  const canonical = s === "vialdi" ? "vialdi-wedding" : s;
-  if (!(ALLOWED_WEB_IDS as readonly string[]).includes(canonical)) return null;
-  return canonical;
-}
 
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
@@ -256,11 +246,6 @@ Deno.serve(async (req) => {
     return badRequest("Invalid session_id", origin);
   }
 
-  const webId = normalizeWebId(body.web_id);
-  if (!webId) {
-    return badRequest("Invalid or missing web_id", origin);
-  }
-
   if (!Array.isArray(body.events) || body.events.length === 0 || body.events.length > MAX_EVENTS) {
     return badRequest("Invalid events", origin);
   }
@@ -268,6 +253,15 @@ Deno.serve(async (req) => {
   const url = mustGetEnv("SUPABASE_URL");
   const key = mustGetEnv("SUPABASE_SERVICE_ROLE_KEY");
   const supabase = createClient(url, key, { auth: { persistSession: false } });
+
+  const resolved = await resolveActiveProperty(supabase, body.web_id);
+  if (!resolved.ok) {
+    return json(
+      { error: resolved.error },
+      { status: resolved.status, headers: corsHeaders(origin) },
+    );
+  }
+  const webId = resolved.property.slug;
 
   let mergedRef: string | null = null;
   let mergedUa: string | null = null;
