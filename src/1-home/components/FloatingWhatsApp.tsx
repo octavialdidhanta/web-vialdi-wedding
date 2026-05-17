@@ -1,10 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import {
-  buildWaMeUrl,
-  fetchHomeFloatingWhatsappSettings,
-  HOME_FLOATING_WHATSAPP_QUERY_KEY,
-} from "@/share/homeFloatingWhatsappSettings";
+import { buildWaMeUrl } from "@/share/homeFloatingWhatsappSettings";
+import { useDeferredHomeWhatsappSettings } from "@/share/useDeferredHomeWhatsappSettings";
 import { WHATSAPP_LOGO_PNG } from "@/1-home/components/FooterContactNavButton";
 
 /**
@@ -12,11 +8,7 @@ import { WHATSAPP_LOGO_PNG } from "@/1-home/components/FooterContactNavButton";
  * Mobile: tidak merender apa pun — slot Contact ada di `MobileHomeStickyFooter`.
  */
 export function FloatingWhatsApp() {
-  const { data, isLoading } = useQuery({
-    queryKey: HOME_FLOATING_WHATSAPP_QUERY_KEY,
-    queryFn: fetchHomeFloatingWhatsappSettings,
-    staleTime: 60_000,
-  });
+  const { data, isLoading } = useDeferredHomeWhatsappSettings();
 
   if (isLoading || !data) {
     return null;

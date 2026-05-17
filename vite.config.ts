@@ -123,8 +123,9 @@ export default defineConfig(({ mode }) => {
 
             const stripHomeHeroPreloadIfBlog = `<script>(function(){if(/^\\/blog\\/.+/.test(location.pathname||"")){var e=document.getElementById("vialdi-fcp-home-hero-preload");if(e)e.remove();}})();<\/script>\n`;
 
-            const injectPreloadAfterCharset = (h: string, href: string) => {
-              const tag = `    <link id="vialdi-fcp-home-hero-preload" rel="preload" as="image" href="${href}" imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
+            const injectPreloadAfterCharset = (h: string, href: string, srcset?: string) => {
+              const srcsetAttr = srcset ? ` imagesrcset="${srcset}"` : "";
+              const tag = `    <link id="vialdi-fcp-home-hero-preload" rel="preload" as="image" href="${href}"${srcsetAttr} imagesizes="${heroImgSizes}" fetchpriority="high" />\n`;
               const charsetMeta = /<meta\s+charset=["']UTF-8["']\s*\/?>/i;
               if (charsetMeta.test(h)) {
                 return h.replace(charsetMeta, (m) => `${m}\n${tag}${stripHomeHeroPreloadIfBlog}`);
@@ -135,19 +136,21 @@ export default defineConfig(({ mode }) => {
             const buildImgTag = (src: string, srcset: string) =>
               `<img id="vialdi-static-hero-lcp" class="vialdi-static-hero-lcp" src="${src}" srcset="${srcset}" sizes="${heroImgSizes}" width="720" height="720" fetchpriority="high" decoding="async" alt="${staticHeroAlt}" />`;
 
-            const homeHeroBootScript = (imgHtml: string) =>
-              `<template id="vialdi-fcp-home-hero-tmpl">${imgHtml}</template><script>(function(){var p=location.pathname||"";var w=document.getElementById("vialdi-fcp-photo-wrap");var t=document.getElementById("vialdi-fcp-home-hero-tmpl");if(!w||!t)return;var blog=/^\\/blog\\/.+/.test(p);if(blog){var d=document.createElement("div");d.id="vialdi-fcp-blog-lcp-slot";d.className="vialdi-static-hero-lcp vialdi-fcp-blog-ph";d.setAttribute("aria-hidden","true");w.appendChild(d);}else{w.appendChild(t.content.cloneNode(true));}t.remove();})();<\/script>`;
+            const blogHeroSwapScript =
+              `<script>(function(){if(!/^\\/blog\\/.+/.test(location.pathname||""))return;var w=document.getElementById("vialdi-fcp-photo-wrap");var img=document.getElementById("vialdi-static-hero-lcp");if(img)img.remove();if(!w||w.querySelector(".vialdi-fcp-blog-ph"))return;var el=document.createElement("div");el.className="vialdi-static-hero-lcp vialdi-fcp-blog-ph";el.setAttribute("aria-hidden","true");w.appendChild(el);})();<\/script>`;
+            const injectHomeHero = (imgHtml: string) => `${imgHtml}\n${blogHeroSwapScript}`;
 
             if (!ctx.bundle) {
+              const dev480 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=480&format=webp";
               const dev640 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=640&format=webp";
               const dev960 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=960&format=webp";
               const dev1280 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=1280&format=webp";
               const dev1600 = "/src/1-home/assets/hero/DSC00768_11zon.webp?w=1600&format=webp";
-              const devSrcset = `${dev640} 640w, ${dev960} 960w, ${dev1280} 1280w, ${dev1600} 1600w`;
-              next = injectPreloadAfterCharset(next, dev960);
+              const devSrcset = `${dev480} 480w, ${dev640} 640w, ${dev960} 960w, ${dev1280} 1280w, ${dev1600} 1600w`;
+              next = injectPreloadAfterCharset(next, dev480, devSrcset);
               return next.replaceAll(
                 "__VIALDI_LCP_HERO_IMG__",
-                homeHeroBootScript(buildImgTag(dev960, devSrcset)),
+                injectHomeHero(buildImgTag(dev480, devSrcset)),
               );
             }
 
@@ -165,20 +168,23 @@ export default defineConfig(({ mode }) => {
             }
 
             assetSizes.sort((a, b) => a.bytes - b.bytes);
-            const widths = [640, 960, 1280, 1600] as const;
-            const pairs = assetSizes.slice(0, 4).map((a, i) => ({
+            const widths = [480, 640, 960, 1280, 1600] as const;
+            const pairs = assetSizes.slice(0, 5).map((a, i) => ({
               href: `/${a.fileName.replace(/^\/+/, "")}`,
               w: widths[i] ?? 640 * (i + 1),
             }));
             const srcset = pairs.map((p) => `${p.href} ${p.w}w`).join(", ");
-            const picked = assetSizes.length >= 2 ? assetSizes[1]! : assetSizes[0]!;
-            const href = `/${picked.fileName.replace(/^\/+/, "")}`;
-            const srcForImg = pairs[1]?.href ?? pairs[0]!.href;
+            const picked =
+              pairs.find((p) => p.w === 480) ??
+              pairs.find((p) => p.w === 640) ??
+              pairs[0]!;
+            const href = picked.href;
+            const srcForImg = picked.href;
 
-            next = injectPreloadAfterCharset(next, href);
+            next = injectPreloadAfterCharset(next, href, srcset);
             return next.replaceAll(
               "__VIALDI_LCP_HERO_IMG__",
-              homeHeroBootScript(buildImgTag(srcForImg, srcset)),
+              injectHomeHero(buildImgTag(srcForImg, srcset)),
             );
           },
         },
@@ -226,6 +232,8 @@ export default defineConfig(({ mode }) => {
              * agar halaman blog/header tidak memuat ~250 KiB analytics hanya untuk `TRACK_KEYS`.
              */
             if (id.includes("node_modules/lucide-react")) return "icons";
+            if (id.includes("node_modules/@supabase/")) return "supabase";
+            if (id.includes("node_modules/@tanstack/react-query")) return "react-query";
             if (id.includes("node_modules")) {
               const base = id.replace(/\\/g, "/");
               if (base.includes("@tiptap/") || base.includes("prosemirror-")) {

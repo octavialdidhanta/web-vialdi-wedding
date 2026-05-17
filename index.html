@@ -36,9 +36,22 @@
         color: oklch(0.22 0.03 250);
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
-      #vialdi-fcp-root {
-        min-height: 100vh;
+      #vialdi-fcp-shell {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        overflow-y: auto;
         box-sizing: border-box;
+        background-color: oklch(0.985 0.005 90);
+        pointer-events: none;
+      }
+      body.vialdi-app-ready #vialdi-fcp-shell {
+        display: none;
+      }
+      #root {
+        position: relative;
+        z-index: 0;
+        min-height: 100vh;
       }
       #vialdi-fcp-bar {
         display: flex;
@@ -128,30 +141,45 @@
         }
       }
       #vialdi-fcp-badge {
-        height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 1rem;
         max-width: 22rem;
         border-radius: 9999px;
         border: 1px solid oklch(0.9 0.01 80);
         background: oklch(1 0 0 / 0.9);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: oklch(0.22 0.03 250);
       }
-      .vialdi-fcp-line {
-        border-radius: 0.25rem;
-        background: oklch(0.9 0.02 250 / 0.55);
+      #vialdi-fcp-badge-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 9999px;
+        background: oklch(0.55 0.16 300);
+        flex-shrink: 0;
       }
-      #vialdi-fcp-line1 {
-        margin-top: 1.5rem;
-        width: min(92%, 28rem);
-        height: 1.05rem;
+      #vialdi-fcp-h1 {
+        margin: 1.5rem 0 0;
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.12;
+        letter-spacing: -0.02em;
+        color: oklch(0.22 0.03 250);
       }
-      #vialdi-fcp-line2 {
-        margin-top: 0.65rem;
-        width: min(88%, 26rem);
-        height: 1.05rem;
+      #vialdi-fcp-h1-accent {
+        background: linear-gradient(90deg, oklch(0.48 0.2 300), oklch(0.4 0.14 305));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
-      #vialdi-fcp-line3 {
-        margin-top: 0.55rem;
-        width: min(72%, 20rem);
-        height: 0.75rem;
+      @media (min-width: 768px) {
+        #vialdi-fcp-h1 {
+          font-size: 3rem;
+        }
       }
     </style>
     <!-- Playfair Display 600/700: self-host via `@fontsource/playfair-display` (main.tsx) — bukan Google Fonts CDN. -->
@@ -159,25 +187,25 @@
   </head>
   <body>
     <!-- Konten paintable dulu (FCP): noscript GTM/Meta di bawah agar parser mencapai #root lebih awal -->
-    <main id="main-content">
-      <div id="root">
-        <div id="vialdi-fcp-root">
-          <div id="vialdi-fcp-bar">
-            <span id="vialdi-fcp-title">__VIALDI_FCP_BRAND__</span>
+        <main id="main-content">
+      <div id="vialdi-fcp-shell">
+        <div id="vialdi-fcp-bar">
+          <span id="vialdi-fcp-title">__VIALDI_FCP_BRAND__</span>
+        </div>
+        <div id="vialdi-fcp-hero-wrap">
+          <div id="vialdi-fcp-photo-wrap">
+            __VIALDI_LCP_HERO_IMG__
           </div>
-          <div id="vialdi-fcp-hero-wrap">
-            <div id="vialdi-fcp-photo-wrap">
-              __VIALDI_LCP_HERO_IMG__
-            </div>
-            <div id="vialdi-fcp-copy" aria-hidden="true">
-              <div id="vialdi-fcp-badge"></div>
-              <div id="vialdi-fcp-line1" class="vialdi-fcp-line"></div>
-              <div id="vialdi-fcp-line2" class="vialdi-fcp-line"></div>
-              <div id="vialdi-fcp-line3" class="vialdi-fcp-line"></div>
-            </div>
+          <div id="vialdi-fcp-copy">
+            <div id="vialdi-fcp-badge"><span id="vialdi-fcp-badge-dot" aria-hidden="true"></span> Wedding organizer &amp; dokumentasi</div>
+            <h1 id="vialdi-fcp-h1">
+              Wujudkan pernikahan impian dengan
+              <span id="vialdi-fcp-h1-accent"> dekorasi, busana, rias</span>, dan tim foto-video profesional.
+            </h1>
           </div>
         </div>
       </div>
+      <div id="root"></div>
     </main>
     <!-- Google Tag Manager (noscript) -->
     <noscript>

@@ -38,3 +38,15 @@ dist-ssr
 # Local Supabase CLI downloads (do not commit)
 supabase.exe
 supabase_*.tar.gz
+
+# Sementara: argumen deploy MCP / Cursor (bukan sumber aplikasi)
+_mcp_*
+_part*_escaped.txt
+deploy_invoke.*
+deploy-out.txt
+final-deploy-args.json
+mcp_*_args.json
+mcp_query_*.json
+parsed-args*.json
+.cursor-*-deploy.json
+wrangler.jsonc

@@ -1,5 +1,3 @@
-import { supabase } from "@/share/supabaseClient";
-
 export const HOME_FLOATING_WHATSAPP_WEB_ID = "vialdi-wedding" as const;
 
 /** React Query — sama di beranda & admin agar invalidasi konsisten. */
@@ -19,6 +17,7 @@ export type HomeFloatingWhatsappSettingsRow = {
 const selectCols = "web_id, is_enabled, phone_digits, prefill_message, updated_at" as const;
 
 export async function fetchHomeFloatingWhatsappSettings(): Promise<HomeFloatingWhatsappSettingsRow | null> {
+  const { supabase } = await import("@/share/supabaseClient");
   const { data, error } = await supabase
     .from("home_floating_whatsapp_settings")
     .select(selectCols)
@@ -39,6 +38,7 @@ export type HomeFloatingWhatsappSettingsSave = {
 export async function saveHomeFloatingWhatsappSettings(
   payload: HomeFloatingWhatsappSettingsSave,
 ): Promise<void> {
+  const { supabase } = await import("@/share/supabaseClient");
   const { error } = await supabase.from("home_floating_whatsapp_settings").upsert(
     {
       web_id: HOME_FLOATING_WHATSAPP_WEB_ID,

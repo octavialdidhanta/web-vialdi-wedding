@@ -1,8 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { HomePage } from "@/1-home/pages/HomePage";
-import { QueryRoutesLayout } from "@/query/QueryRoutesLayout";
-import { ShortLinkOutboundRedirect } from "@/share/ShortLinkOutboundRedirect";
 
 function ScrollToTopOnNavigate() {
   const location = useLocation();
@@ -104,6 +101,17 @@ function DeferredAnalyticsLayout() {
   return <Layout />;
 }
 
+const HomePage = lazy(() =>
+  import("@/1-home/pages/HomePage").then((m) => ({ default: m.HomePage })),
+);
+const QueryRoutesLayout = lazy(() =>
+  import("@/query/QueryRoutesLayout").then((m) => ({ default: m.QueryRoutesLayout })),
+);
+const ShortLinkOutboundRedirect = lazy(() =>
+  import("@/share/ShortLinkOutboundRedirect").then((m) => ({
+    default: m.ShortLinkOutboundRedirect,
+  })),
+);
 const AboutUsPage = lazy(() =>
   import("@/about-us/AboutUsPage").then((m) => ({ default: m.AboutUsPage })),
 );
@@ -158,9 +166,9 @@ export default function App() {
         <Routes>
           <Route element={<DeferredAnalyticsLayout />}>
             <Route path="/l/:slug" element={<ShortLinkOutboundRedirect />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/service" element={<OurServicesPage />} />
             <Route element={<QueryRoutesLayout />}>
-              <Route path="/" element={<HomePage />} />
               <Route path="/blog" element={<BlogPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/admin/*" element={<AdminRoutes />} />

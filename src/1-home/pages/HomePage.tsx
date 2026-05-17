@@ -8,10 +8,8 @@ import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import { WEDDING_HERO_IMAGE_SRC, WEDDING_HERO_IMAGE_SRCSET } from "@/1-home/assets/hero/weddingHeroImage";
 import { FloatingWhatsApp } from "@/1-home/components/FloatingWhatsApp";
-import {
-  MobileHomeStickyFooter,
-  mobileHomeStickyFooterPageBottomPaddingClass,
-} from "@/1-home/components/MobileHomeStickyFooter";
+import { DeferredMobileHomeStickyFooter } from "@/1-home/components/DeferredMobileHomeStickyFooter";
+import { mobileHomeStickyFooterPageBottomPaddingClass } from "@/1-home/components/mobileHomeStickyFooterLayout";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
 
@@ -206,7 +204,7 @@ function HomePageInner() {
         </Suspense>
       </DeferUntilNearViewport>
 
-      <MobileHomeStickyFooter
+      <DeferredMobileHomeStickyFooter
         instagramId="home-instagram"
         hargaPaketId="paket-dokumentasi"
         garansiId="home-garansi"

@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { removeVialdiFcpShell, VIALDI_FCP_SHELL_REMOVED } from "@/1-home/lib/removeFcpShell";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 
@@ -13,13 +14,87 @@ function LazySectionFallback({ className }: { className: string }) {
   );
 }
 
+function HeroLcpPhotoSlot({
+  heroImageSrc,
+  heroImageSrcSet,
+}: {
+  heroImageSrc: string;
+  heroImageSrcSet?: string;
+}) {
+  const slotRef = useRef<HTMLDivElement>(null);
+  /** Jangan inisialisasi dari DOM — bisa true sebelum gambar dipindah ke slot (race / Strict Mode). */
+  const [staticAdopted, setStaticAdopted] = useState(false);
+
+  const adoptStaticHero = (): boolean => {
+    const slot = slotRef.current;
+    if (!slot) return false;
+    const staticImg = document.getElementById("vialdi-static-hero-lcp");
+    if (!staticImg) return false;
+    if (staticImg.parentElement === slot) {
+      setStaticAdopted(true);
+      return true;
+    }
+    staticImg.className = "aspect-square w-full object-cover object-bottom";
+    slot.appendChild(staticImg);
+    setStaticAdopted(true);
+    removeVialdiFcpShell();
+    return true;
+  };
+
+  useLayoutEffect(() => {
+    if (adoptStaticHero()) return;
+    const staticImg = document.getElementById("vialdi-static-hero-lcp");
+    if (staticImg?.parentElement?.id === "vialdi-fcp-photo-wrap") {
+      staticImg.remove();
+    }
+  }, []);
+
+  useEffect(() => {
+    const onShellRemoved = () => {
+      adoptStaticHero();
+    };
+    document.addEventListener(VIALDI_FCP_SHELL_REMOVED, onShellRemoved);
+    return () => document.removeEventListener(VIALDI_FCP_SHELL_REMOVED, onShellRemoved);
+  }, []);
+
+  const onReactHeroLoad = () => {
+    removeVialdiFcpShell();
+    const staticImg = document.getElementById("vialdi-static-hero-lcp");
+    if (staticImg?.closest("#vialdi-fcp-shell")) {
+      staticImg.remove();
+    }
+  };
+
+  return (
+    <div ref={slotRef} className="relative aspect-square w-full overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
+      {!staticAdopted ? (
+        <img
+          src={heroImageSrc}
+          srcSet={heroImageSrcSet}
+          alt="Pasangan pengantin dalam suasana pernikahan elegan"
+          width={720}
+          height={720}
+          sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
+          fetchPriority="high"
+          decoding="async"
+          loading="eager"
+          onLoad={onReactHeroLoad}
+          className="aspect-square w-full object-cover object-bottom"
+        />
+      ) : null}
+      <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">
+        Photo by Vialdi Wedding
+      </p>
+    </div>
+  );
+}
+
 export function WeddingHeroSection({
   heroImageSrc,
   heroImageSrcSet,
   onCtaClick,
 }: {
   heroImageSrc: string;
-  /** Responsif: hindari mengunduh WebP penuh (~ribuan px) saat slot tampil jauh lebih kecil. */
   heroImageSrcSet?: string;
   onCtaClick: (ev: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
@@ -32,13 +107,8 @@ export function WeddingHeroSection({
           background: "linear-gradient(135deg, oklch(0.88 0.05 300), oklch(0.94 0.02 95))",
         }}
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/2 hidden h-72 w-72 -translate-x-1/2 rounded-full bg-[oklch(0.75_0.08_300)]/15 blur-3xl lg:block"
-      />
 
       <div className="relative mx-auto grid max-w-[90rem] items-center gap-12 px-2.5 pt-10 pb-10 md:px-6 md:pt-16 md:pb-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-16">
-        {/* Mobile: foto dulu agar LCP (biasanya gambar hero) terpenuhi lebih awal; desktop tetap teks | gambar. */}
         <div className="max-lg:order-2 lg:order-none">
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-navy shadow-sm">
             <span className="h-2 w-2 rounded-full bg-[oklch(0.55_0.16_300)]" />
@@ -68,23 +138,7 @@ export function WeddingHeroSection({
         </div>
 
         <div className="relative max-lg:order-1 lg:order-none">
-          <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-elegant)]">
-            <img
-              src={heroImageSrc}
-              srcSet={heroImageSrcSet}
-              alt="Pasangan pengantin dalam suasana pernikahan elegan"
-              width={720}
-              height={720}
-              sizes="(max-width: 767px) calc(100vw - 1.25rem), (max-width: 1023px) calc(100vw - 3rem), min(560px, 46vw)"
-              fetchPriority="high"
-              decoding="async"
-              loading="eager"
-              className="aspect-square w-full object-cover object-bottom"
-            />
-            <p className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/45 px-2 py-1 text-[0.65rem] font-medium leading-none tracking-wide text-white/95 backdrop-blur-[2px] sm:bottom-3 sm:right-3 sm:text-[0.7rem]">
-              Photo by Vialdi Wedding
-            </p>
-          </div>
+          <HeroLcpPhotoSlot heroImageSrc={heroImageSrc} heroImageSrcSet={heroImageSrcSet} />
           <div className="absolute -left-4 top-8 hidden rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm md:block">
             <p className="max-w-[11rem] text-xs font-medium leading-snug text-navy">
               Paket foto &amp; video + album — ringkas dalam satu penawaran.
@@ -96,7 +150,7 @@ export function WeddingHeroSection({
         </div>
       </div>
 
-      <DeferUntilNearViewport rootMargin="240px 0px 240px 0px" placeholderClassName="min-h-[22rem] md:min-h-[28rem]">
+      <DeferUntilNearViewport rootMargin="480px 0px 480px 0px" placeholderClassName="min-h-[22rem] md:min-h-[28rem]">
         <Suspense fallback={<LazySectionFallback className="min-h-[22rem] md:min-h-[28rem]" />}>
           <HeroAlbumKolaseVideo />
         </Suspense>
@@ -104,4 +158,3 @@ export function WeddingHeroSection({
     </section>
   );
 }
-

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { SectionTitle } from "@/1-home/components/SectionTitle";
+import { QuerySectionProvider } from "@/query/QuerySectionProvider";
 import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
@@ -53,6 +54,7 @@ export function WeddingPackagesSection({
   dokumentasiLeadCard: { title: string; body: string };
 }) {
   return (
+    <QuerySectionProvider>
     <section
       id="paket-dokumentasi"
       className="order-1 scroll-mt-24 border-t border-border/60 bg-secondary/30 pt-8 pb-8 md:pt-10 md:pb-10"
@@ -201,6 +203,7 @@ export function WeddingPackagesSection({
         </div>
       </div>
     </section>
+    </QuerySectionProvider>
   );
 }
 

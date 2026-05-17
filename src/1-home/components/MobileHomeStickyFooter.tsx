@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { BadgePercent, HelpCircle, Instagram, ShieldCheck } from "lucide-react";
 import {
   FooterContactNavButton,
@@ -7,19 +6,10 @@ import {
   footerContactNavButtonClass,
 } from "@/1-home/components/FooterContactNavButton";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
-import {
-  buildWaMeUrl,
-  fetchHomeFloatingWhatsappSettings,
-  HOME_FLOATING_WHATSAPP_QUERY_KEY,
-} from "@/share/homeFloatingWhatsappSettings";
+import { buildWaMeUrl } from "@/share/homeFloatingWhatsappSettings";
+import { useDeferredHomeWhatsappSettings } from "@/share/useDeferredHomeWhatsappSettings";
 
-/**
- * Padding bawah konten halaman (mobile) agar footer tidak tertutup bar navigasi fixed.
- * ≈ tinggi bar (ikon 36px + label + py + border) + safe area — jangan terlalu besar agar tidak
- * terlihat “lompat” jauh di atas bar; jangan terlalu kecil agar teks footer tidak ketutup.
- */
-export const mobileHomeStickyFooterPageBottomPaddingClass =
-  "pb-[calc(3.875rem+env(safe-area-inset-bottom,0px))] md:pb-0";
+export { mobileHomeStickyFooterPageBottomPaddingClass } from "@/1-home/components/mobileHomeStickyFooterLayout";
 
 type ScrollNavItem = {
   id: string;
@@ -50,11 +40,7 @@ export function MobileHomeStickyFooter({
   garansiId: string;
   faqId: string;
 }) {
-  const { data: waSettings } = useQuery({
-    queryKey: HOME_FLOATING_WHATSAPP_QUERY_KEY,
-    queryFn: fetchHomeFloatingWhatsappSettings,
-    staleTime: 60_000,
-  });
+  const { data: waSettings } = useDeferredHomeWhatsappSettings();
 
   const waFooterActive = Boolean(
     waSettings?.is_enabled && waSettings.phone_digits,

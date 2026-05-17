@@ -1,6 +1,12 @@
-import { createRoot } from "react-dom/client";
-import App from "./App";
 import "./index.css";
+
+function scheduleAppBoot(): void {
+  const run = () => void import("./boot").then((m) => m.bootApp());
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(run);
+  });
+}
 
 function schedulePlayfairFonts(): void {
   const load = () => {
@@ -8,13 +14,8 @@ function schedulePlayfairFonts(): void {
     void import("@fontsource/playfair-display/700.css");
   };
 
-  if (typeof window === "undefined") {
-    load();
-    return;
-  }
-
   if (typeof requestIdleCallback !== "undefined") {
-    requestIdleCallback(load, { timeout: 2500 });
+    requestIdleCallback(load, { timeout: 5000 });
     return;
   }
 
@@ -22,5 +23,4 @@ function schedulePlayfairFonts(): void {
 }
 
 schedulePlayfairFonts();
-
-createRoot(document.getElementById("root")!).render(<App />);
+scheduleAppBoot();
