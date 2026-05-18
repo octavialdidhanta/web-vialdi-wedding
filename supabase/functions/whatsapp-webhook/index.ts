@@ -227,7 +227,7 @@ async function consolidateDuplicateWhatsappConversations(
       if (!oldLeadId) continue;
       const keepLeadId = newTicketLead?.id != null ? String(newTicketLead.id).trim() : "";
       if (keepLeadId && keepLeadId !== oldLeadId) {
-        await supabase.from("leads_vialdi_wedding").update({ lead_id: keepLeadId }).eq("lead_id", oldLeadId);
+        await supabase.from("lead_submissions").update({ lead_id: keepLeadId }).eq("lead_id", oldLeadId);
         const { error: delLeadErr } = await supabase.from("leads").delete().eq("id", oldLeadId);
         if (delLeadErr) {
           console.warn("consolidateDuplicateWhatsappConversations: delete duplicate lead failed", delLeadErr.message);
@@ -555,12 +555,12 @@ async function reconcileFormLeadWithWaTicket(
         console.error("reconcileFormLeadWithWaTicket: merge WA rich fields into form lead failed", mergeUpErr);
         return;
       }
-      const { error: wWedErr } = await supabase
-        .from("leads_vialdi_wedding")
+      const { error: wSubErr } = await supabase
+        .from("lead_submissions")
         .update({ lead_id: formLeadId })
         .eq("lead_id", waTicketLead.id);
-      if (wWedErr) {
-        console.warn("reconcileFormLeadWithWaTicket: repoint leads_vialdi_wedding failed", wWedErr.message);
+      if (wSubErr) {
+        console.warn("reconcileFormLeadWithWaTicket: repoint lead_submissions failed", wSubErr.message);
       }
       const { error: delRichErr } = await supabase.from("leads").delete().eq("id", waTicketLead.id);
       if (delRichErr) {
@@ -599,6 +599,14 @@ async function reconcileFormLeadWithWaTicket(
 }
 
 /** Repo ini = Vialdi Wedding; nomor marketing agency lama tetap dipetakan ke `web_id` wedding untuk CRM/analytics. */
+/** CRM client names set on floating click before we know the visitor's name. */
+const WA_FLOATING_STUB_CLIENTS = new Set(["Klik WhatsApp", "—"]);
+
+function shouldReplaceWaFloatingStubClient(current: string | null | undefined): boolean {
+  const c = (current ?? "").trim();
+  return !c || WA_FLOATING_STUB_CLIENTS.has(c);
+}
+
 function resolveClientWebIdFromDisplayPhoneNumber(
   displayPhoneNumber: string | null | undefined,
 ): "vialdi-wedding" | null {
@@ -780,13 +788,22 @@ async function ensureLeadForNewConversation(
     );
     if (sessionLead) {
       const now = new Date().toISOString();
+      const { data: sessionLeadRow } = await supabase
+        .from("leads")
+        .select("client")
+        .eq("id", sessionLead.leadId)
+        .maybeSingle();
+      const sessionMergePatch: Record<string, unknown> = {
+        ticket_id: ticketId,
+        phone_number: phoneNumber,
+        updated_at: now,
+      };
+      if (shouldReplaceWaFloatingStubClient(sessionLeadRow?.client as string | undefined)) {
+        sessionMergePatch.client = safeClient;
+      }
       const { error: sessionMergeErr } = await supabase
         .from("leads")
-        .update({
-          ticket_id: ticketId,
-          phone_number: phoneNumber,
-          updated_at: now,
-        })
+        .update(sessionMergePatch)
         .eq("id", sessionLead.leadId);
       if (!sessionMergeErr) {
         console.log("ensureLeadForNewConversation: merged WA ticket into session-scoped lead", {
@@ -866,7 +883,7 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
     // Must already exist because `ensureLeadForNewConversation` ran, but be defensive.
     const { data: leadRow, error: leadSelErr } = await supabase
       .from("leads")
-      .select("id")
+      .select("id, client")
       .eq("organization_id", orgId)
       .eq("ticket_id", ticketId)
       .maybeSingle();
@@ -923,6 +940,8 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
     const analyticsSessionId = waClick?.session_id;
     if (!waClick?.id || !analyticsSessionId) return;
 
+    const safeName = (customerName ?? customerWaId ?? "WhatsApp").toString().trim().slice(0, 200);
+
     // Persist sender phone on analytics row (so later lead functions can rely on it).
     const { error: waUpdErr } = await supabase
       .from("analytics_wa_clicks")
@@ -936,17 +955,35 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
 
     // Patch CRM `leads` so attribution/session/web_id are never NULL for matched WA clicks.
     // This is safe/idempotent: update by (org_id, ticket_id) which is unique for WA threads.
+    const leadPatch: Record<string, unknown> = {
+      web_id: webId,
+      analytics_session_id: analyticsSessionId,
+      attribution: waClick?.attribution ?? null,
+      phone_number: customerWaId || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (shouldReplaceWaFloatingStubClient(leadRow?.client as string | undefined)) {
+      leadPatch.client = safeName;
+    }
     const { error: leadPatchErr } = await supabase
       .from("leads")
-      .update({
-        web_id: webId,
-        analytics_session_id: analyticsSessionId,
-        attribution: waClick?.attribution ?? null,
-        phone_number: customerWaId || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(leadPatch)
       .eq("organization_id", orgId)
       .eq("ticket_id", ticketId);
+
+    // Floating-click stub may still exist as LEAD-* before ticket merge; refresh name there too.
+    if (safeName) {
+      const { error: stubPatchErr } = await supabase
+        .from("leads")
+        .update({ client: safeName, updated_at: new Date().toISOString() })
+        .eq("organization_id", orgId)
+        .eq("analytics_session_id", analyticsSessionId)
+        .eq("web_id", webId)
+        .in("client", Array.from(WA_FLOATING_STUB_CLIENTS));
+      if (stubPatchErr) {
+        console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: stub lead client patch error", stubPatchErr);
+      }
+    }
 
     if (leadPatchErr) {
       console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: leads patch error", leadPatchErr);
@@ -960,30 +997,66 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
       );
     }
 
-    if (webId === "vialdi-wedding") {
-      const safeName = (customerName ?? customerWaId ?? "WhatsApp").toString().trim().slice(0, 200);
-      const { error: upsertErr } = await supabase.from("leads_vialdi_wedding").upsert(
-        {
-          organization_id: orgId,
-          lead_id: leadId,
-          name: safeName,
-          phone_number: customerWaId || null,
-          email: null,
-          package_label: "WhatsApp",
-          event_date: null,
-          event_time: null,
-          event_address: null,
-          step: 1,
-          source: "WhatsApp",
-          analytics_session_id: analyticsSessionId,
-          attribution: waClick?.attribution ?? null,
-          attribution_label: null,
-        },
-        { onConflict: "organization_id,step1_dedupe_key" },
-      );
+    const { data: existingDraft } = await supabase
+      .from("lead_submissions")
+      .select("id, lead_id, form_data, name, phone_number, email, package_label")
+      .eq("web_id", webId)
+      .eq("organization_id", orgId)
+      .eq("analytics_session_id", analyticsSessionId)
+      .eq("form_id", "contact-main")
+      .eq("status", "draft")
+      .maybeSingle();
 
-      if (upsertErr) {
-        console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: leads_vialdi_wedding upsert error", upsertErr);
+    const priorForm =
+      existingDraft?.form_data && typeof existingDraft.form_data === "object" &&
+        !Array.isArray(existingDraft.form_data)
+        ? (existingDraft.form_data as Record<string, unknown>)
+        : {};
+    const mergedFormData: Record<string, unknown> = {
+      ...priorForm,
+      name: safeName,
+      phone_number: customerWaId || null,
+    };
+
+    const hubRow: Record<string, unknown> = {
+      web_id: webId,
+      form_id: "contact-main",
+      form_version: 1,
+      step: 1,
+      status: "draft",
+      form_data: mergedFormData,
+      name: safeName,
+      phone_number: customerWaId || null,
+      email: existingDraft?.email ?? null,
+      package_label:
+        (existingDraft?.package_label != null && String(existingDraft.package_label).trim())
+          ? String(existingDraft.package_label).trim()
+          : "WhatsApp",
+      organization_id: orgId,
+      lead_id: String(leadId),
+      analytics_session_id: analyticsSessionId,
+      attribution: waClick?.attribution ?? null,
+      attribution_label: null,
+    };
+
+    if (existingDraft?.id) {
+      const { error: hubUpdErr } = await supabase
+        .from("lead_submissions")
+        .update(hubRow)
+        .eq("id", existingDraft.id);
+      if (hubUpdErr) {
+        console.warn(
+          "ensureLeadsVialdiWeddingFromAnalyticsWaClick: lead_submissions update error",
+          hubUpdErr,
+        );
+      }
+    } else {
+      const { error: hubInsErr } = await supabase.from("lead_submissions").insert(hubRow);
+      if (hubInsErr) {
+        console.warn(
+          "ensureLeadsVialdiWeddingFromAnalyticsWaClick: lead_submissions insert error",
+          hubInsErr,
+        );
       }
     }
   } catch (e) {

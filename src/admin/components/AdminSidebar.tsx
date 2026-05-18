@@ -49,6 +49,10 @@ export function AdminSidebar() {
           <Inbox className="h-4 w-4 shrink-0" aria-hidden />
           Request
         </NavLink>
+        <NavLink to="/admin/leads" className={linkClass}>
+          <Inbox className="h-4 w-4 shrink-0" aria-hidden />
+          Leads Hub
+        </NavLink>
         <NavLink to="/admin/posts" className={linkClass}>
           <FileText className="h-4 w-4 shrink-0" aria-hidden />
           Posts

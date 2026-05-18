@@ -9,6 +9,8 @@ declare const Deno: {
 };
 
 declare module "https://esm.sh/@supabase/supabase-js@2.49.1" {
+  export type { SupabaseClient } from "@supabase/supabase-js";
+
   /** Edge runtime uses this URL; editor resolves it here without strict DB generics. */
   export function createClient(
     supabaseUrl: string,

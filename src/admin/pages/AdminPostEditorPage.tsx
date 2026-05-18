@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import type { JSONContent } from "@tiptap/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import {
   adminFetchPost,
   adminFetchPosts,
@@ -79,6 +80,7 @@ export function AdminPostEditorPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAdminAuth();
+  const webId = getRequiredWebId();
 
   const [slugTouched, setSlugTouched] = useState(false);
   const [title, setTitle] = useState("");
@@ -103,18 +105,18 @@ export function AdminPostEditorPage() {
   const [saving, setSaving] = useState(false);
 
   const { data: post, isLoading: loadingPost } = useQuery({
-    queryKey: ["admin", "post", id],
+    queryKey: ["admin", "post", webId, id],
     queryFn: () => adminFetchPost(id!),
     enabled: Boolean(!isNew && id),
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["admin", "categories"],
+    queryKey: ["admin", "categories", webId],
     queryFn: adminListCategories,
   });
 
   const { data: adminPostsForLinks = [] } = useQuery({
-    queryKey: ["admin", "posts"],
+    queryKey: ["admin", "posts", webId],
     queryFn: adminFetchPosts,
   });
 
@@ -309,7 +311,7 @@ export function AdminPostEditorPage() {
       return id;
     },
     onSuccess: async (savedId) => {
-      await qc.invalidateQueries({ queryKey: ["admin", "posts"] });
+      await qc.invalidateQueries({ queryKey: ["admin", "posts", webId] });
       await qc.invalidateQueries({ queryKey: ["admin", "post", savedId] });
       await qc.invalidateQueries({ queryKey: ["blog"] });
       toast.success("Tersimpan");
@@ -365,7 +367,7 @@ export function AdminPostEditorPage() {
   const del = useMutation({
     mutationFn: () => (id ? adminDeletePost(id) : Promise.resolve()),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["admin", "posts"] });
+      await qc.invalidateQueries({ queryKey: ["admin", "posts", webId] });
       await qc.invalidateQueries({ queryKey: ["blog"] });
       toast.success("Dihapus");
       navigate("/admin/posts");

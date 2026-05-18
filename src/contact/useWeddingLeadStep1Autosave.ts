@@ -32,8 +32,8 @@ type Args = {
 };
 
 /**
- * Step 1 ke Edge Function (debounced). Satu `leads_vialdi_wedding.id` per tab disimpan di
- * sessionStorage; ganti kartu paket → UPDATE baris yang sama (termasuk `package_label`), bukan INSERT baru.
+ * Step 1 ke contact-submit (debounced). Satu `lead_submissions.id` per tab di sessionStorage;
+ * ganti kartu paket → UPDATE baris yang sama (termasuk `package_label`), bukan INSERT baru.
  */
 export function useWeddingLeadStep1Autosave(args: Args) {
   const [leadRowId, setLeadRowId] = useState<string | null>(() => readPersistedLeadRowIdSafe());
@@ -166,7 +166,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
         } catch (e: unknown) {
           if (requestId !== latestRequestIdRef.current) return;
           if (import.meta.env.DEV) {
-            console.warn("[wedding-package-lead] step 1 autosave gagal:", e);
+            console.warn("[contact-submit] step 1 autosave gagal:", e);
           }
         }
       })();

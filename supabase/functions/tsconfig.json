@@ -5,9 +5,19 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
     "skipLibCheck": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["./**/*.ts", "./**/*.d.ts"]
+  "include": ["./**/*.ts", "./**/*.d.ts"],
+  "exclude": [
+    "**/*.bundled.ts",
+    "analytics-ingest/index.ts",
+    "wa-click-track/index.ts",
+    "traffic-refresh-rollups/index.ts",
+    "contact-lead/index.ts",
+    "contact-submit/index.ts"
+  ]
 }

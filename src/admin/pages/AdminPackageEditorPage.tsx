@@ -2,26 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  adminFetchAgencyPackage,
-  adminUpsertAgencyPackage,
-  agencyPackageSectionZ,
-  uploadAgencyPackageMedia,
-  type AgencyPackageSection,
-  type AgencyPackageUpsert,
-} from "@/agency/agencyPackages";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
-import {
-  adminFetchPackage,
-  adminUpsertPackage,
-  uploadPackageMedia,
-  weddingPackageSectionZ,
-  type WeddingPackageSection,
-  type WeddingPackageUpsert,
-} from "@/blog/weddingPackages";
 import { useAdminAuth } from "@/admin/adminAuthContext";
+import {
+  adminFetchPropertyPackage,
+  adminUpsertPropertyPackage,
+  isAgencyPackageWeb,
+  propertyPackageSectionZ,
+  uploadPropertyPackageMedia,
+  type PropertyPackageSection,
+  type PropertyPackageUpsert,
+} from "@/packages/propertyPackages";
 import { formatIdrThousandsInput, formatPriceLikeInput } from "@/share/lib/idrThousandsInput";
-import { useIsWeddingSite } from "@/site/siteVariant";
 import { Button } from "@/share/ui/button";
 import { Input } from "@/share/ui/input";
 import { Label } from "@/share/ui/label";
@@ -78,7 +71,7 @@ function addDaysLocal(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const defaultSections: Array<AgencyPackageSection | WeddingPackageSection> = [
+const defaultSections: PropertyPackageSection[] = [
   {
     id: "detail",
     title: "Detail",
@@ -89,7 +82,7 @@ const defaultSections: Array<AgencyPackageSection | WeddingPackageSection> = [
 
 type SectionKind = "bullets" | "bullet_items" | "bonus_lines";
 
-function kindOfSection(s: AgencyPackageSection | WeddingPackageSection): SectionKind {
+function kindOfSection(s: PropertyPackageSection): SectionKind {
   if (s.bullet_items?.length) return "bullet_items";
   if (s.bonus_lines?.length) return "bonus_lines";
   return "bullets";
@@ -106,12 +99,13 @@ export function AdminPackageEditorPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAdminAuth();
-  const isWeddingSite = useIsWeddingSite();
+  const webId = getRequiredWebId();
+  const showAgencyFields = isAgencyPackageWeb(webId);
   const isNew = id === "new" || !id;
 
   const { data: existing, isLoading } = useQuery({
-    queryKey: ["admin", "packages", id],
-    queryFn: () => (isWeddingSite ? adminFetchPackage(id!) : adminFetchAgencyPackage(id!)),
+    queryKey: ["admin", "packages", webId, id],
+    queryFn: () => adminFetchPropertyPackage(id!),
     enabled: Boolean(!isNew && id),
   });
 
@@ -140,9 +134,7 @@ export function AdminPackageEditorPage() {
   const [spentCurrency, setSpentCurrency] = useState("IDR");
   const [spentPeriod, setSpentPeriod] = useState("per bulan");
   const [feePercent, setFeePercent] = useState<number>(10);
-  const [sections, setSections] = useState<Array<AgencyPackageSection | WeddingPackageSection>>(
-    defaultSections,
-  );
+  const [sections, setSections] = useState<PropertyPackageSection[]>(defaultSections);
   const [advancedJsonOpen, setAdvancedJsonOpen] = useState(false);
   const [sectionsJson, setSectionsJson] = useState(() => JSON.stringify(defaultSections, null, 2));
 
@@ -188,7 +180,7 @@ export function AdminPackageEditorPage() {
     setSlug("paket-baru");
     setSortOrder(0);
     setIsPublished(false);
-    setBadgeLabel(isWeddingSite ? WEDDING_HOME_BADGE_PILL_OPTIONS[0] : "Paket Ads");
+    setBadgeLabel(showAgencyFields ? "Paket Ads" : WEDDING_HOME_BADGE_PILL_OPTIONS[0]);
     setTitle("");
     setPackageLabel("");
     setSummary("");
@@ -198,7 +190,7 @@ export function AdminPackageEditorPage() {
     setSpentCurrency("IDR");
     setSpentPeriod("per bulan");
     setFeePercent(10);
-  }, [isNew, existing, isWeddingSite]);
+  }, [isNew, existing, showAgencyFields]);
 
   useEffect(() => {
     if (title.trim() && !packageLabel.trim()) {
@@ -212,9 +204,9 @@ export function AdminPackageEditorPage() {
         throw new Error("Tidak ada pengguna");
       }
       // Validate sections built from UI.
-      const parsed: Array<AgencyPackageSection | WeddingPackageSection> = [];
+      const parsed: PropertyPackageSection[] = [];
       for (const item of sections) {
-        const p = (isWeddingSite ? weddingPackageSectionZ : agencyPackageSectionZ).safeParse(item);
+        const p = propertyPackageSectionZ.safeParse(item);
         if (!p.success) {
           throw new Error(`Section tidak valid: ${JSON.stringify(item)}`);
         }
@@ -226,34 +218,7 @@ export function AdminPackageEditorPage() {
         throw new Error("Pilih tanggal & jam akhir promo untuk hitung mundur.");
       }
 
-      if (isWeddingSite) {
-        const payload: WeddingPackageUpsert = {
-          id: isNew ? undefined : id,
-          slug: slug.trim() || slugify(title) || "paket",
-          sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
-          is_published: isPublished,
-          badge_label: badgeLabel,
-          title: title.trim(),
-          package_label: packageLabel.trim() || title.trim(),
-          strikethrough_price: strikethroughPrice.trim() || null,
-          price: price.trim(),
-          promo_marquee_text: promoMarquee.trim() || null,
-          footer_note: footerNote.trim() || null,
-          footer_extra_html: footerExtraHtml.trim() || null,
-          show_best_seller: showBestSeller,
-          best_seller_image_path: bestSellerPath,
-          best_seller_image_url: bestSellerUrlOverride.trim() || null,
-          badge_image_path: badgePath,
-          badge_image_url: badgeUrlOverride.trim() || null,
-          promo_countdown_ends_at: promoEndsAt,
-          footer_countdown_label: footerCountdownLabel.trim() || null,
-          show_footer_countdown: showFooterCountdown,
-          sections: parsed as WeddingPackageSection[],
-        };
-        return adminUpsertPackage(payload, user.id);
-      }
-
-      const payload: AgencyPackageUpsert = {
+      const payload: PropertyPackageUpsert = {
         id: isNew ? undefined : id,
         slug: slug.trim() || slugify(title) || "paket",
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -261,7 +226,7 @@ export function AdminPackageEditorPage() {
         badge_label: badgeLabel,
         title: title.trim(),
         package_label: packageLabel.trim() || title.trim(),
-        summary: summary.trim() || null,
+        summary: showAgencyFields ? summary.trim() || null : null,
         strikethrough_price: strikethroughPrice.trim() || null,
         price: price.trim(),
         promo_marquee_text: promoMarquee.trim() || null,
@@ -275,21 +240,22 @@ export function AdminPackageEditorPage() {
         promo_countdown_ends_at: promoEndsAt,
         footer_countdown_label: footerCountdownLabel.trim() || null,
         show_footer_countdown: showFooterCountdown,
-        spent_budget_min: Number.isFinite(spentMin) && spentMin > 0 ? spentMin : null,
-        spent_budget_max: Number.isFinite(spentMax) && spentMax > 0 ? spentMax : null,
-        spent_budget_currency: spentCurrency.trim() || "IDR",
-        spent_budget_period: spentPeriod.trim() || "per bulan",
-        fee_percent: Number.isFinite(feePercent) && feePercent > 0 ? feePercent : 10,
-        sections: parsed as AgencyPackageSection[],
+        spent_budget_min:
+          showAgencyFields && Number.isFinite(spentMin) && spentMin > 0 ? spentMin : null,
+        spent_budget_max:
+          showAgencyFields && Number.isFinite(spentMax) && spentMax > 0 ? spentMax : null,
+        spent_budget_currency: showAgencyFields ? spentCurrency.trim() || "IDR" : null,
+        spent_budget_period: showAgencyFields ? spentPeriod.trim() || "per bulan" : null,
+        fee_percent:
+          showAgencyFields && Number.isFinite(feePercent) && feePercent > 0 ? feePercent : null,
+        sections: parsed,
       };
-      return adminUpsertAgencyPackage(payload, user.id);
+      return adminUpsertPropertyPackage(payload, user.id);
     },
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: ["admin", "packages"] });
       await qc.invalidateQueries({ queryKey: ["admin", "packages", row.id] });
-      await qc.invalidateQueries({
-        queryKey: [isWeddingSite ? "wedding-packages-carousel" : "agency-packages-carousel"],
-      });
+      await qc.invalidateQueries({ queryKey: ["property-packages-carousel", webId] });
       toast.success("Paket disimpan");
       if (isNew) {
         navigate(`/admin/packages/${row.id}`, { replace: true });
@@ -310,7 +276,7 @@ export function AdminPackageEditorPage() {
     e.target.value = "";
     if (!f || !user?.id) return;
     try {
-      const path = await (isWeddingSite ? uploadPackageMedia : uploadAgencyPackageMedia)(f, user.id);
+      const path = await uploadPropertyPackageMedia(f, user.id);
       setBadgePath(path);
       toast.success("Gambar badge diunggah");
     } catch (err) {
@@ -323,7 +289,7 @@ export function AdminPackageEditorPage() {
     e.target.value = "";
     if (!f || !user?.id) return;
     try {
-      const path = await (isWeddingSite ? uploadPackageMedia : uploadAgencyPackageMedia)(f, user.id);
+      const path = await uploadPropertyPackageMedia(f, user.id);
       setBestSellerPath(path);
       toast.success("Gambar best seller diunggah");
     } catch (err) {
@@ -399,7 +365,7 @@ export function AdminPackageEditorPage() {
               <SelectValue placeholder="Pilih tab Paket unggulan" />
             </SelectTrigger>
             <SelectContent>
-              {isWeddingSite ? (
+              {!showAgencyFields ? (
                 <>
                   {badgeLabel.trim() &&
                   !(WEDDING_HOME_BADGE_PILL_OPTIONS as readonly string[]).includes(badgeLabel.trim()) ? (
@@ -445,19 +411,21 @@ export function AdminPackageEditorPage() {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="summary">Ringkasan (summary)</Label>
-          <Textarea
-            id="summary"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="1 kalimat padat untuk menjelaskan paket."
-          />
-        </div>
+        {showAgencyFields ? (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="summary">Ringkasan (summary)</Label>
+            <Textarea
+              id="summary"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="1 kalimat padat untuk menjelaskan paket."
+            />
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="spentMin">Spent min (IDR)</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="spentMin">Spent min (IDR)</Label>
             <Input id="spentMin" type="number" value={spentMin} onChange={(e) => setSpentMin(Number(e.target.value))} />
           </div>
           <div className="space-y-2">
@@ -490,6 +458,8 @@ export function AdminPackageEditorPage() {
             required
           />
         </div>
+          </>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">

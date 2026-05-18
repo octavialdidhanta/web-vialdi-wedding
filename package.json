@@ -9,7 +9,13 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "sync:edge": "node scripts/sync-edge-shared.mjs",
+    "bundle:edge": "node scripts/sync-edge-shared.mjs && node scripts/bundle-edge-functions.mjs",
+    "deploy:edge": "node scripts/deploy-edge-functions.mjs",
+    "deploy:edge:contact-submit": "node scripts/deploy-edge-functions.mjs contact-submit",
+    "deploy:edge:wa-click-track": "node scripts/deploy-edge-functions.mjs wa-click-track",
+    "deploy:edge:whatsapp-webhook": "node scripts/deploy-edge-functions.mjs whatsapp-webhook"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

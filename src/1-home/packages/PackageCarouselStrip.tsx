@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { homeBadgePillToCarouselKind } from "@/blog/weddingPackageHomeTabs";
 import { normalizeCarouselPackageIds } from "@/blog/weddingPackageIds";
 import type { WeddingPackageRow } from "@/blog/weddingPackages";
@@ -81,9 +82,10 @@ export function PackageCarouselStrip({
   );
 
   const preloadedKey = preloaded ? preloaded.map((p) => p.id).join(",") : "";
+  const webId = getRequiredWebId();
 
   const query = useQuery({
-    queryKey: ["wedding-packages-carousel", mode, normalizedIds.join(","), preloadedKey],
+    queryKey: ["property-packages-carousel", webId, mode, normalizedIds.join(","), preloadedKey],
     queryFn: async () => {
       if (preloaded?.length) {
         return preloaded;

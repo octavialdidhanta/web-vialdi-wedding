@@ -1,0 +1,2 @@
+# Meta Cloud API webhook cannot send a Supabase user JWT; auth is X-Hub-Signature-256 in the function.
+verify_jwt = false

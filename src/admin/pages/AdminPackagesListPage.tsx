@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminDeleteAgencyPackage, adminListAgencyPackages } from "@/agency/agencyPackages";
-import { adminDeletePackage, adminListPackages } from "@/blog/weddingPackages";
-import { useIsWeddingSite } from "@/site/siteVariant";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
+import {
+  adminDeletePropertyPackage,
+  adminListPropertyPackages,
+  isAgencyPackageWeb,
+} from "@/packages/propertyPackages";
 import { Button } from "@/share/ui/button";
 import {
   AlertDialog,
@@ -19,22 +22,21 @@ import { toast } from "sonner";
 
 export function AdminPackagesListPage() {
   const qc = useQueryClient();
-  const isWeddingSite = useIsWeddingSite();
+  const webId = getRequiredWebId();
+  const showAgencyFields = isAgencyPackageWeb(webId);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: rows = [], isLoading, error } = useQuery({
-    queryKey: ["admin", "packages", "list"],
-    queryFn: isWeddingSite ? adminListPackages : adminListAgencyPackages,
+    queryKey: ["admin", "packages", "list", webId],
+    queryFn: adminListPropertyPackages,
   });
   const deleteRow = rows.find((r) => r.id === deleteId) ?? null;
 
   const del = useMutation({
-    mutationFn: isWeddingSite ? adminDeletePackage : adminDeleteAgencyPackage,
+    mutationFn: adminDeletePropertyPackage,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin", "packages"] });
-      await qc.invalidateQueries({
-        queryKey: [isWeddingSite ? "wedding-packages-carousel" : "agency-packages-carousel"],
-      });
+      await qc.invalidateQueries({ queryKey: ["property-packages-carousel", webId] });
       toast.success("Paket dihapus");
       setDeleteId(null);
     },
@@ -42,7 +44,7 @@ export function AdminPackagesListPage() {
   });
 
   function kindLabel(badgeLabel: string): string {
-    if (isWeddingSite) return badgeLabel.trim() || "-";
+    if (!showAgencyFields) return badgeLabel.trim() || "-";
     const s = badgeLabel.trim().toLowerCase();
     if (s.includes("ads")) return "Paket Ads";
     if (s.includes("landing")) return "Paket Landing Page";
@@ -58,9 +60,9 @@ export function AdminPackagesListPage() {
           <div>
             <h1 className="text-2xl font-bold text-navy">Paket</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isWeddingSite
-                ? "Kelola kartu Paket Wedding (Supabase). Hanya yang terbit yang tampil di beranda."
-                : "Kelola kartu Paket Ads (Supabase). Hanya yang terbit yang tampil di beranda."}
+              {showAgencyFields
+                ? "Kelola kartu Paket Ads (Supabase). Hanya yang terbit yang tampil di beranda."
+                : "Kelola kartu Paket Wedding (Supabase). Hanya yang terbit yang tampil di beranda."}
             </p>
           </div>
           <Button asChild>

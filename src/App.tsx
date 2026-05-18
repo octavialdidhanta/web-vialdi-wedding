@@ -1,5 +1,20 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { removeVialdiFcpShell } from "@/1-home/lib/removeFcpShell";
+
+/** Shell FCP beranda hanya dihapus di hero `/`; rute lain (admin, blog, …) harus menyingkirkannya. */
+function DismissFcpShellUnlessHome() {
+  const { pathname } = useLocation();
+
+  useLayoutEffect(() => {
+    const isHome = pathname === "/" || pathname === "";
+    if (!isHome) {
+      removeVialdiFcpShell();
+    }
+  }, [pathname]);
+
+  return null;
+}
 
 function ScrollToTopOnNavigate() {
   const location = useLocation();
@@ -160,6 +175,7 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
+      <DismissFcpShellUnlessHome />
       <ScrollToTopOnNavigate />
       <MetaPixelRouteTracker />
       <Suspense fallback={null}>

@@ -35,6 +35,11 @@ const AdminWebAccessRequestsPage = lazy(() =>
     default: m.AdminWebAccessRequestsPage,
   })),
 );
+const AdminLeadSubmissionsPage = lazy(() =>
+  import("@/admin/pages/AdminLeadSubmissionsPage").then((m) => ({
+    default: m.AdminLeadSubmissionsPage,
+  })),
+);
 
 function AdminSpinner() {
   return (
@@ -129,6 +134,14 @@ export function AdminRoutes() {
             element={
               <Suspense fallback={<AdminSpinner />}>
                 <AdminWebAccessRequestsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="leads"
+            element={
+              <Suspense fallback={<AdminSpinner />}>
+                <AdminLeadSubmissionsPage />
               </Suspense>
             }
           />

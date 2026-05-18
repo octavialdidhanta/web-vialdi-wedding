@@ -6,9 +6,8 @@ import { randomUuidV4 } from "@/share/lib/randomUuid";
 // Reuse same bucket (schema separation is in DB tables).
 export const BLOG_MEDIA_BUCKET = "blog-media";
 const BUCKET = BLOG_MEDIA_BUCKET;
-const CMS_WEB_ID = "vialdi-wedding";
 
-export type TagJoin = { agency_blog_tags: { name: string; slug: string } | null } | null;
+export type TagJoin = { blog_tags: { name: string; slug: string } | null } | null;
 
 type PostRow = {
   id: string;
@@ -52,7 +51,7 @@ function mapRowToPublic(p: PostRow): BlogPostPublic {
   const date = published.toISOString().slice(0, 10);
   const tags =
     p.post_tags
-      ?.map((x) => x?.agency_blog_tags?.name)
+      ?.map((x) => x?.blog_tags?.name)
       .filter((n): n is string => Boolean(n))
       .sort((a, b) => a.localeCompare(b)) ?? [];
   const toc = Array.isArray(p.toc_json) ? p.toc_json : [];
@@ -77,14 +76,14 @@ const publishedSelect = `
   id, slug, title, excerpt, status, featured, accent,
   cover_image_path, cover_image_url, body_json, body_html, toc_json,
   read_time_minutes, published_at, scheduled_at,
-  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
+  post_tags:post_tags ( blog_tags:blog_tags ( name, slug ) )
 `;
 
 const publishedListSelect = `
   id, slug, title, excerpt, status, featured, accent,
   cover_image_path, cover_image_url,
   read_time_minutes, published_at, scheduled_at,
-  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( name, slug ) )
+  post_tags:post_tags ( blog_tags:blog_tags ( name, slug ) )
 `;
 
 type PostListRow = Pick<
@@ -109,7 +108,7 @@ function mapListRowToPublic(p: PostListRow): BlogPostPublic {
   const date = published.toISOString().slice(0, 10);
   const tags =
     p.post_tags
-      ?.map((x) => x?.agency_blog_tags?.name)
+      ?.map((x) => x?.blog_tags?.name)
       .filter((n): n is string => Boolean(n))
       .sort((a, b) => a.localeCompare(b)) ?? [];
   return {
@@ -130,10 +129,12 @@ function mapListRowToPublic(p: PostListRow): BlogPostPublic {
 }
 
 export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
+  const webId = getRequiredWebId();
   const now = new Date().toISOString();
   const { data: publishedRows, error: errPub } = await supabase
     .from("posts")
     .select(publishedListSelect)
+    .eq("web_id", webId)
     .eq("status", "published")
     .not("published_at", "is", null)
     .lte("published_at", now)
@@ -143,6 +144,7 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
   const { data: dueScheduledRows, error: errSch } = await supabase
     .from("posts")
     .select(publishedListSelect)
+    .eq("web_id", webId)
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", now)
@@ -166,10 +168,12 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
 }
 
 export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPublic | null> {
+  const webId = getRequiredWebId();
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("posts")
     .select(publishedSelect)
+    .eq("web_id", webId)
     .eq("slug", slug)
     .eq("status", "published")
     .not("published_at", "is", null)
@@ -181,6 +185,7 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPu
   const { data: due, error: errDue } = await supabase
     .from("posts")
     .select(publishedSelect)
+    .eq("web_id", webId)
     .eq("slug", slug)
     .eq("status", "scheduled")
     .not("scheduled_at", "is", null)
@@ -224,11 +229,16 @@ const adminSelect = `
   cover_image_path, cover_image_url, body_json, body_html, toc_json,
   read_time_minutes, category_id, published_at, scheduled_at,
   created_at, updated_at, created_by, updated_by,
-  post_tags:post_tags ( agency_blog_tags:agency_blog_tags ( id, name, slug ) )
+  post_tags:post_tags ( blog_tags:blog_tags ( id, name, slug ) )
 `;
 
 export async function adminFetchPosts(): Promise<AdminPostRow[]> {
-  const { data, error } = await supabase.from("posts").select(adminSelect).order("updated_at", { ascending: false });
+  const webId = getRequiredWebId();
+  const { data, error } = await supabase
+    .from("posts")
+    .select(adminSelect)
+    .eq("web_id", webId)
+    .order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as AdminPostRow[];
 }
@@ -255,32 +265,50 @@ export async function adminFetchBlogPostPageViewTotalsBySlug(): Promise<Map<stri
 }
 
 export async function adminFetchPost(id: string): Promise<AdminPostRow | null> {
-  const { data, error } = await supabase.from("posts").select(adminSelect).eq("id", id).maybeSingle();
+  const webId = getRequiredWebId();
+  const { data, error } = await supabase
+    .from("posts")
+    .select(adminSelect)
+    .eq("web_id", webId)
+    .eq("id", id)
+    .maybeSingle();
   if (error) throw error;
   return (data as AdminPostRow) ?? null;
 }
 
 export async function adminDeletePost(id: string) {
-  const { error } = await supabase.from("posts").delete().eq("id", id);
+  const webId = getRequiredWebId();
+  const { error } = await supabase.from("posts").delete().eq("web_id", webId).eq("id", id);
   if (error) throw error;
 }
 
 export async function adminListCategories() {
-  const { data, error } = await supabase.from("agency_blog_categories").select("id, slug, name").order("name");
+  const webId = getRequiredWebId();
+  const { data, error } = await supabase
+    .from("blog_categories")
+    .select("id, slug, name")
+    .eq("web_id", webId)
+    .order("name");
   if (error) throw error;
   return data ?? [];
 }
 
 export async function adminListTags() {
-  const { data, error } = await supabase.from("agency_blog_tags").select("id, slug, name").order("name");
+  const webId = getRequiredWebId();
+  const { data, error } = await supabase
+    .from("blog_tags")
+    .select("id, slug, name")
+    .eq("web_id", webId)
+    .order("name");
   if (error) throw error;
   return data ?? [];
 }
 
 export async function adminUpsertCategory(slug: string, name: string) {
+  const webId = getRequiredWebId();
   const { data, error } = await supabase
-    .from("agency_blog_categories")
-    .upsert({ slug, name }, { onConflict: "slug" })
+    .from("blog_categories")
+    .upsert({ slug, name, web_id: webId }, { onConflict: "web_id,slug" })
     .select("id")
     .single();
   if (error) throw error;
@@ -288,9 +316,10 @@ export async function adminUpsertCategory(slug: string, name: string) {
 }
 
 export async function adminUpsertTag(slug: string, name: string) {
+  const webId = getRequiredWebId();
   const { data, error } = await supabase
-    .from("agency_blog_tags")
-    .upsert({ slug, name }, { onConflict: "slug" })
+    .from("blog_tags")
+    .upsert({ slug, name, web_id: webId }, { onConflict: "web_id,slug" })
     .select("id")
     .single();
   if (error) throw error;
@@ -336,10 +365,11 @@ export type AdminPostPayload = {
 };
 
 export async function adminInsertPost(payload: AdminPostPayload, userId: string) {
+  const webId = getRequiredWebId();
   const { data, error } = await supabase
     .from("posts")
     .insert({
-      web_id: CMS_WEB_ID,
+      web_id: webId,
       slug: payload.slug,
       title: payload.title,
       excerpt: payload.excerpt,
@@ -365,6 +395,7 @@ export async function adminInsertPost(payload: AdminPostPayload, userId: string)
 }
 
 export async function adminUpdatePost(id: string, payload: AdminPostPayload) {
+  const webId = getRequiredWebId();
   const { error } = await supabase
     .from("posts")
     .update({
@@ -385,6 +416,7 @@ export async function adminUpdatePost(id: string, payload: AdminPostPayload) {
       scheduled_at: payload.scheduled_at,
       updated_by: payload.updated_by,
     })
+    .eq("web_id", webId)
     .eq("id", id);
   if (error) throw error;
 }
@@ -402,10 +434,10 @@ export async function adminCheckIsCmsAdmin(userId: string): Promise<boolean> {
 }
 
 export async function uploadBlogImage(file: File, userId: string): Promise<string> {
+  const webId = getRequiredWebId();
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${userId}/${randomUuidV4()}.${ext}`;
+  const path = `${webId}/${userId}/${randomUuidV4()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
   return path;
 }
-

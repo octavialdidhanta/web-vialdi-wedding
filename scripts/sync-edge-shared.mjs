@@ -1,68 +1,42 @@
 /**
- * Copy hub modules from supabase/functions/_shared into each Edge Function root.
- * Deploy bundler includes root-level .ts files only (not lib/ or ./_shared subdirs).
- * Run after editing _shared: npm run sync:edge-shared
+ * Bersihkan folder deploy Edge Function: hanya config.toml + index.ts.
+ * Sumber edit: supabase/functions-src/<nama>/index.ts + supabase/functions/_shared/
  */
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const functionsRoot = path.join("supabase", "functions");
-const src = path.join(functionsRoot, "_shared");
+const root = path.dirname(fileURLToPath(import.meta.url));
+const functionsRoot = path.join(root, "..", "supabase", "functions");
 
-/** @type {Record<string, string[]>} */
-const filesByFunction = {
-  "analytics-ingest": ["resolveWebId.ts"],
-  "wa-click-track": ["resolveWebId.ts"],
-  "traffic-refresh-rollups": ["resolveWebId.ts"],
-  "contact-lead": ["supabaseAdmin.ts", "cors.ts"],
-  "contact-submit": [
-    "attribution.ts",
-    "cors.ts",
-    "crmLeadSync.ts",
-    "extractDenormalized.ts",
-    "rateLimitByWebId.ts",
-    "resolveWebId.ts",
-    "supabaseAdmin.ts",
-    "validateFormStep.ts",
-  ],
-};
+const bundledFunctions = [
+  "analytics-ingest",
+  "wa-click-track",
+  "traffic-refresh-rollups",
+  "contact-lead",
+  "contact-submit",
+  "wedding-package-lead",
+];
 
-const allManagedFiles = new Set(
-  Object.values(filesByFunction).flat(),
-);
+const keepInFolder = new Set(["index.ts", "config.toml"]);
 
-if (!fs.existsSync(src)) {
-  console.error("Missing canonical folder:", src);
-  process.exit(1);
-}
+for (const fn of bundledFunctions) {
+  const dir = path.join(functionsRoot, fn);
+  if (!fs.existsSync(dir)) continue;
 
-for (const [fn, files] of Object.entries(filesByFunction)) {
-  const fnDir = path.join(functionsRoot, fn);
-  if (!fs.existsSync(fnDir)) {
-    console.error("Missing function folder:", fnDir);
-    process.exit(1);
+  for (const sub of ["lib", "_shared"]) {
+    fs.rmSync(path.join(dir, sub), { recursive: true, force: true });
   }
 
-  fs.rmSync(path.join(fnDir, "lib"), { recursive: true, force: true });
-  fs.rmSync(path.join(fnDir, "_shared"), { recursive: true, force: true });
-
-  const keep = new Set(files);
-  for (const name of fs.readdirSync(fnDir)) {
-    if (!name.endsWith(".ts") || name === "index.ts") continue;
-    if (allManagedFiles.has(name) && !keep.has(name)) {
-      fs.unlinkSync(path.join(fnDir, name));
+  for (const name of fs.readdirSync(dir)) {
+    if (keepInFolder.has(name)) continue;
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) {
+      fs.rmSync(full, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(full);
     }
   }
-
-  for (const file of files) {
-    const from = path.join(src, file);
-    const to = path.join(fnDir, file);
-    if (!fs.existsSync(from)) {
-      console.error("Missing source:", from);
-      process.exit(1);
-    }
-    fs.copyFileSync(from, to);
-  }
-
-  console.log("synced", fn, "->", files.join(", "));
 }
+
+console.log("Deploy folders: config.toml + index.ts only");

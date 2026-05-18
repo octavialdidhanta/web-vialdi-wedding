@@ -1,3 +1,5 @@
+import { getEdgeWebId } from "./blogWebId";
+
 /**
  * Vercel Edge: Serve OG/Twitter meta for `/blog/:slug` (for social crawlers),
  * while still delivering the SPA for humans.
@@ -273,12 +275,14 @@ function html({
 }
 
 async function fetchPostPreview(slug: string, base: string, anonKey: string): Promise<PostPreviewRow | null> {
+  const webId = getEdgeWebId();
   const cleanBase = base.replace(/\/+$/, "");
   const endpoint = new URL(`${cleanBase}/rest/v1/posts`);
   endpoint.searchParams.set(
     "select",
     "title,excerpt,cover_image_path,cover_image_url,status,published_at,scheduled_at",
   );
+  endpoint.searchParams.set("web_id", `eq.${webId}`);
   endpoint.searchParams.set("slug", `eq.${slug}`);
   endpoint.searchParams.set("limit", "1");
 

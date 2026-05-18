@@ -1,14 +1,18 @@
 import { QueryClient } from "@tanstack/react-query";
 
-let queryClientSingleton: QueryClient | null = null;
+let queryClient: QueryClient | null = null;
 
+/** Satu klien untuk beranda (paket) + blog/admin agar cache invalidation konsisten. */
 export function getQueryClient(): QueryClient {
-  if (!queryClientSingleton) {
-    queryClientSingleton = new QueryClient({
+  if (!queryClient) {
+    queryClient = new QueryClient({
       defaultOptions: {
-        queries: { retry: 1, refetchOnWindowFocus: false },
+        queries: {
+          staleTime: 60_000,
+          retry: 1,
+        },
       },
     });
   }
-  return queryClientSingleton;
+  return queryClient;
 }

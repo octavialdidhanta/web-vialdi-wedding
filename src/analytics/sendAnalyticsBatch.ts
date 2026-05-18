@@ -3,9 +3,10 @@ import { randomUuidV4 } from "@/share/lib/randomUuid";
 const SESSION_KEY_PREFIX = "vw_analytics_session_v1";
 const VISITOR_KEY_PREFIX = "vw_analytics_visitor_v1";
 
-/** Nilai yang sama dengan CHECK di DB + validasi Edge. */
-const ALLOWED_WEB_IDS = ["vialdi-wedding"] as const;
-export type AnalyticsWebId = (typeof ALLOWED_WEB_IDS)[number];
+/** Build-time property slug; validated server-side via `properties` table. */
+export type AnalyticsWebId = string;
+
+const WEB_ID_SLUG_RE = /^[a-z0-9-]{3,64}$/;
 
 /**
  * Mapping konseptual (domain dipilih di deploy / Vercel env, bukan di runtime):
@@ -13,10 +14,12 @@ export type AnalyticsWebId = (typeof ALLOWED_WEB_IDS)[number];
  */
 export function getRequiredWebId(): AnalyticsWebId {
   const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
-  if (!raw || !(ALLOWED_WEB_IDS as readonly string[]).includes(raw)) {
-    throw new Error(`VITE_WEB_ID harus diset ke salah satu: ${ALLOWED_WEB_IDS.join(", ")}`);
+  if (!raw || !WEB_ID_SLUG_RE.test(raw)) {
+    throw new Error(
+      "VITE_WEB_ID harus diset (slug lowercase, 3–64 karakter, contoh: vialdi-wedding)",
+    );
   }
-  return raw as AnalyticsWebId;
+  return raw;
 }
 
 function sessionStorageKey(): string {

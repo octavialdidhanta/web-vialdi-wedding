@@ -224,9 +224,9 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
       });
       if (import.meta.env.DEV && res2.whatsapp?.skipped && res2.whatsapp?.skip_reason) {
         console.warn(
-          "[wedding-package-lead] WhatsApp tidak dipanggil —",
+          "[contact-submit] WhatsApp tidak dipanggil —",
           res2.whatsapp.skip_reason,
-          "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets, sama seperti contact-lead)",
+          "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets)",
         );
       }
       if (res2.whatsapp && "error" in res2.whatsapp && typeof res2.whatsapp.error === "string") {

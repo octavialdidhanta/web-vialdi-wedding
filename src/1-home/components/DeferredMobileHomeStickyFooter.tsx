@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentProps } from "react";
 
 const MobileHomeStickyFooter = lazy(() =>
   import("@/1-home/components/MobileHomeStickyFooter").then((m) => ({
@@ -6,25 +6,23 @@ const MobileHomeStickyFooter = lazy(() =>
   })),
 );
 
-export function DeferredMobileHomeStickyFooter(props: {
-  instagramId: string;
-  hargaPaketId: string;
-  garansiId: string;
-  faqId: string;
-}) {
-  const [ready, setReady] = useState(false);
+type Props = ComponentProps<typeof MobileHomeStickyFooter>;
+
+/** Footer sticky mobile — parse/eval ditunda setelah idle agar tidak membebani LCP beranda. */
+export function DeferredMobileHomeStickyFooter(props: Props) {
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const enable = () => setReady(true);
+    const arm = () => setShow(true);
     if (typeof requestIdleCallback !== "undefined") {
-      const id = requestIdleCallback(enable, { timeout: 6000 });
+      const id = requestIdleCallback(arm, { timeout: 4500 });
       return () => cancelIdleCallback(id);
     }
-    const t = window.setTimeout(enable, 3000);
+    const t = window.setTimeout(arm, 2500);
     return () => window.clearTimeout(t);
   }, []);
 
-  if (!ready) return null;
+  if (!show) return null;
 
   return (
     <Suspense fallback={null}>

@@ -1,10 +1,18 @@
+/** Dispatched after `#vialdi-fcp-shell` is hidden so hero can adopt static LCP img. */
 export const VIALDI_FCP_SHELL_REMOVED = "vialdi-fcp-shell-removed";
 
-/** Lepas overlay HTML statis setelah hero siap — LCP sudah dari gambar/judul di HTML. */
+let removed = false;
+
 export function removeVialdiFcpShell(): void {
-  const shell = document.getElementById("vialdi-fcp-shell");
-  if (!shell) return;
+  if (typeof document === "undefined") return;
+  if (removed) return;
+
   document.body.classList.add("vialdi-app-ready");
-  shell.remove();
-  document.dispatchEvent(new Event(VIALDI_FCP_SHELL_REMOVED));
+  const shell = document.getElementById("vialdi-fcp-shell");
+  if (shell) {
+    shell.remove();
+  }
+
+  removed = true;
+  document.dispatchEvent(new CustomEvent(VIALDI_FCP_SHELL_REMOVED));
 }

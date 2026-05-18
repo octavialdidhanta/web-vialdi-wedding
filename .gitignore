@@ -50,3 +50,5 @@ mcp_query_*.json
 parsed-args*.json
 .cursor-*-deploy.json
 wrangler.jsonc
+
+# Edge: edit supabase/functions-src/<name>/index.ts then npm run bundle:edge

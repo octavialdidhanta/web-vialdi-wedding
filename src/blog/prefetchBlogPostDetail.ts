@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import { fetchPublishedPostBySlug } from "@/blog/agencySupabaseBlog";
 
 /**
@@ -7,8 +8,9 @@ import { fetchPublishedPostBySlug } from "@/blog/agencySupabaseBlog";
  */
 export function prefetchBlogPostDetail(queryClient: QueryClient, slug: string) {
   if (!slug?.trim()) return;
+  const webId = getRequiredWebId();
   void queryClient.prefetchQuery({
-    queryKey: ["blog", "post", slug],
+    queryKey: ["blog", "post", webId, slug],
     queryFn: () => fetchPublishedPostBySlug(slug),
     staleTime: 60_000,
   });

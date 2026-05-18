@@ -186,6 +186,14 @@
     <title>Vialdi Wedding — Wedding Organizer</title>
   </head>
   <body>
+    <script>
+      (function () {
+        var p = location.pathname || "";
+        if (p !== "/" && p !== "") {
+          document.body.classList.add("vialdi-app-ready");
+        }
+      })();
+    </script>
     <!-- Konten paintable dulu (FCP): noscript GTM/Meta di bawah agar parser mencapai #root lebih awal -->
         <main id="main-content">
       <div id="vialdi-fcp-shell">

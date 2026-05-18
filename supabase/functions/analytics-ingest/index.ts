@@ -1,112 +1,91 @@
-/**
- * Supabase Edge Function: analytics-ingest
- * Batched first-party analytics from the SPA. Service role + RPC for session touch.
- */
+// @ts-nocheck
+// supabase/functions-src/analytics-ingest/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { resolveActiveProperty } from "./resolveWebId.ts";
 
-const MAX_EVENTS = 50;
-const MAX_PATH_LEN = 512;
-const MAX_LABEL_LEN = 200;
-const MAX_URL_LEN = 2000;
-const MAX_TRACK_KEY_LEN = 80;
-const MAX_LANDING_URL_LEN = 1000;
-const MAX_UTM_LEN = 200;
+// supabase/functions/_shared/resolveWebId.ts
+var CACHE_TTL_MS = 6e4;
+var cache = /* @__PURE__ */ new Map();
+function cacheKey(raw) {
+  return raw.trim().toLowerCase();
+}
+async function resolveActiveProperty(admin, rawWebId) {
+  if (typeof rawWebId !== "string") {
+    return { ok: false, status: 404, error: "unknown_web_id" };
+  }
+  const trimmed = rawWebId.trim();
+  if (trimmed.length < 3 || trimmed.length > 64) {
+    return { ok: false, status: 404, error: "unknown_web_id" };
+  }
+  const key = cacheKey(trimmed);
+  const now = Date.now();
+  const hit = cache.get(key);
+  if (hit && now - hit.at < CACHE_TTL_MS) {
+    if (!hit.value) return { ok: false, status: 404, error: "unknown_web_id" };
+    if (!hit.value.is_active) return { ok: false, status: 403, error: "property_inactive" };
+    return { ok: true, property: hit.value };
+  }
+  const { data: aliasRow } = await admin.from("property_web_id_aliases").select("canonical_slug").eq("alias", trimmed.toLowerCase()).maybeSingle();
+  const slug = (aliasRow?.canonical_slug ?? trimmed).toLowerCase();
+  const { data: prop, error } = await admin.from("properties").select("slug, organization_id, is_active, display_name").eq("slug", slug).maybeSingle();
+  if (error || !prop) {
+    cache.set(key, { at: now, value: null });
+    return { ok: false, status: 404, error: "unknown_web_id" };
+  }
+  const resolved = {
+    slug: String(prop.slug),
+    organization_id: String(prop.organization_id),
+    is_active: Boolean(prop.is_active),
+    display_name: String(prop.display_name ?? prop.slug)
+  };
+  cache.set(key, { at: now, value: resolved });
+  if (!resolved.is_active) {
+    return { ok: false, status: 403, error: "property_inactive" };
+  }
+  return { ok: true, property: resolved };
+}
 
-type SessionTouch = {
-  type: "session_touch";
-  referrer?: string;
-  ua_hash?: string;
-  auth_user_id?: string | null;
-  landing_url?: string;
-  utm_source?: string;
-  utm_medium?: string;
-  utm_campaign?: string;
-  utm_content?: string;
-  utm_term?: string;
-  meta_campaign_name?: string;
-  meta_adset_name?: string;
-  meta_ad_name?: string;
-  has_gclid?: boolean;
-  has_fbclid?: boolean;
-  has_msclkid?: boolean;
-  has_gbraid?: boolean;
-  has_wbraid?: boolean;
-};
-
-type PageView = { type: "page_view"; path: string };
-type ActivePing = { type: "active_ping"; path: string; delta_ms: number; scroll_max_pct?: number };
-type PageEnd = { type: "page_end"; path: string; scroll_max_pct?: number };
-type Click = {
-  type: "click";
-  path: string;
-  track_key?: string | null;
-  element_type: string;
-  element_label: string;
-  target_url?: string | null;
-  is_internal?: boolean;
-};
-
-type IngestEvent = SessionTouch | PageView | ActivePing | PageEnd | Click;
-
-type Body = {
-  session_id: string;
-  /** Canonical slug from `properties` (aliases resolved server-side). */
-  web_id: string;
-  /**
-   * Visitor id stabil (localStorage); opsional — server memakai session_id jika kosong.
-   * DB: analytics_sessions.visitor_id NOT NULL (max 64 chars).
-   */
-  visitor_id?: string;
-  auth_user_id?: string | null;
-  events: IngestEvent[];
-};
-
-function json(data: unknown, init: ResponseInit = {}) {
+// supabase/functions-src/analytics-ingest/index.ts
+var MAX_EVENTS = 50;
+var MAX_PATH_LEN = 512;
+var MAX_LABEL_LEN = 200;
+var MAX_URL_LEN = 2e3;
+var MAX_TRACK_KEY_LEN = 80;
+var MAX_LANDING_URL_LEN = 1e3;
+var MAX_UTM_LEN = 200;
+function json(data, init = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
       "access-control-allow-methods": "POST, OPTIONS",
-      ...(init.headers ?? {}),
-    },
+      ...init.headers ?? {}
+    }
   });
 }
-
-function corsHeaders(origin: string | null): HeadersInit {
+function corsHeaders(origin) {
   const allowed = Deno.env.get("ALLOWED_ORIGINS") ?? "";
   const list = allowed.split(",").map((s) => s.trim()).filter(Boolean);
   const o = origin?.trim() ?? "";
-
-  // Browsers reject ACAO "*" together with Access-Control-Allow-Credentials: true.
-  // Our client uses the anon Authorization header on a cross-origin request to Supabase.
   if (list.length === 0) {
     return { "access-control-allow-origin": "*" };
   }
-
   if (o && list.includes(o)) {
     return {
       "access-control-allow-origin": o,
       "access-control-allow-credentials": "true",
-      Vary: "Origin",
+      Vary: "Origin"
     };
   }
-
-  // ALLOWED_ORIGINS is set but this Origin is not listed (typo, http vs https, www vs apex).
-  // Omit ACAO so the browser blocks; fix secrets to include exact origins, e.g.
-  // https://vialdi.id,https://www.vialdi.id,http://localhost:8080
   return {};
 }
-
-/** Preflight must repeat Allow-Headers / Allow-Methods; OPTIONS was only sending ACAO before. */
-function corsPreflightHeaders(origin: string | null): HeadersInit {
-  const h: Record<string, string> = {
+function corsPreflightHeaders(origin) {
+  const h = {
     "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
     "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-max-age": "86400",
+    "access-control-max-age": "86400"
   };
-  const extra = corsHeaders(origin) as Record<string, string>;
+  const extra = corsHeaders(origin);
   for (const [k, v] of Object.entries(extra)) {
     if (v != null && v !== "") {
       h[k] = v;
@@ -114,21 +93,17 @@ function corsPreflightHeaders(origin: string | null): HeadersInit {
   }
   return h;
 }
-
-function badRequest(message: string, origin: string | null) {
+function badRequest(message, origin) {
   return json({ error: message }, { status: 400, headers: corsHeaders(origin) });
 }
-
-function mustGetEnv(name: string) {
+function mustGetEnv(name) {
   const v = Deno.env.get(name);
   if (!v) throw new Error(`Missing env: ${name}`);
   return v;
 }
-
-const rateState = new Map<string, { minute: number; count: number }>();
-
-function rateOk(ip: string): boolean {
-  const minute = Math.floor(Date.now() / 60_000);
+var rateState = /* @__PURE__ */ new Map();
+function rateOk(ip) {
+  const minute = Math.floor(Date.now() / 6e4);
   const cur = rateState.get(ip);
   if (!cur || cur.minute !== minute) {
     rateState.set(ip, { minute, count: 1 });
@@ -137,30 +112,25 @@ function rateOk(ip: string): boolean {
   cur.count += 1;
   return cur.count <= 400;
 }
-
-function isUuid(v: string): boolean {
+function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
-
-function validPath(p: string): boolean {
+function validPath(p) {
   if (typeof p !== "string" || p.length === 0 || p.length > MAX_PATH_LEN) return false;
   if (!p.startsWith("/")) return false;
   if (p.startsWith("/admin")) return false;
   return true;
 }
-
-function clipText(raw: unknown, max: number): string {
+function clipText(raw, max) {
   if (typeof raw !== "string") return "";
   const s = raw.trim();
   if (s.length === 0) return "";
   return s.length <= max ? s : s.slice(0, max);
 }
-
-/** Meta `{{site_source_name}}` dan placement umum (bukan daftar lengkap). */
-function looksMetaUtmSource(raw: string): boolean {
+function looksMetaUtmSource(raw) {
   const s = raw.trim().toLowerCase();
   if (!s) return false;
-  const exact = new Set([
+  const exact = /* @__PURE__ */ new Set([
     "fb",
     "ig",
     "msg",
@@ -170,102 +140,63 @@ function looksMetaUtmSource(raw: string): boolean {
     "messenger",
     "fbinstagram",
     "audience_network",
-    "audnetwork",
+    "audnetwork"
   ]);
   if (exact.has(s)) return true;
   if (s.includes("facebook") || s.includes("instagram")) return true;
   return false;
 }
-
-async function closeOpenPageViews(
-  supabase: ReturnType<typeof createClient>,
-  sessionId: string,
-  webId: string,
-) {
-  await supabase
-    .from("analytics_page_views")
-    .update({ ended_at: new Date().toISOString() })
-    .eq("session_id", sessionId)
-    .eq("web_id", webId)
-    .is("ended_at", null);
+async function closeOpenPageViews(supabase, sessionId, webId) {
+  await supabase.from("analytics_page_views").update({ ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("session_id", sessionId).eq("web_id", webId).is("ended_at", null);
 }
-
-async function applyActivePing(
-  supabase: ReturnType<typeof createClient>,
-  sessionId: string,
-  path: string,
-  delta: number,
-  scrollMaxPct: number | null,
-  webId: string,
-) {
-  if (delta <= 0 || delta > 120_000) return;
-  const { data: row } = await supabase
-    .from("analytics_page_views")
-    .select("id, active_ms, path, scroll_max_pct")
-    .eq("session_id", sessionId)
-    .eq("web_id", webId)
-    .is("ended_at", null)
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+async function applyActivePing(supabase, sessionId, path, delta, scrollMaxPct, webId) {
+  if (delta <= 0 || delta > 12e4) return;
+  const { data: row } = await supabase.from("analytics_page_views").select("id, active_ms, path, scroll_max_pct").eq("session_id", sessionId).eq("web_id", webId).is("ended_at", null).order("started_at", { ascending: false }).limit(1).maybeSingle();
   if (!row?.id || row.path !== path) return;
   const incoming = typeof scrollMaxPct === "number" && Number.isFinite(scrollMaxPct) ? scrollMaxPct : null;
   const clipped = incoming == null ? null : Math.max(0, Math.min(100, Math.floor(incoming)));
   const prev = typeof row.scroll_max_pct === "number" ? row.scroll_max_pct : 0;
   const nextScroll = clipped == null ? prev : Math.max(prev, clipped);
-  await supabase
-    .from("analytics_page_views")
-    .update({ active_ms: (row.active_ms ?? 0) + delta, scroll_max_pct: nextScroll })
-    .eq("id", row.id);
+  await supabase.from("analytics_page_views").update({ active_ms: (row.active_ms ?? 0) + delta, scroll_max_pct: nextScroll }).eq("id", row.id);
 }
-
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
-
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsPreflightHeaders(origin) });
   }
-
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, { status: 405, headers: corsHeaders(origin) });
   }
-
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!rateOk(ip)) {
     return json({ error: "rate limit" }, { status: 429, headers: corsHeaders(origin) });
   }
-
-  let body: Body;
+  let body;
   try {
-    body = (await req.json()) as Body;
+    body = await req.json();
   } catch {
     return badRequest("Invalid JSON", origin);
   }
-
   if (!body?.session_id || !isUuid(body.session_id)) {
     return badRequest("Invalid session_id", origin);
   }
-
   if (!Array.isArray(body.events) || body.events.length === 0 || body.events.length > MAX_EVENTS) {
     return badRequest("Invalid events", origin);
   }
-
   const url = mustGetEnv("SUPABASE_URL");
   const key = mustGetEnv("SUPABASE_SERVICE_ROLE_KEY");
   const supabase = createClient(url, key, { auth: { persistSession: false } });
-
   const resolved = await resolveActiveProperty(supabase, body.web_id);
   if (!resolved.ok) {
     return json(
       { error: resolved.error },
-      { status: resolved.status, headers: corsHeaders(origin) },
+      { status: resolved.status, headers: corsHeaders(origin) }
     );
   }
   const webId = resolved.property.slug;
-
-  let mergedRef: string | null = null;
-  let mergedUa: string | null = null;
-  let mergedAuth: string | null = body.auth_user_id && isUuid(body.auth_user_id) ? body.auth_user_id : null;
+  let mergedRef = null;
+  let mergedUa = null;
+  let mergedAuth = body.auth_user_id && isUuid(body.auth_user_id) ? body.auth_user_id : null;
   let mergedLanding = "";
   let mergedUtmSource = "";
   let mergedUtmMedium = "";
@@ -280,10 +211,9 @@ Deno.serve(async (req) => {
   let mergedHasMsclkid = false;
   let mergedHasGbraid = false;
   let mergedHasWbraid = false;
-
   for (const ev of body.events) {
     if (ev?.type === "session_touch") {
-      const st = ev as SessionTouch;
+      const st = ev;
       if (st.referrer) mergedRef = st.referrer.slice(0, 500);
       if (st.ua_hash) mergedUa = st.ua_hash.slice(0, 64);
       if (st.auth_user_id && isUuid(st.auth_user_id)) mergedAuth = st.auth_user_id;
@@ -312,26 +242,14 @@ Deno.serve(async (req) => {
       mergedHasWbraid = mergedHasWbraid || Boolean(st.has_wbraid);
     }
   }
-
-  /**
-   * Meta Ads Manager "Campaign URL" sering hanya mengisi UTM:
-   * utm_source=site, utm_medium=ad set name, utm_campaign=campaign name, utm_content=ad id.
-   * Tanpa query meta_* terpisah, mirror ke kolom meta_* agar agregasi dashboard konsisten.
-   */
-  const hasExplicitMeta =
-    mergedMetaCampaign.length > 0 || mergedMetaAdset.length > 0 || mergedMetaAd.length > 0;
+  const hasExplicitMeta = mergedMetaCampaign.length > 0 || mergedMetaAdset.length > 0 || mergedMetaAd.length > 0;
   if (!hasExplicitMeta && (mergedHasFbclid || looksMetaUtmSource(mergedUtmSource))) {
     if (mergedUtmCampaign.length > 0) mergedMetaCampaign = mergedUtmCampaign;
     if (mergedUtmMedium.length > 0) mergedMetaAdset = mergedUtmMedium;
     if (mergedUtmContent.length > 0) mergedMetaAd = mergedUtmContent;
   }
-
-  const visitorRaw =
-    typeof body.visitor_id === "string" && body.visitor_id.trim().length > 0
-      ? body.visitor_id.trim()
-      : body.session_id;
+  const visitorRaw = typeof body.visitor_id === "string" && body.visitor_id.trim().length > 0 ? body.visitor_id.trim() : body.session_id;
   const pVisitorId = visitorRaw.length > 64 ? visitorRaw.slice(0, 64) : visitorRaw;
-
   const { error: touchErr } = await supabase.rpc("analytics_session_touch", {
     p_session: body.session_id,
     p_web_id: webId,
@@ -352,18 +270,16 @@ Deno.serve(async (req) => {
     p_has_msclkid: mergedHasMsclkid,
     p_has_gbraid: mergedHasGbraid,
     p_has_wbraid: mergedHasWbraid,
-    p_visitor_id: pVisitorId,
+    p_visitor_id: pVisitorId
   });
   if (touchErr) {
     console.error("analytics_session_touch", touchErr);
     return json({ error: "persist failed" }, { status: 500, headers: corsHeaders(origin) });
   }
-
   for (const ev of body.events) {
     if (!ev || typeof ev !== "object" || !("type" in ev)) {
       return badRequest("Invalid event", origin);
     }
-
     switch (ev.type) {
       case "session_touch":
         break;
@@ -374,8 +290,8 @@ Deno.serve(async (req) => {
           session_id: body.session_id,
           web_id: webId,
           path: ev.path,
-          started_at: new Date().toISOString(),
-          active_ms: 0,
+          started_at: (/* @__PURE__ */ new Date()).toISOString(),
+          active_ms: 0
         });
         if (error) console.error("page_view", error);
         break;
@@ -383,40 +299,19 @@ Deno.serve(async (req) => {
       case "active_ping": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
         const d = Math.floor(Number(ev.delta_ms));
-        const smp =
-          typeof (ev as ActivePing).scroll_max_pct === "number"
-            ? Number((ev as ActivePing).scroll_max_pct)
-            : null;
+        const smp = typeof ev.scroll_max_pct === "number" ? Number(ev.scroll_max_pct) : null;
         await applyActivePing(supabase, body.session_id, ev.path, d, smp, webId);
         break;
       }
       case "page_end": {
         if (!validPath(ev.path)) return badRequest("Invalid path", origin);
-        const incoming =
-          typeof (ev as PageEnd).scroll_max_pct === "number"
-            ? Number((ev as PageEnd).scroll_max_pct)
-            : null;
-        const clipped =
-          incoming == null || !Number.isFinite(incoming)
-            ? null
-            : Math.max(0, Math.min(100, Math.floor(incoming)));
-        const { data: row } = await supabase
-          .from("analytics_page_views")
-          .select("id, scroll_max_pct")
-          .eq("session_id", body.session_id)
-          .eq("web_id", webId)
-          .eq("path", ev.path)
-          .is("ended_at", null)
-          .order("started_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const incoming = typeof ev.scroll_max_pct === "number" ? Number(ev.scroll_max_pct) : null;
+        const clipped = incoming == null || !Number.isFinite(incoming) ? null : Math.max(0, Math.min(100, Math.floor(incoming)));
+        const { data: row } = await supabase.from("analytics_page_views").select("id, scroll_max_pct").eq("session_id", body.session_id).eq("web_id", webId).eq("path", ev.path).is("ended_at", null).order("started_at", { ascending: false }).limit(1).maybeSingle();
         if (row?.id) {
           const prev = typeof row.scroll_max_pct === "number" ? row.scroll_max_pct : 0;
           const nextScroll = clipped == null ? prev : Math.max(prev, clipped);
-          await supabase
-            .from("analytics_page_views")
-            .update({ ended_at: new Date().toISOString(), scroll_max_pct: nextScroll })
-            .eq("id", row.id);
+          await supabase.from("analytics_page_views").update({ ended_at: (/* @__PURE__ */ new Date()).toISOString(), scroll_max_pct: nextScroll }).eq("id", row.id);
         }
         break;
       }
@@ -425,14 +320,7 @@ Deno.serve(async (req) => {
         const label = (ev.element_label ?? "").toString().slice(0, MAX_LABEL_LEN);
         const et = (ev.element_type ?? "unknown").toString().slice(0, 40);
         const rawTk = ev.track_key ? String(ev.track_key).trim() : "";
-        const tk =
-          rawTk.length > 0
-            ? rawTk.slice(0, MAX_TRACK_KEY_LEN)
-            : (`${label || "unknown"}_${et === "a" ? "link" : "cta"}`)
-                .toLowerCase()
-                .replace(/[^a-z0-9_:\\-]+/g, "_")
-                .replace(/^_+|_+$/g, "")
-                .slice(0, MAX_TRACK_KEY_LEN);
+        const tk = rawTk.length > 0 ? rawTk.slice(0, MAX_TRACK_KEY_LEN) : `${label || "unknown"}_${et === "a" ? "link" : "cta"}`.toLowerCase().replace(/[^a-z0-9_:\\-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, MAX_TRACK_KEY_LEN);
         const tu = ev.target_url ? String(ev.target_url).slice(0, MAX_URL_LEN) : null;
         const { error } = await supabase.from("analytics_click_events").insert({
           session_id: body.session_id,
@@ -442,7 +330,7 @@ Deno.serve(async (req) => {
           element_type: et,
           element_label: label,
           target_url: tu,
-          is_internal: Boolean(ev.is_internal),
+          is_internal: Boolean(ev.is_internal)
         });
         if (error) console.error("click", error);
         break;
@@ -451,6 +339,5 @@ Deno.serve(async (req) => {
         return badRequest("Unknown event type", origin);
     }
   }
-
   return json({ ok: true }, { headers: corsHeaders(origin) });
 });

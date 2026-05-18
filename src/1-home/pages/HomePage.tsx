@@ -10,6 +10,7 @@ import { WEDDING_HERO_IMAGE_SRC, WEDDING_HERO_IMAGE_SRCSET } from "@/1-home/asse
 import { FloatingWhatsApp } from "@/1-home/components/FloatingWhatsApp";
 import { DeferredMobileHomeStickyFooter } from "@/1-home/components/DeferredMobileHomeStickyFooter";
 import { mobileHomeStickyFooterPageBottomPaddingClass } from "@/1-home/components/mobileHomeStickyFooterLayout";
+import { QuerySectionProvider } from "@/query/QuerySectionProvider";
 import { WeddingHeroSection } from "@/1-home/sections/WeddingHeroSection";
 import type { WeddingPaketKind } from "@/1-home/sections/WeddingPackagesSection";
 
@@ -50,9 +51,11 @@ function LazySectionFallback({ className }: { className: string }) {
 
 export function HomePage() {
   return (
-    <PackageConsultOpenerProvider>
-      <HomePageInner />
-    </PackageConsultOpenerProvider>
+    <QuerySectionProvider>
+      <PackageConsultOpenerProvider>
+        <HomePageInner />
+      </PackageConsultOpenerProvider>
+    </QuerySectionProvider>
   );
 }
 

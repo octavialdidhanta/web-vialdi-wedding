@@ -15,7 +15,8 @@ import {
 } from "@/share/ui/dialog";
 import { Label } from "@/share/ui/label";
 import { normalizeCarouselPackageIds } from "@/blog/weddingPackageIds";
-import { adminListPackages } from "@/blog/weddingPackages";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
+import { adminListPropertyPackages } from "@/packages/propertyPackages";
 import { toast } from "sonner";
 
 function getCarouselNodeAtSelection(editor: Editor) {
@@ -56,9 +57,11 @@ export function PackageCarouselInsertDialog({ editor, open, onOpenChange }: Prop
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"insert" | "edit">("insert");
 
+  const webId = getRequiredWebId();
+
   const { data: allPkgs = [] } = useQuery({
-    queryKey: ["admin", "packages", "list"],
-    queryFn: adminListPackages,
+    queryKey: ["admin", "packages", "list", webId],
+    queryFn: adminListPropertyPackages,
     enabled: open,
   });
 

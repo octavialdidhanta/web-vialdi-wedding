@@ -1,0 +1,10 @@
+import fs from "fs";
+const q = fs.readFileSync("supabase/migrations/_chunk_route_functions.sql", "utf8");
+const sep = "\n$body$;\n\nrevoke all";
+const i = q.indexOf(sep);
+if (i < 0) throw new Error("separator not found");
+const p1 = q.slice(0, i) + "\n$body$;";
+const p2 = q.slice(i + "\n$body$;\n\n".length);
+fs.writeFileSync("supabase/migrations/_part1_refresh.sql", p1);
+fs.writeFileSync("supabase/migrations/_part2_dashboard.sql", p2);
+console.log("p1", p1.length, "p2", p2.length);

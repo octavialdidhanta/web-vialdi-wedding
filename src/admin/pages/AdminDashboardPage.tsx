@@ -326,7 +326,7 @@ export function AdminDashboardPage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["admin", "posts"],
+    queryKey: ["admin", "posts", webId],
     queryFn: adminFetchPosts,
   });
 
@@ -820,7 +820,7 @@ function AnalyticsPanels({
   );
 
   return (
-    <div className="mt-6 space-y-10">
+    <div className="mt-6 min-w-0 space-y-10">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
           <div className="text-xs font-normal text-muted-foreground">Total sessions</div>
@@ -877,7 +877,7 @@ function AnalyticsPanels({
         <div className="shrink-0 border-b border-border px-4 py-3 md:px-5">
           <h3 className="text-base font-semibold text-navy">Sumber traffic</h3>
         </div>
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="sticky top-0 z-[1] border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_hsl(var(--border))]">
               <tr>
@@ -979,7 +979,7 @@ function AnalyticsPanels({
         <div className="shrink-0 border-b border-border px-4 py-3 md:px-5">
           <h3 className="text-base font-semibold text-navy">Sessions per sumber</h3>
         </div>
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[260px] text-left text-sm">
             <thead className="sticky top-0 z-[1] border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_hsl(var(--border))]">
               <tr>
@@ -1050,7 +1050,7 @@ function AnalyticsPanels({
             {trafficTopPagesSite.length} item
           </span>
         </div>
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="sticky top-0 z-[1] border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_hsl(var(--border))]">
               <tr>
@@ -1135,7 +1135,7 @@ function AnalyticsPanels({
             {trafficTopPagesBlog.length} item
           </span>
         </div>
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="sticky top-0 z-[1] border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_hsl(var(--border))]">
               <tr>
@@ -1250,7 +1250,7 @@ function AnalyticsPanels({
             </span>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="sticky top-0 z-[1] border-b border-border bg-muted/30 shadow-[0_1px_0_hsl(var(--border))]">
               <tr className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1507,7 +1507,7 @@ function AnalyticsPanels({
             <p className="text-sm text-destructive">{(clickTargetsQuery.error as Error).message}</p>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
-              <div className="min-h-0 flex-1 overflow-auto rounded-none border border-border">
+              <div className="min-h-0 flex-1 overflow-auto no-scrollbar rounded-none border border-border">
                 <table className="w-full min-w-[640px] text-left text-xs">
                   <thead className="sticky top-0 z-[1] border-b border-border bg-muted/40 text-muted-foreground">
                     <tr>
@@ -1579,7 +1579,7 @@ function AnalyticsPanels({
 
       <div>
         <h3 className="text-sm font-semibold text-navy">Heatmap durasi (bucket × jam WIB)</h3>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto no-scrollbar">
           <div className="inline-block min-w-[720px] rounded-lg border border-border p-2">
             <div className="grid" style={{ gridTemplateColumns: `64px repeat(24, minmax(0,1fr))` }}>
               <div />

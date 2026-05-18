@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
 import {
   adminDeletePost,
   adminFetchBlogPostPageViewTotalsBySlug,
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 
 export function AdminPostsListPage() {
   const qc = useQueryClient();
+  const webId = getRequiredWebId();
   const [statusFilter, setStatusFilter] = useState<PostStatus | "all">("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -30,12 +32,12 @@ export function AdminPostsListPage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["admin", "posts"],
+    queryKey: ["admin", "posts", webId],
     queryFn: adminFetchPosts,
   });
 
   const { data: viewBySlug, isLoading: viewsLoading } = useQuery({
-    queryKey: ["admin", "blog-post-page-view-totals"],
+    queryKey: ["admin", "blog-post-page-view-totals", webId],
     queryFn: adminFetchBlogPostPageViewTotalsBySlug,
     staleTime: 60_000,
   });
@@ -52,7 +54,7 @@ export function AdminPostsListPage() {
   const del = useMutation({
     mutationFn: adminDeletePost,
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["admin", "posts"] });
+      await qc.invalidateQueries({ queryKey: ["admin", "posts", webId] });
       toast.success("Post dihapus");
       setDeleteId(null);
     },
