@@ -1,7 +1,7 @@
 /**
- * Bundle (functions-src → functions) + deploy.
+ * Deploy Edge Functions from supabase/functions/<name>/index.ts (+ ../_shared imports).
  *   npm run deploy:edge
- *   npm run deploy:edge -- contact-submit
+ *   npm run deploy:edge -- contact-submit wa-click-track
  */
 import { execSync } from "child_process";
 import fs from "fs";
@@ -12,16 +12,16 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(root, "..");
 const functionsRoot = path.join(repoRoot, "supabase", "functions");
 
-/** @type {Record<string, { bundle?: boolean; noVerifyJwt?: boolean }>} */
+/** @type {Record<string, { noVerifyJwt?: boolean }>} */
 const FUNCTIONS = {
-  "analytics-ingest": { bundle: true, noVerifyJwt: true },
-  "wa-click-track": { bundle: true, noVerifyJwt: true },
-  "traffic-refresh-rollups": { bundle: true, noVerifyJwt: false },
-  "contact-lead": { bundle: true, noVerifyJwt: true },
-  "contact-submit": { bundle: true, noVerifyJwt: true },
-  "wedding-package-lead": { bundle: true, noVerifyJwt: true },
-  "whatsapp-webhook": { bundle: false, noVerifyJwt: true },
-  "link-redirect": { bundle: false, noVerifyJwt: true },
+  "analytics-ingest": { noVerifyJwt: true },
+  "wa-click-track": { noVerifyJwt: true },
+  "traffic-refresh-rollups": { noVerifyJwt: false },
+  "contact-lead": { noVerifyJwt: true },
+  "contact-submit": { noVerifyJwt: true },
+  "wedding-package-lead": { noVerifyJwt: true },
+  "whatsapp-webhook": { noVerifyJwt: true },
+  "link-redirect": { noVerifyJwt: true },
 };
 
 function readVerifyJwtFromToml(fn) {
@@ -50,17 +50,14 @@ for (const name of names) {
     console.error("Unknown function:", name);
     process.exit(1);
   }
+  const indexPath = path.join(functionsRoot, name, "index.ts");
+  if (!fs.existsSync(indexPath)) {
+    console.error("Missing:", indexPath);
+    process.exit(1);
+  }
 }
 
 execSync("node scripts/sync-edge-shared.mjs", { cwd: repoRoot, stdio: "inherit" });
-
-const toBundle = names.filter((n) => FUNCTIONS[n].bundle);
-if (toBundle.length) {
-  execSync(`node scripts/bundle-edge-functions.mjs ${toBundle.join(" ")}`, {
-    cwd: repoRoot,
-    stdio: "inherit",
-  });
-}
 
 const token = loadAccessToken();
 const projectRef = process.env.SUPABASE_PROJECT_REF ?? "wqdzqqshoifwyrltzgvx";

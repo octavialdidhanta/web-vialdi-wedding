@@ -29,13 +29,14 @@ import { Textarea } from "@/share/ui/textarea";
 type Step = 1 | 2;
 
 type Props = {
+  packageId: string;
   packageLabel: string;
 };
 
 const REPEAT_TTL_MS = 30 * 1000;
 const MAX_STEP = 2;
 
-export function PackageConsultLeadForm({ packageLabel }: Props) {
+export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
   const navigate = useNavigate();
   const cardLead = usePackageCardLeadOptional();
 
@@ -64,6 +65,7 @@ export function PackageConsultLeadForm({ packageLabel }: Props) {
   const emailOk = isValidEmail(email);
 
   const { leadRowId, resetStep1Lead, ensureStep1RowId } = useWeddingLeadStep1Autosave({
+    packageId,
     packageLabel,
     name,
     phone,

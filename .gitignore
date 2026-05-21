@@ -38,6 +38,7 @@ dist-ssr
 # Local Supabase CLI downloads (do not commit)
 supabase.exe
 supabase_*.tar.gz
+supabase/.temp/
 
 # Sementara: argumen deploy MCP / Cursor (bukan sumber aplikasi)
 _mcp_*
@@ -49,6 +50,7 @@ mcp_*_args.json
 mcp_query_*.json
 parsed-args*.json
 .cursor-*-deploy.json
+scripts/.deploy-payloads/
 wrangler.jsonc
 
-# Edge: edit supabase/functions-src/<name>/index.ts then npm run bundle:edge
+# Edge: edit supabase/functions/<name>/index.ts then npm run deploy:edge

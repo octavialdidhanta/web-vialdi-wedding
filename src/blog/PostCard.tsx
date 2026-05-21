@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
 import { getBlogCardCoverImgProps } from "@/blog/blogCoverImageUrls";
+import { blogPostPath } from "@/blog/blogSlugFromLocation";
 import { prefetchBlogPostDetail } from "@/blog/prefetchBlogPostDetail";
 import type { BlogPostPublic } from "@/blog/types";
 import { postAccentClass } from "@/blog/postAccentClass";
@@ -62,7 +63,7 @@ export function PostCard({
       )}
     >
       <Link
-        to={`/blog/${post.slug}`}
+        to={blogPostPath(post.slug)}
         onMouseEnter={warmDetail}
         onFocus={warmDetail}
         onTouchStart={warmDetail}

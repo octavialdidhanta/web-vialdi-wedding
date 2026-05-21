@@ -33,16 +33,17 @@ export async function syncCrmLeadStep1(args: {
   name: string;
   phone_number: string;
   email: string;
-  package_label: string | null;
+  leadTitle: string;
+  servicesLabel: string | null;
   analytics_session_id?: string | null;
   attribution: Record<string, unknown> | null;
   attribution_label: string | null;
+  gclid?: string | null;
   propertyDisplayName?: string | null;
 }): Promise<{ ok: true; leadId: string; identityHash: string } | { ok: false; error: string }> {
   const identityHash = await sha256Hex(`${args.phone_number}|${args.email.toLowerCase()}`);
   const funnel_key = buildFunnelKey(args.webId, args.formId, identityHash);
 
-  const title = args.package_label?.trim() || `Kontak — ${args.webId}`;
   const category =
     args.webId === "vialdi-wedding" && args.formId === "contact-main"
       ? "Wedding package card"
@@ -53,7 +54,7 @@ export async function syncCrmLeadStep1(args: {
     .upsert(
       {
         client: args.name,
-        title,
+        title: args.leadTitle,
         category,
         created_by: args.systemUserId,
         created_by_name: propertyCreatedByName(args.propertyDisplayName, args.webId),
@@ -66,12 +67,13 @@ export async function syncCrmLeadStep1(args: {
           args.webId === "vialdi-wedding" && args.formId === "contact-main"
             ? "Wedding package card"
             : `Hub ${args.webId}`,
-        services: args.package_label ?? "",
         web_id: args.webId,
         funnel_key,
+        ...(args.servicesLabel ? { services: args.servicesLabel } : {}),
         ...(args.analytics_session_id ? { analytics_session_id: args.analytics_session_id } : {}),
         ...(args.attribution ? { attribution: args.attribution } : {}),
         ...(args.attribution_label ? { attribution_label: args.attribution_label } : {}),
+        ...(args.gclid ? { gclid: args.gclid } : {}),
       },
       { onConflict: "organization_id,dedupe_key" },
     )
@@ -82,27 +84,7 @@ export async function syncCrmLeadStep1(args: {
     return { ok: false, error: leadErr?.message ?? "Failed to upsert lead" };
   }
 
-  const leadId = String(lead.id);
-
-  const { error: profileErr } = await args.admin.from("lead_client_profiles").insert({
-    lead_id: leadId,
-    name: args.name,
-    organization_id: args.organizationId,
-    created_by: args.systemUserId,
-    contact_person: args.name,
-    contact_email: args.email,
-    contact_phone: args.phone_number,
-    phone_number: args.phone_number,
-    email: args.email,
-  });
-
-  if (profileErr) {
-    const code = (profileErr as { code?: string })?.code;
-    const dup = code === "23505" || /duplicate key|unique constraint/i.test(profileErr.message);
-    if (!dup) return { ok: false, error: profileErr.message };
-  }
-
-  return { ok: true, leadId, identityHash };
+  return { ok: true, leadId: String(lead.id), identityHash };
 }
 
 /** Patch an existing CRM lead (e.g. from WA floating click) when form step 1 adds PII. */
@@ -116,15 +98,16 @@ export async function patchCrmLeadFromStep1(args: {
   name: string;
   phone_number: string;
   email: string;
-  package_label: string | null;
+  leadTitle: string;
+  servicesLabel: string | null;
   analytics_session_id?: string | null;
   attribution: Record<string, unknown> | null;
   attribution_label: string | null;
+  gclid?: string | null;
 }): Promise<{ ok: true; identityHash: string } | { ok: false; error: string }> {
   const identityHash = await sha256Hex(`${args.phone_number}|${args.email.toLowerCase()}`);
   const funnel_key = buildFunnelKey(args.webId, args.formId, identityHash);
 
-  const title = args.package_label?.trim() || `Kontak — ${args.webId}`;
   const category =
     args.webId === "vialdi-wedding" && args.formId === "contact-main"
       ? "Wedding package card"
@@ -132,7 +115,7 @@ export async function patchCrmLeadFromStep1(args: {
 
   const patch: Record<string, unknown> = {
     client: args.name,
-    title,
+    title: args.leadTitle,
     category,
     phone_number: args.phone_number,
     email: args.email,
@@ -141,12 +124,13 @@ export async function patchCrmLeadFromStep1(args: {
       args.webId === "vialdi-wedding" && args.formId === "contact-main"
         ? "Wedding package card"
         : `Hub ${args.webId}`,
-    services: args.package_label ?? "",
     web_id: args.webId,
     updated_at: new Date().toISOString(),
+    ...(args.servicesLabel ? { services: args.servicesLabel } : {}),
     ...(args.analytics_session_id ? { analytics_session_id: args.analytics_session_id } : {}),
     ...(args.attribution ? { attribution: args.attribution } : {}),
     ...(args.attribution_label ? { attribution_label: args.attribution_label } : {}),
+    ...(args.gclid ? { gclid: args.gclid } : {}),
   };
 
   const { error: leadErr } = await args.admin
@@ -157,61 +141,33 @@ export async function patchCrmLeadFromStep1(args: {
 
   if (leadErr) return { ok: false, error: leadErr.message };
 
-  const { error: profileErr } = await args.admin.from("lead_client_profiles").insert({
-    lead_id: args.leadId,
-    name: args.name,
-    organization_id: args.organizationId,
-    created_by: args.systemUserId,
-    contact_person: args.name,
-    contact_email: args.email,
-    contact_phone: args.phone_number,
-    phone_number: args.phone_number,
-    email: args.email,
-  });
-
-  if (profileErr) {
-    const code = (profileErr as { code?: string })?.code;
-    const dup = code === "23505" || /duplicate key|unique constraint/i.test(profileErr.message);
-    if (dup) {
-      const { error: upErr } = await args.admin
-        .from("lead_client_profiles")
-        .update({
-          name: args.name,
-          contact_person: args.name,
-          contact_email: args.email,
-          contact_phone: args.phone_number,
-          phone_number: args.phone_number,
-          email: args.email,
-        })
-        .eq("lead_id", args.leadId);
-      if (upErr) return { ok: false, error: upErr.message };
-    } else {
-      return { ok: false, error: profileErr.message };
-    }
-  }
-
   return { ok: true, identityHash };
 }
 
 export async function updateCrmLeadFromSubmission(args: {
   admin: SupabaseClient;
+  submissionId: string;
   leadId: string;
   organizationId: string;
   webId: string;
   formId: string;
   mergedFormData: Record<string, unknown>;
-  package_label: string | null;
+  leadTitle: string;
+  servicesLabel: string | null;
   attribution: Record<string, unknown> | null;
   attribution_label: string | null;
   analytics_session_id?: string | null;
+  gclid?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (args.attribution) patch.attribution = args.attribution;
   if (args.attribution_label) patch.attribution_label = args.attribution_label;
   if (args.analytics_session_id) patch.analytics_session_id = args.analytics_session_id;
+  if (args.gclid) patch.gclid = args.gclid;
+  if (args.leadTitle.trim()) patch.title = args.leadTitle.trim();
 
   const isWedding = args.webId === "vialdi-wedding" && args.formId === "contact-main";
-  const pkg = (args.package_label ?? "").trim();
+  const pkg = (args.servicesLabel ?? "").trim();
   const eventDate =
     typeof args.mergedFormData.event_date === "string" && isIsoDateOnly(args.mergedFormData.event_date)
       ? args.mergedFormData.event_date.trim()
@@ -219,10 +175,8 @@ export async function updateCrmLeadFromSubmission(args: {
   const eventTime = String(args.mergedFormData.event_time ?? "").trim();
   const eventAddress = String(args.mergedFormData.event_address ?? "").trim();
 
-  if (isWedding) {
-    patch.services = `${pkg} — tanggal ${eventDate}, jam ${eventTime}`;
-  } else if (args.package_label) {
-    patch.services = args.package_label;
+  if (pkg) {
+    patch.services = pkg;
   }
 
   const { error } = await args.admin
@@ -235,19 +189,21 @@ export async function updateCrmLeadFromSubmission(args: {
 
   if (isWedding) {
     const notesBlock =
-      `Paket: ${pkg}\n` +
+      `Paket: ${pkg || "—"}\n` +
       `Tanggal acara: ${eventDate}\n` +
       `Jam acara: ${eventTime}\n` +
       `Alamat lengkap:\n${eventAddress}`;
-    const { error: profileErr } = await args.admin
-      .from("lead_client_profiles")
-      .update({
-        occupation: `Acara: ${eventDate} (${eventTime})`,
-        notes: notesBlock,
-      })
-      .eq("lead_id", args.leadId);
-    if (profileErr) {
-      console.warn("updateCrmLeadFromSubmission: lead_client_profiles update failed", profileErr.message);
+    const submissionPatch: Record<string, unknown> = {
+      notes: notesBlock,
+      updated_at: new Date().toISOString(),
+    };
+    if (eventAddress) submissionPatch.location = eventAddress;
+    const { error: subErr } = await args.admin
+      .from("lead_submissions")
+      .update(submissionPatch)
+      .eq("id", args.submissionId);
+    if (subErr) {
+      console.warn("updateCrmLeadFromSubmission: lead_submissions update failed", subErr.message);
     }
   }
 

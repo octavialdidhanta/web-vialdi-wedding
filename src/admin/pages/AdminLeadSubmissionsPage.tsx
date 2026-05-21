@@ -141,12 +141,13 @@ export function AdminLeadSubmissionsPage() {
               <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Telepon</TableHead>
+              <TableHead>gclid</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   {loading ? "Memuat…" : "Tidak ada data"}
                 </TableCell>
               </TableRow>
@@ -167,6 +168,9 @@ export function AdminLeadSubmissionsPage() {
                   <TableCell>{r.name ?? "—"}</TableCell>
                   <TableCell>{r.email ?? "—"}</TableCell>
                   <TableCell>{r.phone_number ?? "—"}</TableCell>
+                  <TableCell className="max-w-[140px] truncate font-mono text-xs" title={r.gclid ?? undefined}>
+                    {r.gclid ?? "—"}
+                  </TableCell>
                 </TableRow>
               ))
             )}

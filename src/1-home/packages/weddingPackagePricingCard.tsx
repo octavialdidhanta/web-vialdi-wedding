@@ -146,7 +146,7 @@ export function WeddingPackagePricingCard({ pkg, accordion }: Props) {
           ) : null}
         </>
       }
-      cta={<PackageConsultLeadForm packageLabel={pkg.package_label} />}
+      cta={<PackageConsultLeadForm packageId={pkg.id} packageLabel={pkg.package_label} />}
     />
   );
 }

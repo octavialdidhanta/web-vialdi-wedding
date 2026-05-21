@@ -1,3 +1,5 @@
+import { blogPostPath } from "@/blog/blogSlugFromLocation";
+
 /** Halaman statis + label untuk pemilih tautan di editor CMS. */
 export type InternalLinkTarget = {
   id: string;
@@ -22,7 +24,7 @@ export function mergePostTargets(
   const fromDb = posts.map((p) => ({
     id: `post-${p.id}`,
     title: p.title,
-    path: `/blog/${p.slug}`,
+    path: blogPostPath(p.slug),
     kind: "Artikel",
   }));
   return [...STATIC_INTERNAL_LINKS, ...fromDb];

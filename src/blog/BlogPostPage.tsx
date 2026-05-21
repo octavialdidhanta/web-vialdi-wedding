@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { blogPostPath, blogSlugFromLocation } from "@/blog/blogSlugFromLocation";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
 import { ReadingProgress } from "@/blog/ReadingProgress";
@@ -78,16 +79,21 @@ function BlogArticleBodySkeleton() {
 }
 
 export function BlogPostPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug: routeSlug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const slug = useMemo(
+    () => blogSlugFromLocation(location.pathname, location.search, routeSlug),
+    [location.pathname, location.search, routeSlug],
+  );
   /** Hapus `__ui=1` dari URL setelah Edge memaksa SPA (redirect dari HTML pratinjau crawler). */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     if (params.get("__ui") !== "1") return;
     params.delete("__ui");
     const qs = params.toString();
-    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    const next = `${location.pathname}${qs ? `?${qs}` : ""}${location.hash}`;
     window.history.replaceState(window.history.state, "", next);
-  }, []);
+  }, [location.pathname, location.search, location.hash]);
   const { data: allPosts = [] } = usePublishedPostsQuery();
   const listPost = useMemo(
     () => (slug ? allPosts.find((p) => p.slug === slug) : undefined),
@@ -101,12 +107,26 @@ export function BlogPostPage() {
   } = usePublishedPostQuery(slug);
   /** Gabung daftar artikel (biasanya sudah di-cache) agar header + cover bisa muncul sebelum fetch detail selesai — LCP/CLS mobile. */
   const post = fullPost !== undefined ? fullPost : listPost;
+  /** Perbaiki URL rusak (slug terpotong di `?`) ke path kanonik. */
+  useEffect(() => {
+    const canonicalSlug = post?.slug;
+    if (!canonicalSlug || slug !== canonicalSlug) return;
+    const canonical = blogPostPath(canonicalSlug);
+    const current = `${location.pathname}${location.search}`;
+    if (current !== canonical) {
+      window.history.replaceState(window.history.state, "", canonical);
+    }
+  }, [post?.slug, slug, location.pathname, location.search]);
   /** Isi penuh hanya setelah fetch by-slug selesai (bukan ringkasan dari daftar). */
   const articleBodyReady = fullPost != null;
   const showInitialSpinner = fullPost === undefined && !listPost && isPending;
 
   const origin = window.location.origin;
-  const shareUrl = slug ? `${origin}/blog/${slug}` : window.location.href;
+  const shareUrl = post?.slug
+    ? `${origin}${blogPostPath(post.slug)}`
+    : slug
+      ? `${origin}${blogPostPath(slug)}`
+      : window.location.href;
 
   const title = post ? blogPostMeta.documentTitle(post.title) : blogPostMeta.notFoundDocumentTitle;
   const description = post?.excerpt ?? blogPostMeta.notFoundDescription;

@@ -1,4 +1,5 @@
 import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
+import { blogSlugLookupCandidates } from "@/blog/blogSlugFromLocation";
 import { supabase } from "@/share/supabaseClient";
 import type { BlogAccent, BlogPostPublic, PostStatus, TocEntry } from "@/blog/types";
 import { randomUuidV4 } from "@/share/lib/randomUuid";
@@ -167,9 +168,11 @@ export async function fetchPublishedPosts(): Promise<BlogPostPublic[]> {
   return merged.map(mapListRowToPublic);
 }
 
-export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPublic | null> {
-  const webId = getRequiredWebId();
-  const now = new Date().toISOString();
+async function fetchPublishedPostRowBySlug(
+  webId: string,
+  slug: string,
+  now: string,
+): Promise<PostRow | null> {
   const { data, error } = await supabase
     .from("posts")
     .select(publishedSelect)
@@ -180,7 +183,7 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPu
     .lte("published_at", now)
     .maybeSingle();
   if (error) throw error;
-  if (data) return mapRowToPublic(data as PostRow);
+  if (data) return data as PostRow;
 
   const { data: due, error: errDue } = await supabase
     .from("posts")
@@ -192,8 +195,17 @@ export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPu
     .lte("scheduled_at", now)
     .maybeSingle();
   if (errDue) throw errDue;
-  if (!due) return null;
-  return mapRowToPublic(due as PostRow);
+  return (due as PostRow) ?? null;
+}
+
+export async function fetchPublishedPostBySlug(slug: string): Promise<BlogPostPublic | null> {
+  const webId = getRequiredWebId();
+  const now = new Date().toISOString();
+  for (const candidate of blogSlugLookupCandidates(slug)) {
+    const row = await fetchPublishedPostRowBySlug(webId, candidate, now);
+    if (row) return mapRowToPublic(row);
+  }
+  return null;
 }
 
 export function getRelatedPosts(current: BlogPostPublic, all: BlogPostPublic[], limit = 6): BlogPostPublic[] {

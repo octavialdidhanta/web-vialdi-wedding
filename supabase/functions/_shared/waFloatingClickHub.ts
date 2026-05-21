@@ -52,6 +52,7 @@ export async function syncWaFloatingClickToHub(args: {
   systemUserId: string;
   analyticsSessionId: string;
   attribution: Record<string, unknown> | null;
+  gclid?: string | null;
   path: string;
   targetUrl: string | null;
   packageLabel?: string | null;
@@ -118,6 +119,7 @@ export async function syncWaFloatingClickToHub(args: {
       funnel_key: funnelKey,
       analytics_session_id: sessionId,
       ...(args.attribution ? { attribution: args.attribution } : {}),
+      ...(args.gclid ? { gclid: args.gclid } : {}),
     };
 
     const { data: lead, error: leadErr } = await args.admin
@@ -133,6 +135,7 @@ export async function syncWaFloatingClickToHub(args: {
   } else {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (args.attribution) patch.attribution = args.attribution;
+    if (args.gclid) patch.gclid = args.gclid;
     patch.analytics_session_id = sessionId;
     patch.web_id = args.webId;
     const { error: patchErr } = await args.admin.from("leads").update(patch).eq("id", leadId);
@@ -152,6 +155,7 @@ export async function syncWaFloatingClickToHub(args: {
     lead_id: leadId,
     analytics_session_id: sessionId,
     attribution: args.attribution,
+    ...(args.gclid ? { gclid: args.gclid } : {}),
   };
 
   if (!hasPii) {

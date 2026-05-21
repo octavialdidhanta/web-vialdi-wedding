@@ -19,6 +19,7 @@ export type HubLeadSubmissionRow = {
   package_label: string | null;
   lead_id: string | null;
   analytics_session_id: string | null;
+  gclid: string | null;
   attribution_label: string | null;
   submitted_at: string | null;
   created_at: string;

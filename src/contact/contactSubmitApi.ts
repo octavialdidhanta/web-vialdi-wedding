@@ -1,5 +1,5 @@
 import type { AnalyticsWebId, LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
-import { getRequiredWebId } from "@/analytics/sendAnalyticsBatch";
+import { getRequiredWebId, readLandingAttributionOnce } from "@/analytics/sendAnalyticsBatch";
 import {
   clearHubLeadBrowserSession,
   HUB_CONTACT_FORM_ID,
@@ -34,8 +34,10 @@ export type ContactSubmitBody = {
   id?: string;
   form_data: Record<string, unknown>;
   package_label?: string;
+  property_package_id?: string;
   attribution?: LeadAttributionPayload;
   analytics_session_id?: string;
+  gclid?: string | null;
 };
 
 export type WeddingLeadStep1 = {
@@ -44,6 +46,7 @@ export type WeddingLeadStep1 = {
   phone_number: string;
   email: string;
   package_label: string;
+  property_package_id?: string;
   id?: string;
   attribution?: LeadAttributionPayload;
   analytics_session_id?: string;
@@ -164,6 +167,7 @@ function isStaleStep1LeadRowMessage(message: string): boolean {
 }
 
 function weddingPayloadToHubBody(payload: WeddingLeadStep1 | WeddingLeadStep2): ContactSubmitBody {
+  const gclid = readLandingAttributionOnce().gclid ?? null;
   if (payload.step === 1) {
     return {
       step: 1,
@@ -174,9 +178,11 @@ function weddingPayloadToHubBody(payload: WeddingLeadStep1 | WeddingLeadStep2): 
         email: payload.email,
       },
       package_label: payload.package_label,
+      ...(payload.property_package_id ? { property_package_id: payload.property_package_id } : {}),
       id: payload.id,
       attribution: payload.attribution,
       analytics_session_id: payload.analytics_session_id,
+      gclid,
     };
   }
   return {
@@ -191,6 +197,7 @@ function weddingPayloadToHubBody(payload: WeddingLeadStep1 | WeddingLeadStep2): 
     },
     attribution: payload.attribution,
     analytics_session_id: payload.analytics_session_id,
+    gclid,
   };
 }
 

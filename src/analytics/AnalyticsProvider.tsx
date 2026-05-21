@@ -6,6 +6,7 @@ import {
   getOrCreateSessionId,
   getRequiredWebId,
   readLandingAttributionForLead,
+  readLandingAttributionOnce,
   sendAnalyticsBatch,
   type IngestEvent,
 } from "@/analytics/sendAnalyticsBatch";
@@ -498,6 +499,7 @@ export function AnalyticsProvider() {
                 path,
                 target_url: targetUrl ?? null,
                 attribution,
+                gclid: readLandingAttributionOnce().gclid ?? null,
               },
             });
           } catch (e) {

@@ -21,6 +21,7 @@ function readPersistedLeadRowIdSafe(): string | null {
 }
 
 type Args = {
+  packageId?: string;
   packageLabel: string;
   name: string;
   phone: string;
@@ -87,6 +88,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
       phone_number: args.phone.trim(),
       email: args.email.trim(),
       package_label: args.packageLabel,
+      ...(args.packageId ? { property_package_id: args.packageId } : {}),
       attribution: readLandingAttributionForLead(),
       analytics_session_id: getOrCreateSessionId(),
       web_id: getRequiredWebId(),
@@ -110,7 +112,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
       email: args.email.trim(),
     });
     return res.id;
-  }, [args.step, args.name, args.phone, args.email, args.packageLabel, fieldsOk]);
+  }, [args.step, args.name, args.phone, args.email, args.packageLabel, args.packageId, fieldsOk]);
 
   /** Saat kembali ke langkah 1 tanpa unmount, pastikan ref mengikuti session (mis. setelah submit di tab lain). */
   useEffect(() => {
@@ -149,6 +151,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
             phone_number: args.phone.trim(),
             email: args.email.trim(),
             package_label: args.packageLabel,
+            ...(args.packageId ? { property_package_id: args.packageId } : {}),
             attribution: readLandingAttributionForLead(),
             analytics_session_id: getOrCreateSessionId(),
             web_id: getRequiredWebId(),
@@ -176,7 +179,7 @@ export function useWeddingLeadStep1Autosave(args: Args) {
       window.clearTimeout(handle);
       latestRequestIdRef.current += 1;
     };
-  }, [enabled, fieldsOk, args.name, args.phone, args.email, args.packageLabel]);
+  }, [enabled, fieldsOk, args.name, args.phone, args.email, args.packageLabel, args.packageId]);
 
   return { leadRowId, resetStep1Lead, ensureStep1RowId };
 }

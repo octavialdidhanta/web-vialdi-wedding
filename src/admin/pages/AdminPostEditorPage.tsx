@@ -68,9 +68,28 @@ function toIsoOrNull(v: string | null): string | null {
   return d.toISOString();
 }
 
+/** Waktu terbit wajib ada saat status published (tombol Publish). */
+function resolvePublishedAtOnPublish(
+  publishedAtLocal: string,
+  existingPublishedAt: string | null | undefined,
+): string {
+  const now = new Date();
+  const pub = toIsoOrNull(publishedAtLocal);
+  if (pub && new Date(pub).getTime() <= now.getTime()) {
+    return pub;
+  }
+  const kept = existingPublishedAt?.trim();
+  if (kept) {
+    return kept;
+  }
+  return now.toISOString();
+}
+
 type BuildPayloadOpts = {
   /** Saat Publish dengan waktu Terbit di masa depan → simpan sebagai scheduled. */
   scheduledAtOverride?: string | null;
+  /** published_at artikel yang sudah ada (edit ulang tanpa mengubah kolom Terbit). */
+  existingPublishedAt?: string | null;
 };
 
 export function AdminPostEditorPage() {
@@ -193,13 +212,10 @@ export function AdminPostEditorPage() {
       published_at = null;
       scheduled_at = null;
     } else if (nextStatus === "published") {
-      const now = new Date();
-      const pub = toIsoOrNull(publishedAtLocal);
-      if (!pub || new Date(pub) > now) {
-        published_at = now.toISOString();
-      } else {
-        published_at = pub;
-      }
+      published_at = resolvePublishedAtOnPublish(
+        publishedAtLocal,
+        opts?.existingPublishedAt ?? post?.published_at,
+      );
       scheduled_at = null;
     } else if (nextStatus === "scheduled") {
       published_at = null;
@@ -275,8 +291,14 @@ export function AdminPostEditorPage() {
 
       const payload = buildPayload(
         nextStatus,
-        scheduleFromPublish ? { scheduledAtOverride: scheduleFromPublish } : undefined,
+        scheduleFromPublish
+          ? { scheduledAtOverride: scheduleFromPublish, existingPublishedAt: post?.published_at }
+          : { existingPublishedAt: post?.published_at },
       );
+
+      if (nextStatus === "published" && !payload.published_at?.trim()) {
+        throw new Error("Waktu terbit (published_at) wajib diisi saat publish.");
+      }
 
       if (nextStatus === "scheduled" && !payload.scheduled_at) {
         throw new Error("Tanggal terjadwal tidak valid.");

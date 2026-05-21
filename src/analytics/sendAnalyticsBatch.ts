@@ -93,6 +93,8 @@ export type LandingAttributionSnapshot = {
   meta_campaign_name?: string;
   meta_adset_name?: string;
   meta_ad_name?: string;
+  /** Google Click ID value from `?gclid=` (first-touch per tab in sessionStorage). */
+  gclid?: string;
   has_gclid?: boolean;
   has_fbclid?: boolean;
   has_msclkid?: boolean;
@@ -115,6 +117,7 @@ function snapshotHasAttribution(s: LandingAttributionSnapshot): boolean {
       s.meta_campaign_name ||
       s.meta_adset_name ||
       s.meta_ad_name ||
+      s.gclid ||
       s.has_gclid ||
       s.has_fbclid ||
       s.has_msclkid ||
@@ -165,6 +168,7 @@ function parseLandingFromLocation(): LandingAttributionSnapshot {
     meta_campaign_name: q("meta_campaign"),
     meta_adset_name: q("meta_adset"),
     meta_ad_name: q("meta_ad"),
+    gclid: q("gclid"),
     has_gclid: hasNonEmptyParam("gclid"),
     has_fbclid: hasNonEmptyParam("fbclid"),
     has_msclkid: hasNonEmptyParam("msclkid"),
@@ -207,7 +211,7 @@ function mergeReferrerPreferFirst(
   return primary;
 }
 
-function readLandingAttributionOnce(): LandingAttributionSnapshot {
+export function readLandingAttributionOnce(): LandingAttributionSnapshot {
   if (typeof window === "undefined") {
     return {};
   }
@@ -265,6 +269,10 @@ function readLandingAttributionOnce(): LandingAttributionSnapshot {
   }
 
   const parsedForStore = mergeReferrerPreferFirst(parsed, cached);
+  if (cached?.gclid?.trim()) {
+    parsedForStore.gclid = cached.gclid;
+    parsedForStore.has_gclid = true;
+  }
   try {
     sessionStorage.setItem(key, JSON.stringify(parsedForStore));
   } catch {
@@ -282,6 +290,7 @@ export type LeadAttributionPayload = {
   utm_campaign?: string;
   utm_content?: string;
   utm_term?: string;
+  gclid?: string;
 };
 
 /** Baca snapshot landing saat ini untuk CRM (tanpa meta_* / click-id). */
@@ -295,6 +304,7 @@ export function readLandingAttributionForLead(): LeadAttributionPayload {
     utm_campaign: s.utm_campaign,
     utm_content: s.utm_content,
     utm_term: s.utm_term,
+    gclid: s.gclid,
   };
 }
 
@@ -313,6 +323,7 @@ export type IngestEvent =
       meta_campaign_name?: string;
       meta_adset_name?: string;
       meta_ad_name?: string;
+      gclid?: string;
       has_gclid?: boolean;
       has_fbclid?: boolean;
       has_msclkid?: boolean;
@@ -654,6 +665,7 @@ export function buildSessionTouchEvent(): IngestEvent {
     meta_campaign_name: land.meta_campaign_name,
     meta_adset_name: land.meta_adset_name,
     meta_ad_name: land.meta_ad_name,
+    gclid: land.gclid,
     has_gclid: land.has_gclid,
     has_fbclid: land.has_fbclid,
     has_msclkid: land.has_msclkid,

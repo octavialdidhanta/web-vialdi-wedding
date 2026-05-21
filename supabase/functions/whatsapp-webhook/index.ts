@@ -1,5 +1,6 @@
-﻿import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveSessionGclid } from "../_shared/gclid.ts";
 
 /** Declare Deno global for IDE when edge-runtime.d.ts is not resolved */
 declare const Deno: {
@@ -422,22 +423,23 @@ async function findMergeableFormLeadId(
     }
   }
 
-  // contact-lead may store E.164 on `leads.phone_number` but some pipelines only fill `lead_client_profiles.*_phone`.
-  const { data: profiles } = await supabase
-    .from("lead_client_profiles")
-    .select("lead_id, phone_number, contact_phone")
+  // Hub forms store phone on lead_submissions when leads.phone_number is still empty.
+  const { data: submissions } = await supabase
+    .from("lead_submissions")
+    .select("lead_id, phone_number")
     .eq("organization_id", orgId)
     .gte("created_at", since)
+    .not("phone_number", "is", null)
     .limit(400);
 
-  const checkedProfileLeads = new Set<string>();
-  for (const p of profiles ?? []) {
-    const ph = p.contact_phone ?? p.phone_number;
+  const checkedSubmissionLeads = new Set<string>();
+  for (const p of submissions ?? []) {
+    const ph = p.phone_number;
     if (ph == null || String(ph).trim() === "") continue;
     if (!waPhonesMatch(String(ph), phone)) continue;
     const lid = String(p.lead_id ?? "");
-    if (!lid || checkedProfileLeads.has(lid)) continue;
-    checkedProfileLeads.add(lid);
+    if (!lid || checkedSubmissionLeads.has(lid)) continue;
+    checkedSubmissionLeads.add(lid);
     const { data: leadRow } = await supabase
       .from("leads")
       .select("id, ticket_id")
@@ -940,6 +942,8 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
     const analyticsSessionId = waClick?.session_id;
     if (!waClick?.id || !analyticsSessionId) return;
 
+    const sessionGclid = await resolveSessionGclid(supabase, analyticsSessionId);
+
     const safeName = (customerName ?? customerWaId ?? "WhatsApp").toString().trim().slice(0, 200);
 
     // Persist sender phone on analytics row (so later lead functions can rely on it).
@@ -953,6 +957,22 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
       console.warn("ensureLeadsVialdiWeddingFromAnalyticsWaClick: analytics_wa_clicks update error", waUpdErr);
     }
 
+    const { data: existingDraft } = await supabase
+      .from("lead_submissions")
+      .select("id, lead_id, form_data, name, phone_number, email, package_label, gclid")
+      .eq("web_id", webId)
+      .eq("organization_id", orgId)
+      .eq("analytics_session_id", analyticsSessionId)
+      .eq("form_id", "contact-main")
+      .eq("status", "draft")
+      .maybeSingle();
+
+    const draftGclid =
+      existingDraft?.gclid != null && String(existingDraft.gclid).trim()
+        ? String(existingDraft.gclid).trim()
+        : null;
+    const resolvedGclid = sessionGclid ?? draftGclid ?? null;
+
     // Patch CRM `leads` so attribution/session/web_id are never NULL for matched WA clicks.
     // This is safe/idempotent: update by (org_id, ticket_id) which is unique for WA threads.
     const leadPatch: Record<string, unknown> = {
@@ -961,6 +981,7 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
       attribution: waClick?.attribution ?? null,
       phone_number: customerWaId || null,
       updated_at: new Date().toISOString(),
+      ...(resolvedGclid ? { gclid: resolvedGclid } : {}),
     };
     if (shouldReplaceWaFloatingStubClient(leadRow?.client as string | undefined)) {
       leadPatch.client = safeName;
@@ -972,10 +993,15 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
       .eq("ticket_id", ticketId);
 
     // Floating-click stub may still exist as LEAD-* before ticket merge; refresh name there too.
-    if (safeName) {
+    if (safeName || resolvedGclid) {
+      const stubPatch: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+        ...(safeName ? { client: safeName } : {}),
+        ...(resolvedGclid ? { gclid: resolvedGclid } : {}),
+      };
       const { error: stubPatchErr } = await supabase
         .from("leads")
-        .update({ client: safeName, updated_at: new Date().toISOString() })
+        .update(stubPatch)
         .eq("organization_id", orgId)
         .eq("analytics_session_id", analyticsSessionId)
         .eq("web_id", webId)
@@ -996,16 +1022,6 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
         webId,
       );
     }
-
-    const { data: existingDraft } = await supabase
-      .from("lead_submissions")
-      .select("id, lead_id, form_data, name, phone_number, email, package_label")
-      .eq("web_id", webId)
-      .eq("organization_id", orgId)
-      .eq("analytics_session_id", analyticsSessionId)
-      .eq("form_id", "contact-main")
-      .eq("status", "draft")
-      .maybeSingle();
 
     const priorForm =
       existingDraft?.form_data && typeof existingDraft.form_data === "object" &&
@@ -1037,6 +1053,7 @@ async function ensureLeadsVialdiWeddingFromAnalyticsWaClick(args: {
       analytics_session_id: analyticsSessionId,
       attribution: waClick?.attribution ?? null,
       attribution_label: null,
+      ...(resolvedGclid ? { gclid: resolvedGclid } : {}),
     };
 
     if (existingDraft?.id) {
