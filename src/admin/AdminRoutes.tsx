@@ -5,9 +5,6 @@ import { AdminLayout } from "@/admin/AdminLayout";
 import { AdminLoginPage } from "@/admin/pages/AdminLoginPage";
 import { AdminForbiddenPage } from "@/admin/pages/AdminForbiddenPage";
 
-const AdminDashboardPage = lazy(() =>
-  import("@/admin/pages/AdminDashboardPage").then((m) => ({ default: m.AdminDashboardPage })),
-);
 const AdminPostsListPage = lazy(() =>
   import("@/admin/pages/AdminPostsListPage").then((m) => ({ default: m.AdminPostsListPage })),
 );
@@ -30,16 +27,6 @@ const AdminFloatingWhatsappPage = lazy(() =>
     default: m.AdminFloatingWhatsappPage,
   })),
 );
-const AdminWebAccessRequestsPage = lazy(() =>
-  import("@/admin/pages/AdminWebAccessRequestsPage").then((m) => ({
-    default: m.AdminWebAccessRequestsPage,
-  })),
-);
-const AdminLeadSubmissionsPage = lazy(() =>
-  import("@/admin/pages/AdminLeadSubmissionsPage").then((m) => ({
-    default: m.AdminLeadSubmissionsPage,
-  })),
-);
 
 function AdminSpinner() {
   return (
@@ -56,15 +43,10 @@ export function AdminRoutes() {
         <Route path="login" element={<AdminLoginPage />} />
         <Route path="forbidden" element={<AdminForbiddenPage />} />
         <Route element={<AdminLayout />}>
-          <Route index element={<Navigate to="/admin/dashboard" replace />} />
-          <Route
-            path="dashboard"
-            element={
-              <Suspense fallback={<AdminSpinner />}>
-                <AdminDashboardPage />
-              </Suspense>
-            }
-          />
+          <Route index element={<Navigate to="/admin/posts" replace />} />
+          <Route path="dashboard" element={<Navigate to="/admin/posts" replace />} />
+          <Route path="requests" element={<Navigate to="/admin/posts" replace />} />
+          <Route path="leads" element={<Navigate to="/admin/posts" replace />} />
           <Route
             path="posts"
             element={
@@ -129,24 +111,8 @@ export function AdminRoutes() {
               </Suspense>
             }
           />
-          <Route
-            path="requests"
-            element={
-              <Suspense fallback={<AdminSpinner />}>
-                <AdminWebAccessRequestsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="leads"
-            element={
-              <Suspense fallback={<AdminSpinner />}>
-                <AdminLeadSubmissionsPage />
-              </Suspense>
-            }
-          />
         </Route>
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/admin/posts" replace />} />
       </Routes>
     </AdminAuthProvider>
   );

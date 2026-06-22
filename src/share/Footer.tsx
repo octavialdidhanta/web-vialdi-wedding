@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 
 export function Footer() {
   return (
@@ -25,7 +26,7 @@ export function Footer() {
             />
             <button
               type="submit"
-              data-track={TRACK_KEYS.footerSubscribe}
+              {...trackSynAttrs(TRACK_KEYS.footerSubscribe, { "data-syn-label": "Subscribe" })}
               className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-primary-foreground"
             >
               ✉

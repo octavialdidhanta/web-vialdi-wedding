@@ -1,4 +1,5 @@
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynWaAttrs } from "@/analytics/trackSynAttributes";
 import { buildWaMeUrl } from "@/share/homeFloatingWhatsappSettings";
 import { useDeferredHomeWhatsappSettings } from "@/share/useDeferredHomeWhatsappSettings";
 import { WHATSAPP_LOGO_PNG } from "@/1-home/components/FooterContactNavButton";
@@ -26,7 +27,7 @@ export function FloatingWhatsApp() {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      data-track={TRACK_KEYS.whatsappFloatingClick}
+      {...trackSynWaAttrs(TRACK_KEYS.whatsappFloatingClick, { "data-syn-label": "Chat WhatsApp" })}
       aria-label="Chat WhatsApp"
       className="fixed z-[250] hidden select-none motion-reduce:transition-none md:block md:transition-transform md:hover:scale-[1.04] md:active:scale-[0.98] motion-reduce:md:transition-none"
       style={{

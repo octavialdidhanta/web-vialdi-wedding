@@ -5,6 +5,7 @@ import { WEDDING_HOME_BADGE_PILL_OPTIONS } from "@/blog/weddingPackageHomeTabs";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 
 const WEDDING_PAKET_TABS = [
   { id: "dokumentasi" as const, label: WEDDING_HOME_BADGE_PILL_OPTIONS[0] },
@@ -84,7 +85,9 @@ export function WeddingPackagesSection({
                       <button
                         type="button"
                         onClick={() => onChangeKind(p.id)}
-                        data-track={TAB_TRACK_KEYS[p.id]}
+                        {...trackSynAttrs(TAB_TRACK_KEYS[p.id] as (typeof TRACK_KEYS)[keyof typeof TRACK_KEYS], {
+                          "data-syn-label": p.label,
+                        })}
                         className={
                           kind === p.id
                             ? "inline-flex shrink-0 rounded-full border border-[oklch(0.48_0.2_300)] bg-[oklch(0.48_0.2_300)]/10 px-3 py-2 text-xs font-semibold text-[oklch(0.48_0.2_300)] shadow-sm ring-2 ring-[oklch(0.48_0.2_300)]/20 md:px-3.5 md:text-sm"

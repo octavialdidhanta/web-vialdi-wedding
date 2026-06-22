@@ -15,11 +15,15 @@ export function PackageRadixAccordionSections({
 }) {
   return (
     <PackageAccordionRoot type="single" collapsible className="w-full space-y-2">
-      {sections.map((s) => (
+      {sections.map((s) => {
+        const sectionTrackKey = buildPackageSectionToggleTrackKey(s.title);
+        return (
         <AccordionItem key={s.id} value={s.id} className="border-0">
           <AccordionTrigger
             className={weddingPackageSectionTriggerClass}
-            data-track={buildPackageSectionToggleTrackKey(s.title)}
+            data-track={sectionTrackKey}
+            data-syn-track={sectionTrackKey}
+            data-syn-label={s.title}
           >
             {s.title}
           </AccordionTrigger>
@@ -27,7 +31,8 @@ export function PackageRadixAccordionSections({
             <WeddingPackageSectionBody s={s} />
           </AccordionContent>
         </AccordionItem>
-      ))}
+        );
+      })}
     </PackageAccordionRoot>
   );
 }

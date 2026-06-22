@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { blogPostPath, blogSlugFromLocation } from "@/blog/blogSlugFromLocation";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock, ListTree, Mail } from "lucide-react";
 import { ReadingProgress } from "@/blog/ReadingProgress";
 import { blogPostMeta, blogPostUi } from "@/blog/content";
@@ -451,7 +452,7 @@ export function BlogPostPage() {
                   </Link>
                   <Link
                     to="/contact"
-                    data-track={TRACK_KEYS.contactCta}
+                    {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": blogPostUi.contactCta })}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-accent-orange hover:underline"
                   >
                     <Mail className="h-4 w-4 shrink-0" aria-hidden />

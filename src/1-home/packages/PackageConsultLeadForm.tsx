@@ -19,6 +19,7 @@ import {
   resetAnalyticsSessionId,
 } from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { metaPixelTrack } from "@/analytics/metaPixel";
 import { Button } from "@/share/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/share/ui/card";
@@ -214,35 +215,25 @@ export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
     setErrorMessage("");
     try {
       const webId = getRequiredWebId();
-      const res2 = await submitWeddingPackageLead({
+      const result = await submitWeddingPackageLead({
         step: 2,
-        id: leadRowId!,
+        name: name.trim(),
+        phone_number: phone.trim(),
+        email: email.trim(),
+        package_label: packageLabel,
+        property_package_id: packageId,
         event_date: eventDate.trim(),
         event_time: eventTime.trim(),
         event_address: eventAddress.trim(),
+        consent: dataProcessingConsent,
         attribution: readLandingAttributionForLead(),
         analytics_session_id: getOrCreateSessionId(),
         web_id: webId,
       });
-      if (import.meta.env.DEV && res2.whatsapp?.skipped && res2.whatsapp?.skip_reason) {
-        console.warn(
-          "[contact-submit] WhatsApp tidak dipanggil —",
-          res2.whatsapp.skip_reason,
-          "(set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID di Supabase Edge Function secrets)",
-        );
-      }
-      if (res2.whatsapp && "error" in res2.whatsapp && typeof res2.whatsapp.error === "string") {
-        setErrorMessage(
-          "Data tersimpan, tetapi notifikasi WhatsApp gagal. Hubungi tim jika perlu. Detail: " +
-            res2.whatsapp.error.slice(0, 280),
-        );
-        markSubmittedNow();
-        return;
-      }
       metaPixelTrack("Lead", { source: "package_consult_form", package_label: packageLabel });
       metaPixelTrack("Contact", { source: "package_consult_form", package_label: packageLabel });
       markSubmittedNow();
-      navigate("/thank-you-page");
+      navigate("/thank-you-page", { state: { whatsappStatus: result.whatsapp_status } });
     } catch (e: unknown) {
       const err = e instanceof Error ? (e as Error & { retry_after_seconds?: number }) : null;
       if (err?.retry_after_seconds) {
@@ -269,7 +260,7 @@ export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
     return (
       <button
         type="button"
-        data-track={TRACK_KEYS.packageConsultOpenCta}
+        {...trackSynAttrs(TRACK_KEYS.packageConsultOpenCta, { "data-syn-label": "Konsultasi gratis" })}
         onClick={() => {
           setOpen(true);
           cardLead?.setConsultOpen(true);
@@ -411,7 +402,7 @@ export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
                 size="sm"
                 variant="outline"
                 className="mt-2"
-                data-track={TRACK_KEYS.packageConsultResetCta}
+                {...trackSynAttrs(TRACK_KEYS.packageConsultResetCta, { "data-syn-label": "Mulai konsultasi baru" })}
                 disabled={submitting}
                 onClick={() => {
                   try {
@@ -437,7 +428,7 @@ export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
               variant="outline"
               size="sm"
               className="sm:mr-auto"
-              data-track={TRACK_KEYS.packageConsultViewDetailLink}
+              {...trackSynAttrs(TRACK_KEYS.packageConsultViewDetailLink, { "data-syn-label": "Lihat detail paket" })}
               onClick={reset}
             >
               Lihat detail paket
@@ -446,7 +437,10 @@ export function PackageConsultLeadForm({ packageId, packageLabel }: Props) {
               type="button"
               size="sm"
               disabled={!canNext}
-              data-track={step === 1 ? TRACK_KEYS.packageConsultNextCta : TRACK_KEYS.packageConsultSubmitCta}
+              {...trackSynAttrs(
+                step === 1 ? TRACK_KEYS.packageConsultNextCta : TRACK_KEYS.packageConsultSubmitCta,
+                { "data-syn-label": primaryLabel },
+              )}
               {...(step === 1 ? {} : { "data-track-target": "/thank-you-page" })}
               onClick={onPrimary}
             >

@@ -6,6 +6,7 @@ import {
   footerContactNavButtonClass,
 } from "@/1-home/components/FooterContactNavButton";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { buildWaMeUrl } from "@/share/homeFloatingWhatsappSettings";
 import { useDeferredHomeWhatsappSettings } from "@/share/useDeferredHomeWhatsappSettings";
 
@@ -96,7 +97,7 @@ export function MobileHomeStickyFooter({
               onClick={() => onScrollItem(item)}
               className={footerContactNavButtonClass}
               aria-label={item.label}
-              data-track={trackKeyForScrollItem(item.id)}
+              {...trackSynAttrs(trackKeyForScrollItem(item.id), { "data-syn-label": item.label })}
             >
               <div className={footerContactIconBoxClass}>
                 <item.Icon className="h-4 w-4" aria-hidden strokeWidth={1.85} />

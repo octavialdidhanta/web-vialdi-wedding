@@ -24,12 +24,15 @@ export function WeddingPackageLightweightSections({
     <div className="w-full space-y-2">
       {sections.map((s) => {
         const open = openId === s.id;
+        const sectionTrackKey = buildPackageSectionToggleTrackKey(s.title);
         return (
           <div key={s.id} className="border-0">
             <button
               type="button"
               aria-expanded={open}
-              data-track={buildPackageSectionToggleTrackKey(s.title)}
+              data-track={sectionTrackKey}
+              data-syn-track={sectionTrackKey}
+              data-syn-label={s.title}
               onClick={() => setOpenId((cur) => (cur === s.id ? undefined : s.id))}
               className={cn(
                 "flex w-full items-center justify-between gap-2 text-left transition-colors",

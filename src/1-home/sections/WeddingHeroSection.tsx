@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { removeVialdiFcpShell, VIALDI_FCP_SHELL_REMOVED } from "@/1-home/lib/removeFcpShell";
 import { DeferUntilNearViewport } from "@/share/DeferUntilNearViewport";
 import { cn } from "@/share/lib/utils";
@@ -128,7 +129,7 @@ export function WeddingHeroSection({
           <div className="mt-8">
             <a
               href="#paket-dokumentasi"
-              data-track={TRACK_KEYS.homeHeroConsultCta}
+              {...trackSynAttrs(TRACK_KEYS.homeHeroConsultCta, { "data-syn-label": "Konsultasi gratis" })}
               className="inline-flex rounded-full bg-gradient-to-r from-[oklch(0.48_0.2_300)] to-[oklch(0.4_0.14_305)] px-8 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-elegant)] transition-all hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.48_0.2_300)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               onClick={onCtaClick}
             >

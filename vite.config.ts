@@ -61,7 +61,19 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       {
-        name: "inject-fcp-brand",
+        name: "inject-synckerja-config",
+        transformIndexHtml(html) {
+          const apiBase = env.VITE_SYNCKERJA_API_BASE?.trim() ?? "";
+          const token = env.VITE_SYNCKERJA_SDK_TOKEN?.trim() ?? "";
+          if (!apiBase && !token) return html;
+          const configScript = `<script>window.SynckerjaConfig=${JSON.stringify({
+            apiBase,
+            token,
+          })};</script>`;
+          return html.replace("</body>", `    ${configScript}\n  </body>`);
+        },
+      },
+      {
         transformIndexHtml(html) {
           if (!html.includes("__VIALDI_FCP_BRAND__")) return html;
           return html.replaceAll("__VIALDI_FCP_BRAND__", fcpBrandHtml);

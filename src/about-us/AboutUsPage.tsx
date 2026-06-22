@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import {
   cta,
   founder,
@@ -148,7 +149,7 @@ export function AboutUsPage() {
           <div className="mt-10 flex justify-center md:justify-start">
             <Link
               to="/contact"
-              data-track={TRACK_KEYS.contactCta}
+              {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": cta.buttonLabel })}
               className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90"
             >
               {cta.buttonLabel}

@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
+import type { TrackKey } from "@/analytics/trackRegistry";
 
 const MOBILE_DRAWER_MS = 300;
 
@@ -14,6 +16,16 @@ const navLinks = [
   { to: "/contact", label: "Contact" },
   { to: "/terms-and-conditions", label: "Terms & Conditions" },
 ] as const;
+
+function navLinkTrackKey(to: string): TrackKey | null {
+  if (to === "/") return TRACK_KEYS.navHomeLink;
+  if (to === "/about-us") return TRACK_KEYS.navAboutLink;
+  if (to === "/service") return TRACK_KEYS.navServiceLink;
+  if (to === "/blog") return TRACK_KEYS.navBlogLink;
+  if (to === "/terms-and-conditions") return TRACK_KEYS.navTermsLink;
+  if (to === "/contact") return TRACK_KEYS.contactCta;
+  return null;
+}
 
 export function Header() {
   const location = useLocation();
@@ -135,24 +147,16 @@ export function Header() {
                   Navigation
                 </div>
                 <div className="mt-4 flex flex-col gap-2">
-                  {navLinks.map((link) => (
+                  {navLinks.map((link) => {
+                    const trackKey = navLinkTrackKey(link.to);
+                    return (
                     <NavLink
                       key={link.to}
                       to={link.to}
                       end={link.to === "/"}
-                      {...(link.to === "/"
-                        ? { "data-track": TRACK_KEYS.navHomeLink }
-                        : link.to === "/about-us"
-                          ? { "data-track": TRACK_KEYS.navAboutLink }
-                          : link.to === "/service"
-                            ? { "data-track": TRACK_KEYS.navServiceLink }
-                            : link.to === "/blog"
-                              ? { "data-track": TRACK_KEYS.navBlogLink }
-                              : link.to === "/terms-and-conditions"
-                                ? { "data-track": TRACK_KEYS.navTermsLink }
-                                : link.to === "/contact"
-                                  ? { "data-track": TRACK_KEYS.contactCta }
-                                  : {})}
+                      {...(trackKey
+                        ? trackSynAttrs(trackKey, { "data-syn-label": link.label })
+                        : {})}
                       onClick={closeMobileNav}
                       className={({ isActive }) =>
                         `flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
@@ -165,7 +169,8 @@ export function Header() {
                       <span>{link.label}</span>
                       <span className="text-muted-foreground">→</span>
                     </NavLink>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </nav>
@@ -179,7 +184,7 @@ export function Header() {
       <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between px-4 md:h-16 md:px-6">
         <Link
           to="/"
-          data-track={TRACK_KEYS.navLogoHome}
+          {...trackSynAttrs(TRACK_KEYS.navLogoHome, { "data-syn-label": "Vialdi Wedding" })}
           className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold tracking-tight md:text-2xl"
         >
           <span className="text-navy">Vialdi</span>
@@ -188,24 +193,14 @@ export function Header() {
           </span>
         </Link>
         <nav className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
+          {navLinks.map((link) => {
+            const trackKey = navLinkTrackKey(link.to);
+            return (
             <NavLink
               key={link.to}
               to={link.to}
               end={link.to === "/"}
-              {...(link.to === "/"
-                ? { "data-track": TRACK_KEYS.navHomeLink }
-                : link.to === "/about-us"
-                  ? { "data-track": TRACK_KEYS.navAboutLink }
-                  : link.to === "/service"
-                    ? { "data-track": TRACK_KEYS.navServiceLink }
-                    : link.to === "/blog"
-                      ? { "data-track": TRACK_KEYS.navBlogLink }
-                      : link.to === "/terms-and-conditions"
-                        ? { "data-track": TRACK_KEYS.navTermsLink }
-                        : link.to === "/contact"
-                          ? { "data-track": TRACK_KEYS.contactCta }
-                          : {})}
+              {...(trackKey ? trackSynAttrs(trackKey, { "data-syn-label": link.label }) : {})}
               className={({ isActive }) =>
                 `text-sm font-medium text-muted-foreground transition-colors hover:text-primary ${
                   isActive ? "text-primary" : ""
@@ -214,19 +209,20 @@ export function Header() {
             >
               {link.label}
             </NavLink>
-          ))}
+            );
+          })}
         </nav>
         <div className="flex items-center gap-3">
           <Link
             to="/service"
-            data-track={TRACK_KEYS.navServiceCta}
+            {...trackSynAttrs(TRACK_KEYS.navServiceCta, { "data-syn-label": "Lihat Service" })}
             className="hidden rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 md:inline-flex"
           >
             Lihat Service
           </Link>
           <Link
             to="/contact"
-            data-track={TRACK_KEYS.contactCta}
+            {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": "Contact" })}
             className="hidden rounded-full border border-border bg-card px-5 py-2 text-sm font-semibold text-navy shadow-sm transition-all hover:border-accent-orange hover:text-accent-orange md:inline-flex"
           >
             Contact
@@ -237,7 +233,7 @@ export function Header() {
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-navy transition-colors hover:border-accent-orange hover:text-accent-orange md:hidden"
             aria-label="Buka menu navigasi"
             aria-expanded={mobileMounted}
-            data-track={TRACK_KEYS.navMenuOpenCta}
+            {...trackSynAttrs(TRACK_KEYS.navMenuOpenCta, { "data-syn-label": "Buka menu navigasi" })}
             onClick={openMobileNav}
           >
             <Menu className="h-5 w-5" aria-hidden />

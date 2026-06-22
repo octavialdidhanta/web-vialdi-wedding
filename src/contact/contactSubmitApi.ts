@@ -1,31 +1,16 @@
 import type { AnalyticsWebId, LeadAttributionPayload } from "@/analytics/sendAnalyticsBatch";
-import { getRequiredWebId, readLandingAttributionOnce } from "@/analytics/sendAnalyticsBatch";
+import { getOrCreateSessionId } from "@/analytics/sendAnalyticsBatch";
 import {
-  clearHubLeadBrowserSession,
-  HUB_CONTACT_FORM_ID,
-  leadSessionStorageKey,
-} from "@/contact/hubLeadSession";
+  buildLeadPayload,
+  trackLead,
+  type SynckerjaLeadResponse,
+  type SynckerjaWhatsappSkipReason,
+  type SynckerjaWhatsappStatus,
+} from "@/analytics/synckerjaApi";
+import { getRequiredWebId } from "@/share/cmsPropertySlug";
+import { normalizePhone } from "@/contact/leadValidators";
 
-export { leadSessionStorageKey };
-
-type SupabaseFunctionsErrors = {
-  FunctionsFetchError: typeof import("@supabase/supabase-js").FunctionsFetchError;
-  FunctionsHttpError: typeof import("@supabase/supabase-js").FunctionsHttpError;
-  FunctionsRelayError: typeof import("@supabase/supabase-js").FunctionsRelayError;
-};
-
-let supabaseFunctionsErrorsP: Promise<SupabaseFunctionsErrors> | null = null;
-
-function loadSupabaseFunctionsErrors(): Promise<SupabaseFunctionsErrors> {
-  if (!supabaseFunctionsErrorsP) {
-    supabaseFunctionsErrorsP = import("@supabase/supabase-js").then((m) => ({
-      FunctionsFetchError: m.FunctionsFetchError,
-      FunctionsHttpError: m.FunctionsHttpError,
-      FunctionsRelayError: m.FunctionsRelayError,
-    }));
-  }
-  return supabaseFunctionsErrorsP;
-}
+export { leadSessionStorageKey } from "@/contact/hubLeadSession";
 
 export type ContactSubmitBody = {
   web_id?: string;
@@ -55,10 +40,15 @@ export type WeddingLeadStep1 = {
 
 export type WeddingLeadStep2 = {
   step: 2;
-  id: string;
+  name: string;
+  phone_number: string;
+  email: string;
+  package_label: string;
+  property_package_id?: string;
   event_date: string;
   event_time: string;
   event_address: string;
+  consent?: boolean;
   attribution?: LeadAttributionPayload;
   analytics_session_id?: string;
   web_id?: AnalyticsWebId;
@@ -67,206 +57,120 @@ export type WeddingLeadStep2 = {
 export type WeddingLeadResponse = {
   id: string;
   lead_id: string;
+  ticket_id?: string;
   retry_after_seconds?: number;
-  whatsapp?: {
-    sent: boolean;
-    skipped?: boolean;
-    message_id?: string | null;
-    skip_reason?: string;
-    error?: string;
-  };
+  /** Synckerja v1.4.8 — konfirmasi WA + thread livechat setelah POST /leads */
+  whatsapp_status?: SynckerjaWhatsappStatus;
+  whatsapp_message_id?: string | null;
+  whatsapp_ticket_id?: string | null;
+  whatsapp_conversation_id?: string | null;
+  whatsapp_skip_reason?: SynckerjaWhatsappSkipReason | string | null;
 };
 
 export type ContactSubmitResponse = WeddingLeadResponse & {
   submission_id: string;
 };
 
-function tryParseJson(text: string): unknown | null {
+const LEAD_SUBMIT_TTL_MS = 30_000;
+const LEAD_SUBMIT_STORAGE_KEY = "vw_lead_submit_ttl_v1";
+
+function leadSubmitTtlKey(webId: string): string {
+  return `${LEAD_SUBMIT_STORAGE_KEY}_${webId}`;
+}
+
+function markLeadSubmitted(webId: string): void {
   try {
-    return JSON.parse(text);
+    sessionStorage.setItem(leadSubmitTtlKey(webId), String(Date.now()));
   } catch {
-    return null;
+    /* ignore */
   }
 }
 
-function messageFromParsedBody(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const o = parsed as Record<string, unknown>;
-  if (typeof o.error === "string" && o.error.trim()) return o.error.trim();
-  if (typeof o.message === "string" && o.message.trim()) return o.message.trim();
-  return null;
-}
-
-function retryAfterSecondsFromParsedBody(parsed: unknown): number | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const v = (parsed as Record<string, unknown>).retry_after_seconds;
-  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
-  return Math.floor(v);
-}
-
-function isRepeatLeadMessage(message: string): boolean {
-  return message.trim().includes("Lead sudah pernah dikirim untuk session ini");
-}
-
-async function formatFunctionsInvokeError(error: unknown): Promise<{ message: string; retryAfterSeconds?: number }> {
-  const { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } = await loadSupabaseFunctionsErrors();
-
-  if (error instanceof FunctionsHttpError) {
-    const ctx = error.context as unknown;
-    if (ctx && typeof ctx === "object" && typeof (ctx as Response).text === "function") {
-      const res = ctx as Response;
-      try {
-        const text = await res.text();
-        const parsed = tryParseJson(text);
-        const fromJson = messageFromParsedBody(parsed);
-        const retryAfter = retryAfterSecondsFromParsedBody(parsed);
-        if (fromJson) return { message: fromJson, ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}) };
-        const trimmed = text.trim();
-        if (trimmed) return { message: trimmed.slice(0, 800) };
-        return {
-          message: `Edge Function mengembalikan HTTP ${res.status} tanpa pesan. Periksa log fungsi di Supabase Dashboard.`,
-        };
-      } catch {
-        return { message: `Edge Function mengembalikan HTTP ${res.status}.` };
-      }
-    }
-  }
-  if (error instanceof FunctionsRelayError) {
-    return {
-      message:
-        error.message ||
-        "Edge Function tidak terjangkau (relay). Pastikan `contact-submit` sudah di-deploy.",
-    };
-  }
-  if (error instanceof FunctionsFetchError) {
-    return { message: error.message || "Gagal menghubungi Edge Function (jaringan atau CORS)." };
-  }
-  const bodyText = (error as { context?: { body?: string } })?.context?.body;
-  if (typeof bodyText === "string") {
-    const parsed = tryParseJson(bodyText);
-    const fromJson = messageFromParsedBody(parsed);
-    const retryAfter = retryAfterSecondsFromParsedBody(parsed);
-    if (fromJson) return { message: fromJson, ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}) };
-    if (bodyText.trim()) return { message: bodyText.trim().slice(0, 800) };
-  }
-  if (error instanceof Error) return { message: error.message };
-  return { message: "Terjadi kesalahan saat menghubungi server." };
-}
-
-function isStaleStep1LeadRowMessage(message: string): boolean {
-  const m = message.trim();
-  return (
-    m.includes("Submission not found") ||
-    m.includes("Lead tidak ditemukan") ||
-    /lead not found/i.test(m) ||
-    m.includes("Lead sudah tidak bisa diubah dari form ini") ||
-    /uq_leads_vialdi_wedding_step1_dedupe/i.test(m) ||
-    /uq_lead_submissions_step1_dedupe/i.test(m) ||
-    /duplicate key value/i.test(m)
-  );
-}
-
-function weddingPayloadToHubBody(payload: WeddingLeadStep1 | WeddingLeadStep2): ContactSubmitBody {
-  const gclid = readLandingAttributionOnce().gclid ?? null;
-  if (payload.step === 1) {
-    return {
-      step: 1,
-      web_id: payload.web_id,
-      form_data: {
-        name: payload.name,
-        phone_number: payload.phone_number,
-        email: payload.email,
-      },
-      package_label: payload.package_label,
-      ...(payload.property_package_id ? { property_package_id: payload.property_package_id } : {}),
-      id: payload.id,
-      attribution: payload.attribution,
-      analytics_session_id: payload.analytics_session_id,
-      gclid,
-    };
-  }
-  return {
-    step: 2,
-    web_id: payload.web_id,
-    id: payload.id,
-    form_data: {
-      event_date: payload.event_date,
-      event_time: payload.event_time,
-      event_address: payload.event_address,
-      consent: true,
-    },
-    attribution: payload.attribution,
-    analytics_session_id: payload.analytics_session_id,
-    gclid,
-  };
-}
-
-function normalizeHubResponse(data: unknown): WeddingLeadResponse {
-  const row = (data ?? {}) as Record<string, unknown>;
-  const submissionId = String(row.submission_id ?? row.id ?? "");
-  const leadId = row.lead_id != null ? String(row.lead_id) : "";
-  const whatsapp = row.whatsapp;
-  return {
-    id: submissionId,
-    lead_id: leadId,
-    ...(typeof row.retry_after_seconds === "number" ? { retry_after_seconds: row.retry_after_seconds } : {}),
-    ...(whatsapp && typeof whatsapp === "object" ? { whatsapp: whatsapp as WeddingLeadResponse["whatsapp"] } : {}),
-  };
-}
-
-export async function submitContactHub(payload: ContactSubmitBody): Promise<ContactSubmitResponse> {
-  const { supabase } = await import("@/share/supabaseClient");
-  const webId = payload.web_id ?? getRequiredWebId();
-  const formId = payload.form_id ?? HUB_CONTACT_FORM_ID;
-
-  const { data, error } = await supabase.functions.invoke("contact-submit", {
-    body: { ...payload, web_id: webId, form_id: formId },
-  });
-
-  if (error) {
-    const { message, retryAfterSeconds } = await formatFunctionsInvokeError(error);
-    const err = new Error(message) as Error & { retry_after_seconds?: number };
-    if (retryAfterSeconds) err.retry_after_seconds = retryAfterSeconds;
-    if (!err.retry_after_seconds && isRepeatLeadMessage(message)) err.retry_after_seconds = 30;
-    throw err;
-  }
-
-  const normalized = normalizeHubResponse(data);
-  if (!normalized.id) throw new Error("Invalid response from contact-submit");
-  return { ...normalized, submission_id: normalized.id };
-}
-
-/** Hub contact-submit with wedding 2-step payload shape (replaces wedding-package-lead). */
-export async function submitWeddingPackageLead(
-  payload: WeddingLeadStep1 | WeddingLeadStep2,
-): Promise<WeddingLeadResponse> {
-  const hubBody = weddingPayloadToHubBody(payload);
-  const webId = hubBody.web_id ?? getRequiredWebId();
-
+function assertLeadSubmitAllowed(webId: string): void {
   try {
-    return await submitContactHub(hubBody);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    const retryAfterSeconds = (e as Error & { retry_after_seconds?: number }).retry_after_seconds;
-
-    if (
-      payload.step === 1 &&
-      typeof payload.id === "string" &&
-      payload.id.trim().length > 0 &&
-      isStaleStep1LeadRowMessage(message)
-    ) {
-      try {
-        clearHubLeadBrowserSession(webId);
-      } catch {
-        /* VITE_WEB_ID */
-      }
-      const { id: _stale, ...rest } = payload;
-      return submitContactHub(weddingPayloadToHubBody(rest as WeddingLeadStep1));
+    const raw = sessionStorage.getItem(leadSubmitTtlKey(webId));
+    if (!raw) return;
+    const at = Number(raw);
+    if (!Number.isFinite(at)) return;
+    const elapsed = Date.now() - at;
+    if (elapsed < LEAD_SUBMIT_TTL_MS) {
+      const err = new Error("Lead sudah pernah dikirim untuk session ini") as Error & {
+        retry_after_seconds?: number;
+      };
+      err.retry_after_seconds = Math.ceil((LEAD_SUBMIT_TTL_MS - elapsed) / 1000);
+      throw err;
     }
-
-    const err = new Error(message) as Error & { retry_after_seconds?: number };
-    if (retryAfterSeconds) err.retry_after_seconds = retryAfterSeconds;
-    if (!err.retry_after_seconds && isRepeatLeadMessage(message)) err.retry_after_seconds = 30;
-    throw err;
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Lead sudah pernah")) throw e;
   }
+}
+
+function weddingPayloadToSynckerjaBody(payload: WeddingLeadStep2): Record<string, unknown> {
+  return buildLeadPayload({
+    session_id: payload.analytics_session_id ?? getOrCreateSessionId(),
+    name: payload.name.trim(),
+    phone_number: normalizePhone(payload.phone_number) || payload.phone_number.trim(),
+    email: payload.email.trim(),
+    package_label: payload.package_label,
+    property_package_id: payload.property_package_id,
+    event_date: payload.event_date,
+    event_time: payload.event_time,
+    event_address: payload.event_address,
+    consent: payload.consent ?? true,
+    form_id: "contact-main",
+  });
+}
+
+function logWhatsappOutcome(res: SynckerjaLeadResponse): void {
+  if (!import.meta.env.DEV) return;
+  const reason = res.whatsapp_skip_reason?.trim();
+  if (reason?.startsWith("persist_failed:")) {
+    console.warn("[synckerja] WhatsApp sent but livechat persist failed:", reason);
+    return;
+  }
+  if (res.whatsapp_status === "skipped" && reason) {
+    console.warn("[synckerja] WhatsApp skipped:", reason);
+  } else if (res.whatsapp_status === "failed") {
+    console.warn(
+      "[synckerja] WhatsApp failed:",
+      reason || "(no whatsapp_skip_reason — cek log Synckerja / mapping template legacy)",
+    );
+  }
+}
+
+function normalizeSynckerjaLeadResponse(data: SynckerjaLeadResponse): WeddingLeadResponse {
+  const leadId = data.lead_id != null ? String(data.lead_id) : "";
+  const ticketId = data.ticket_id != null ? String(data.ticket_id) : leadId;
+  return {
+    id: ticketId || leadId,
+    lead_id: leadId,
+    ticket_id: data.ticket_id != null ? String(data.ticket_id) : undefined,
+    whatsapp_status: data.whatsapp_status,
+    whatsapp_message_id: data.whatsapp_message_id,
+    whatsapp_ticket_id: data.whatsapp_ticket_id ?? undefined,
+    whatsapp_conversation_id: data.whatsapp_conversation_id ?? undefined,
+    whatsapp_skip_reason: data.whatsapp_skip_reason,
+  };
+}
+
+/** Submit final wedding lead (step 2) via Synckerja Omnichannel API.
+ *  v1.4.8: session_id yang sama dengan klik floating WA meng-upgrade stub lead, bukan duplikat.
+ */
+export async function submitWeddingPackageLead(payload: WeddingLeadStep2): Promise<WeddingLeadResponse> {
+  const webId = payload.web_id ?? getRequiredWebId();
+  assertLeadSubmitAllowed(webId);
+
+  const res = await trackLead(weddingPayloadToSynckerjaBody(payload));
+  logWhatsappOutcome(res);
+  const normalized = normalizeSynckerjaLeadResponse(res);
+  if (!normalized.lead_id && !normalized.id) {
+    throw new Error("Respons Synckerja tidak valid (lead_id kosong).");
+  }
+  markLeadSubmitted(webId);
+  return normalized;
+}
+
+/** @deprecated Step-1 server draft removed — use local-only autosave hook. */
+export async function submitContactHub(_payload: ContactSubmitBody): Promise<ContactSubmitResponse> {
+  throw new Error("submitContactHub tidak lagi tersedia — gunakan submitWeddingPackageLead (step 2).");
 }

@@ -1,33 +1,26 @@
-import { randomUuidV4 } from "@/share/lib/randomUuid";
+import {
+  bootstrapSynckerjaSessionOnMount,
+  buildSynckerjaPageUrl,
+  ensureSynckerjaTrafficSession,
+  getOrCreateSessionId,
+  getSynckerjaAttributionPayload,
+  getSynckerjaVisitorId,
+  persistSynckerjaAttribution,
+  recordSynckerjaPageView,
+  resetAnalyticsSessionId,
+  trackClickEvent,
+  trackHeartbeat,
+  trackWaLinkClick,
+  updateHeartbeatScrollMax,
+} from "@/analytics/synckerjaApi";
+import { getRequiredCmsPropertySlug, type AnalyticsWebId } from "@/share/cmsPropertySlug";
 
-const SESSION_KEY_PREFIX = "vw_analytics_session_v1";
-const VISITOR_KEY_PREFIX = "vw_analytics_visitor_v1";
+export type { AnalyticsWebId };
+export { getOrCreateSessionId, resetAnalyticsSessionId };
 
-/** Build-time property slug; validated server-side via `properties` table. */
-export type AnalyticsWebId = string;
-
-const WEB_ID_SLUG_RE = /^[a-z0-9-]{3,64}$/;
-
-/**
- * Mapping konseptual (domain dipilih di deploy / Vercel env, bukan di runtime):
- * - vialdi-wedding → jasafotowedding.com
- */
+/** CMS property slug (posts/packages). Synckerja web_id is bound to the SDK token. */
 export function getRequiredWebId(): AnalyticsWebId {
-  const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
-  if (!raw || !WEB_ID_SLUG_RE.test(raw)) {
-    throw new Error(
-      "VITE_WEB_ID harus diset (slug lowercase, 3–64 karakter, contoh: vialdi-wedding)",
-    );
-  }
-  return raw;
-}
-
-function sessionStorageKey(): string {
-  return `${SESSION_KEY_PREFIX}_${getRequiredWebId()}`;
-}
-
-function visitorLocalStorageKey(): string {
-  return `${VISITOR_KEY_PREFIX}_${getRequiredWebId()}`;
+  return getRequiredCmsPropertySlug();
 }
 
 const LANDING_SNAPSHOT_PREFIX = "vw_analytics_landing_v1";
@@ -95,6 +88,10 @@ export type LandingAttributionSnapshot = {
   meta_ad_name?: string;
   /** Google Click ID value from `?gclid=` (first-touch per tab in sessionStorage). */
   gclid?: string;
+  fbclid?: string;
+  msclkid?: string;
+  gbraid?: string;
+  wbraid?: string;
   has_gclid?: boolean;
   has_fbclid?: boolean;
   has_msclkid?: boolean;
@@ -102,9 +99,10 @@ export type LandingAttributionSnapshot = {
   has_wbraid?: boolean;
 };
 
-/** Panggil di mount layout publik agar UTM tidak hilang sebelum `startPage` (idle). */
+/** Panggil di mount layout publik — eager traffic-logs (parity SDK v1.4.8). */
 export function ensureLandingAttributionCaptured(): void {
   readLandingAttributionOnce();
+  bootstrapSynckerjaSessionOnMount();
 }
 
 function snapshotHasAttribution(s: LandingAttributionSnapshot): boolean {
@@ -118,6 +116,10 @@ function snapshotHasAttribution(s: LandingAttributionSnapshot): boolean {
       s.meta_adset_name ||
       s.meta_ad_name ||
       s.gclid ||
+      s.fbclid ||
+      s.msclkid ||
+      s.gbraid ||
+      s.wbraid ||
       s.has_gclid ||
       s.has_fbclid ||
       s.has_msclkid ||
@@ -169,6 +171,10 @@ function parseLandingFromLocation(): LandingAttributionSnapshot {
     meta_adset_name: q("meta_adset"),
     meta_ad_name: q("meta_ad"),
     gclid: q("gclid"),
+    fbclid: q("fbclid"),
+    msclkid: q("msclkid"),
+    gbraid: q("gbraid"),
+    wbraid: q("wbraid"),
     has_gclid: hasNonEmptyParam("gclid"),
     has_fbclid: hasNonEmptyParam("fbclid"),
     has_msclkid: hasNonEmptyParam("msclkid"),
@@ -211,6 +217,21 @@ function mergeReferrerPreferFirst(
   return primary;
 }
 
+function syncSnapshotToSynckerjaAttribution(s: LandingAttributionSnapshot): void {
+  const params: Record<string, string> = {};
+  if (s.utm_source) params.utm_source = s.utm_source;
+  if (s.utm_medium) params.utm_medium = s.utm_medium;
+  if (s.utm_campaign) params.utm_campaign = s.utm_campaign;
+  if (s.utm_content) params.utm_content = s.utm_content;
+  if (s.utm_term) params.utm_term = s.utm_term;
+  if (s.gclid) params.gclid = s.gclid;
+  if (s.fbclid) params.fbclid = s.fbclid;
+  if (s.msclkid) params.msclkid = s.msclkid;
+  if (s.gbraid) params.gbraid = s.gbraid;
+  if (s.wbraid) params.wbraid = s.wbraid;
+  persistSynckerjaAttribution(params);
+}
+
 export function readLandingAttributionOnce(): LandingAttributionSnapshot {
   if (typeof window === "undefined") {
     return {};
@@ -239,6 +260,7 @@ export function readLandingAttributionOnce(): LandingAttributionSnapshot {
 
   const currentLanding = parsed.landing_url ?? "";
   if (cached?.landing_url && cached.landing_url === currentLanding) {
+    syncSnapshotToSynckerjaAttribution(cached);
     return cached;
   }
 
@@ -251,7 +273,8 @@ export function readLandingAttributionOnce(): LandingAttributionSnapshot {
   const currAttr = snapshotHasAttribution(parsed);
 
   if (cacheAttr && !currAttr) {
-    return cached;
+    syncSnapshotToSynckerjaAttribution(cached!);
+    return cached!;
   }
 
   if (!cacheAttr && !currAttr && cached) {
@@ -265,6 +288,7 @@ export function readLandingAttributionOnce(): LandingAttributionSnapshot {
     } catch {
       // ignore quota / private mode
     }
+    syncSnapshotToSynckerjaAttribution(merged);
     return merged;
   }
 
@@ -273,11 +297,28 @@ export function readLandingAttributionOnce(): LandingAttributionSnapshot {
     parsedForStore.gclid = cached.gclid;
     parsedForStore.has_gclid = true;
   }
+  if (cached?.fbclid?.trim()) {
+    parsedForStore.fbclid = cached.fbclid;
+    parsedForStore.has_fbclid = true;
+  }
+  if (cached?.msclkid?.trim()) {
+    parsedForStore.msclkid = cached.msclkid;
+    parsedForStore.has_msclkid = true;
+  }
+  if (cached?.gbraid?.trim()) {
+    parsedForStore.gbraid = cached.gbraid;
+    parsedForStore.has_gbraid = true;
+  }
+  if (cached?.wbraid?.trim()) {
+    parsedForStore.wbraid = cached.wbraid;
+    parsedForStore.has_wbraid = true;
+  }
   try {
     sessionStorage.setItem(key, JSON.stringify(parsedForStore));
   } catch {
     // ignore quota / private mode
   }
+  syncSnapshotToSynckerjaAttribution(parsedForStore);
   return parsedForStore;
 }
 
@@ -293,18 +334,19 @@ export type LeadAttributionPayload = {
   gclid?: string;
 };
 
-/** Baca snapshot landing saat ini untuk CRM (tanpa meta_* / click-id). */
+/** Baca snapshot landing saat ini untuk CRM / lead (Synckerja merge via session_id). */
 export function readLandingAttributionForLead(): LeadAttributionPayload {
   const s = readLandingAttributionOnce();
+  const syn = getSynckerjaAttributionPayload();
   return {
     landing_url: s.landing_url,
     referrer: s.referrer,
-    utm_source: s.utm_source,
-    utm_medium: s.utm_medium,
-    utm_campaign: s.utm_campaign,
-    utm_content: s.utm_content,
-    utm_term: s.utm_term,
-    gclid: s.gclid,
+    utm_source: syn.utm_source ?? s.utm_source,
+    utm_medium: syn.utm_medium ?? s.utm_medium,
+    utm_campaign: syn.utm_campaign ?? s.utm_campaign,
+    utm_content: syn.utm_content ?? s.utm_content,
+    utm_term: syn.utm_term ?? s.utm_term,
+    gclid: syn.gclid ?? s.gclid,
   };
 }
 
@@ -336,6 +378,7 @@ export type IngestEvent =
   | {
       type: "click";
       path: string;
+      page_view_id?: string | null;
       track_key?: string | null;
       element_type: string;
       element_label: string;
@@ -351,18 +394,6 @@ const CLICK_BUFFER_FLUSH_DEFER_MS = 250;
 let pendingClicks: ClickEvent[] = [];
 let clickFlushTimer: number | null = null;
 let clickListenersInstalled = false;
-
-function getSupabaseUrl(): string {
-  const u = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  if (!u) throw new Error("VITE_SUPABASE_URL");
-  return u.replace(/\/$/, "");
-}
-
-function getAnonKey(): string {
-  const k = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!k) throw new Error("VITE_SUPABASE_ANON_KEY");
-  return k;
-}
 
 /**
  * Menjadwalkan POST ingest agar tidak menggantung critical path Lighthouse:
@@ -409,53 +440,8 @@ function scheduleDeferredIngest(run: () => void, leadMs = 0) {
   }
 }
 
-export function getOrCreateSessionId(): string {
-  const key = sessionStorageKey();
-  try {
-    // Per-tab session agar page_view/scroll tidak tercampur antar tab.
-    const existing = sessionStorage.getItem(key);
-    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
-      return existing;
-    }
-    const id = randomUuidV4();
-    sessionStorage.setItem(key, id);
-    return id;
-  } catch {
-    return randomUuidV4();
-  }
-}
-
-/**
- * Visitor id stabil per origin + web_id (localStorage), sama di semua tab/sesi browser.
- * Dipakai untuk analytics_sessions.visitor_id (NOT NULL di DB).
- */
 export function getOrCreateVisitorId(): string {
-  const key = visitorLocalStorageKey();
-  try {
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      const t = existing.trim();
-      if (t.length > 0 && t.length <= 64) {
-        return t;
-      }
-    }
-    const id = randomUuidV4();
-    localStorage.setItem(key, id);
-    return id;
-  } catch {
-    return getOrCreateSessionId();
-  }
-}
-
-export function resetAnalyticsSessionId(): void {
-  const key = sessionStorageKey();
-  try {
-    // Force a new session id immediately so subsequent calls in this tick
-    // won't recreate / reuse the old value.
-    sessionStorage.setItem(key, randomUuidV4());
-  } catch {
-    /* ignore */
-  }
+  return getSynckerjaVisitorId();
 }
 
 function simpleUaHash(): string {
@@ -471,40 +457,38 @@ function isClickEvent(ev: IngestEvent): ev is ClickEvent {
   return Boolean(ev && typeof ev === "object" && "type" in ev && ev.type === "click");
 }
 
-function buildIngestRequest(events: IngestEvent[], options?: { authUserId?: string | null; keepalive?: boolean }) {
-  const session_id = getOrCreateSessionId();
-  const visitor_id = getOrCreateVisitorId();
-  const web_id = getRequiredWebId();
-  const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
-  const anon = getAnonKey();
-  const body = JSON.stringify({
-    session_id,
-    visitor_id,
-    web_id,
-    auth_user_id: options?.authUserId ?? null,
-    events,
-  });
-  return { url, anon, body, keepalive: Boolean(options?.keepalive) };
-}
+async function dispatchSynckerjaEvents(events: IngestEvent[], opts?: { keepalive?: boolean }) {
+  for (const ev of events) {
+    if (ev.type === "page_view") {
+      await recordSynckerjaPageView(buildSynckerjaPageUrl(ev.path));
+    }
+  }
 
-async function runIngestFetch(req: ReturnType<typeof buildIngestRequest>) {
-  const res = await fetch(req.url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${req.anon}`,
-      apikey: req.anon,
-    },
-    body: req.body,
-    keepalive: req.keepalive,
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    console.warn(
-      `[analytics] ingest HTTP ${res.status} — pastikan Edge Function analytics-ingest ter-deploy, migrasi analytics aktif, dan (jika pakai ALLOWED_ORIGINS di Supabase) origin persis situs Anda ada di daftar.`,
-      detail.slice(0, 200),
-    );
+  for (const ev of events) {
+    if (ev.type === "session_touch" || ev.type === "page_view") {
+      continue;
+    }
+    if (ev.type === "active_ping" || ev.type === "page_end") {
+      if (typeof ev.scroll_max_pct === "number") {
+        updateHeartbeatScrollMax(ev.scroll_max_pct);
+      }
+      await trackHeartbeat(ev.type === "page_end" || opts?.keepalive);
+      continue;
+    }
+    if (ev.type === "click") {
+      if (!ev.page_view_id) {
+        await ensureSynckerjaTrafficSession(buildSynckerjaPageUrl(ev.path));
+      }
+      await trackClickEvent({
+        path: ev.path,
+        track_key: ev.track_key || "unknown",
+        element_type: ev.element_type,
+        element_label: ev.element_label,
+        target_url: ev.target_url,
+        is_internal: ev.is_internal,
+        page_view_id: ev.page_view_id,
+      });
+    }
   }
 }
 
@@ -515,7 +499,7 @@ function clearClickFlushTimer() {
   }
 }
 
-async function flushPendingClicks(opts?: { keepalive?: boolean }) {
+export async function flushPendingClicks(opts?: { keepalive?: boolean }): Promise<void> {
   if (typeof window === "undefined") {
     pendingClicks = [];
     return;
@@ -531,11 +515,7 @@ async function flushPendingClicks(opts?: { keepalive?: boolean }) {
   clearClickFlushTimer();
 
   try {
-    // Selalu sertakan session_touch: batch klik saja membuat Edge memanggil analytics_session_touch
-    // dengan merge kosong → baris sesi baru tanpa UTM (terklasifikasi Direct) bila klik sampai lebih dulu.
-    await runIngestFetch(
-      buildIngestRequest([buildSessionTouchEvent(), ...batch], { keepalive: opts?.keepalive }),
-    );
+    await dispatchSynckerjaEvents(batch, { keepalive: opts?.keepalive });
   } catch (e) {
     // Never throw in analytics; keep pending to retry on next flush opportunity.
     pendingClicks = batch.concat(pendingClicks);
@@ -572,27 +552,11 @@ function ensureClickFlushListenersInstalled() {
   window.addEventListener("pagehide", onPageHide);
 }
 
-export async function getOptionalAuthUserId(): Promise<string | null> {
-  try {
-    const { supabase } = await import("@/share/supabaseClient");
-    const { data } = await supabase.auth.getSession();
-    return data.session?.user.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function sendAnalyticsBatch(
   events: IngestEvent[],
   options?: {
     useBeacon?: boolean;
     keepalive?: boolean;
-    authUserId?: string | null;
-    /**
-     * Default `true`: hindari memuat `@supabase/supabase-js` di bundle utama untuk tiap ping/klik.
-     * Set `false` hanya jika ingest membutuhkan `auth_user_id` dari sesi Supabase.
-     */
-    skipAuthLookup?: boolean;
     /** Jangan tunggu respons fetch di task saat ini (memutus tautan kritis Lighthouse). */
     deferNetwork?: boolean;
     /** Setelah `load`, tunggu dulu (ms) sebelum rantai rAF/idle — dipakai page_view awal. */
@@ -619,21 +583,10 @@ export async function sendAnalyticsBatch(
     return;
   }
 
-  const session_id = getOrCreateSessionId();
-  const visitor_id = getOrCreateVisitorId();
-  const web_id = getRequiredWebId();
-  const skipAuthLookup = options?.skipAuthLookup ?? true;
-  const auth_user_id = skipAuthLookup
-    ? (options.authUserId ?? null)
-    : (options?.authUserId ?? (await getOptionalAuthUserId()));
-  const url = `${getSupabaseUrl()}/functions/v1/analytics-ingest`;
-  const anon = getAnonKey();
-  const body = JSON.stringify({ session_id, visitor_id, web_id, auth_user_id, events });
-
   const useKeepalive = Boolean(options?.useBeacon) || Boolean(options?.keepalive);
 
   const runFetch = async () => {
-    await runIngestFetch({ url, anon, body, keepalive: useKeepalive });
+    await dispatchSynckerjaEvents(events, { keepalive: useKeepalive });
   };
 
   if (options?.deferNetwork) {

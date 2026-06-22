@@ -1,6 +1,7 @@
+import { FileText, Link2, MessageCircle, Boxes, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { Boxes, FileText, Inbox, LayoutDashboard, Link2, LogOut, MessageCircle } from "lucide-react";
 import { supabase } from "@/share/supabaseClient";
+import { getCmsPropertySlug } from "@/share/cmsPropertySlug";
 import { cn } from "@/share/lib/utils";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -11,48 +12,34 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-muted-foreground hover:bg-muted hover:text-navy",
   );
 
-function adminWebId(): string | null {
-  const raw = (import.meta.env.VITE_WEB_ID as string | undefined)?.trim();
-  return raw?.length ? raw : null;
-}
+const SYNCKERJA_TRAFFIC_URL = "https://app.synckerja.com/digital-marketing/traffic";
+const SYNCKERJA_LEADS_URL = "https://app.synckerja.com/omnichannel/leads";
 
 export function AdminSidebar() {
-  const webId = adminWebId();
+  const cmsSlug = getCmsPropertySlug();
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
       <div className="border-b border-border px-4 py-4">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Vialdi Wedding
+          Vialdi Wedding CMS
         </div>
         <div className="mt-2 space-y-1 text-left">
-          <p className="truncate text-sm leading-snug text-navy" title={webId ?? undefined}>
+          <p className="truncate text-sm leading-snug text-navy" title={cmsSlug ?? undefined}>
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Web ID
+              Property
             </span>
             <span className="text-muted-foreground"> : </span>
-            <span className="font-mono font-semibold">{webId ?? "—"}</span>
+            <span className="font-mono font-semibold">{cmsSlug ?? "—"}</span>
           </p>
-          {!webId ? (
+          {!cmsSlug ? (
             <p className="text-[10px] leading-snug text-amber-800 dark:text-amber-200">
-              Set <span className="font-mono">VITE_WEB_ID</span> di env build.
+              Set <span className="font-mono">VITE_CMS_PROPERTY_SLUG</span> di env build.
             </p>
           ) : null}
         </div>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        <NavLink to="/admin/dashboard" className={linkClass} end>
-          <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
-          Dashboard
-        </NavLink>
-        <NavLink to="/admin/requests" className={linkClass}>
-          <Inbox className="h-4 w-4 shrink-0" aria-hidden />
-          Request
-        </NavLink>
-        <NavLink to="/admin/leads" className={linkClass}>
-          <Inbox className="h-4 w-4 shrink-0" aria-hidden />
-          Leads Hub
-        </NavLink>
         <NavLink to="/admin/posts" className={linkClass}>
           <FileText className="h-4 w-4 shrink-0" aria-hidden />
           Posts
@@ -69,6 +56,27 @@ export function AdminSidebar() {
           <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
           WhatsApp
         </NavLink>
+        <div className="my-2 border-t border-border pt-2">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Synckerja
+          </p>
+          <a
+            href={SYNCKERJA_TRAFFIC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-navy"
+          >
+            Traffic
+          </a>
+          <a
+            href={SYNCKERJA_LEADS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-navy"
+          >
+            Leads
+          </a>
+        </div>
       </nav>
       <div className="border-t border-border p-3">
         <button

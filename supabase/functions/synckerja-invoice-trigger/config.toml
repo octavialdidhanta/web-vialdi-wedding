@@ -1,0 +1,2 @@
+[functions.synckerja-invoice-trigger]
+verify_jwt = true

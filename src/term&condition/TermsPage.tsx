@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { termsFooter, termsHero, termsSections } from "@/term&condition/content";
 import { useTermsPageMeta } from "@/term&condition/useTermsPageMeta";
 import { Footer } from "@/share/Footer";
@@ -84,7 +85,7 @@ export function TermsPage() {
               Ada pertanyaan terkait dokumen ini?{" "}
               <Link
                 to="/contact"
-                data-track={TRACK_KEYS.contactCta}
+                {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": "Hubungi kami" })}
                 className="font-semibold text-accent-orange underline-offset-2 hover:underline"
               >
                 Hubungi kami

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Phone } from "lucide-react";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs, trackSynWaAttrs } from "@/analytics/trackSynAttributes";
 import { cn } from "@/share/lib/utils";
 
 /** `public/whatsapp logo.png` — space encoded for URL. */
@@ -35,7 +36,7 @@ export function FooterContactNavButton(props: Props) {
         rel="noopener noreferrer"
         className={mergedClass}
         aria-label="Chat WhatsApp"
-        data-track={TRACK_KEYS.whatsappFloatingClick}
+        {...trackSynWaAttrs(TRACK_KEYS.whatsappFloatingClick, { "data-syn-label": "WhatsApp" })}
       >
         <div className={footerContactIconBoxClass}>
           <img
@@ -58,7 +59,7 @@ export function FooterContactNavButton(props: Props) {
       to="/contact"
       className={mergedClass}
       aria-label="Contact"
-      data-track={TRACK_KEYS.contactCta}
+      {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": "Contact" })}
     >
       <div className={footerContactIconBoxClass}>
         <Phone className="h-4 w-4" aria-hidden strokeWidth={1.85} />

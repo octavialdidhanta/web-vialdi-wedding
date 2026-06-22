@@ -22,6 +22,7 @@ const FUNCTIONS = {
   "wedding-package-lead": { noVerifyJwt: true },
   "whatsapp-webhook": { noVerifyJwt: true },
   "link-redirect": { noVerifyJwt: true },
+  "synckerja-invoice-trigger": { noVerifyJwt: false },
 };
 
 function readVerifyJwtFromToml(fn) {

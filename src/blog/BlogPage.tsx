@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { Search, Sparkles } from "lucide-react";
 import {
   blogCta,
@@ -254,7 +255,7 @@ export function BlogPage() {
             </p>
             <Link
               to="/contact"
-              data-track={TRACK_KEYS.contactCta}
+              {...trackSynAttrs(TRACK_KEYS.contactCta, { "data-syn-label": blogCta.buttonLabel })}
               className="mt-4 inline-flex rounded-full bg-primary px-6 py-2.5 text-xs font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] transition-all hover:opacity-90 md:text-sm"
             >
               {blogCta.buttonLabel}

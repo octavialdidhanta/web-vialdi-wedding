@@ -3,14 +3,17 @@ import { Outlet } from "react-router-dom";
 import {
   buildSessionTouchEvent,
   ensureLandingAttributionCaptured,
+  flushPendingClicks,
   getOrCreateSessionId,
-  getRequiredWebId,
-  readLandingAttributionForLead,
-  readLandingAttributionOnce,
   sendAnalyticsBatch,
   type IngestEvent,
 } from "@/analytics/sendAnalyticsBatch";
-import { supabase } from "@/share/supabaseClient";
+import {
+  ensureSynckerjaTrafficSession,
+  getCurrentPageViewId,
+  trackWaLinkClick,
+} from "@/analytics/synckerjaApi";
+import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import {
   pushGtmFormSubmit,
   pushGtmUserInteraction,
@@ -21,6 +24,9 @@ import { trackMetaCustomEvent } from "@/analytics/metaPixel";
 
 const HEARTBEAT_MS = 15_000;
 const DEDUPE_MS = 30_000;
+
+/** Mencegah dua recordSynckerjaPageView bersamaan untuk pathname yang sama. */
+const startPageInFlight = new Map<string, Promise<void>>();
 
 declare global {
   interface Window {
@@ -48,6 +54,10 @@ function readPathnameFromBrowser(): string {
 }
 
 function labelFromElement(el: Element): string {
+  const synLabel = el.getAttribute("data-syn-label");
+  if (synLabel?.trim()) {
+    return synLabel.trim().slice(0, 120);
+  }
   const t = (el.textContent ?? "").replace(/\s+/g, " ").trim();
   return t.slice(0, 120) || el.tagName.toLowerCase();
 }
@@ -136,7 +146,7 @@ export function AnalyticsProvider() {
 
   const endPageRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
   const flushDurationRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
-  const startPageRef = useRef<(path: string) => Promise<void>>(async () => {});
+  const startPageRef = useRef<(path: string, isRouteChange?: boolean) => Promise<void>>(async () => {});
 
   const flushDuration = useCallback((path: string, opts?: { useBeacon?: boolean }) => {
     if (!path || isAdminPath(path)) {
@@ -177,23 +187,54 @@ export function AnalyticsProvider() {
     [flushDuration],
   );
 
-  const startPage = useCallback(async (path: string) => {
+  const startPage = useCallback(async (path: string, isRouteChange = false) => {
     if (!path || isAdminPath(path)) {
       return;
     }
-    const now = Date.now();
-    const last = lastPageViewAtRef.current.get(path) ?? 0;
-    if (now - last < DEDUPE_MS) {
+
+    const inflight = startPageInFlight.get(path);
+    if (inflight) {
+      await inflight;
       return;
     }
-    lastPageViewAtRef.current.set(path, now);
-    getOrCreateSessionId();
-    await sendAnalyticsBatch([buildSessionTouchEvent(), { type: "page_view", path }], {
-      keepalive: true,
-      deferNetwork: true,
-      /** Hindari kompetisi dengan LCP (hero + bundle beranda). */
-      deferNetworkLeadMs: 4500,
-    });
+
+    const run = async () => {
+      const now = Date.now();
+      const last = lastPageViewAtRef.current.get(path) ?? 0;
+      if (now - last < DEDUPE_MS) {
+        return;
+      }
+      lastPageViewAtRef.current.set(path, now);
+      getOrCreateSessionId();
+      if (isRouteChange) {
+        await flushPendingClicks();
+      } else {
+        /**
+         * Tunggu bootstrap mount (traffic-logs + UTM di page_url penuh) sebelum putuskan
+         * jadwalkan page_view deferred — hindari duplikat POST / untuk pathname saja.
+         */
+        await ensureSynckerjaTrafficSession();
+        if (getCurrentPageViewId()) {
+          return;
+        }
+      }
+      await sendAnalyticsBatch([buildSessionTouchEvent(), { type: "page_view", path }], {
+        keepalive: true,
+        deferNetwork: !isRouteChange,
+        /** Hindari kompetisi dengan LCP (hero + bundle beranda) — hanya landing pertama. */
+        deferNetworkLeadMs: isRouteChange ? 0 : 4500,
+      });
+    };
+
+    const promise = run();
+    startPageInFlight.set(path, promise);
+    try {
+      await promise;
+    } finally {
+      if (startPageInFlight.get(path) === promise) {
+        startPageInFlight.delete(path);
+      }
+    }
   }, []);
 
   endPageRef.current = endPage;
@@ -209,7 +250,8 @@ export function AnalyticsProvider() {
       endPageRef.current(path, opts);
     const flushDuration = (path: string, opts?: { useBeacon?: boolean }) =>
       flushDurationRef.current(path, opts);
-    const startPage = (path: string) => void startPageRef.current(path);
+    const startPage = (path: string, isRouteChange?: boolean) =>
+      void startPageRef.current(path, isRouteChange);
 
     const clearHeartbeat = () => {
       if (heartbeatRef.current) {
@@ -280,23 +322,40 @@ export function AnalyticsProvider() {
     let detachDomListeners: (() => void) | undefined;
     let lastGtmPath: string | null = null;
     let loadIdleHooked = false;
+    let landingIdleGeneration = 0;
+    let landingIdleCallbackId: number | null = null;
 
-    const scheduleDeferredStartPage = () => {
+    const cancelLandingIdle = () => {
+      landingIdleGeneration += 1;
+      if (landingIdleCallbackId != null && typeof cancelIdleCallback !== "undefined") {
+        cancelIdleCallback(landingIdleCallbackId);
+      }
+      landingIdleCallbackId = null;
+    };
+
+    const scheduleDeferredStartPage = (path: string, isRouteChange: boolean) => {
+      if (isRouteChange) {
+        cancelLandingIdle();
+        void startPageRef.current(path, true);
+        return;
+      }
+
+      const generation = landingIdleGeneration;
       const run = () => {
-        const p = pathRef.current;
-        if (!p || isAdminPath(p)) {
+        if (generation !== landingIdleGeneration) {
           return;
         }
-        void startPageRef.current(p);
+        landingIdleCallbackId = null;
+        void startPageRef.current(path, false);
       };
       const runIdle = () => {
         if (typeof requestIdleCallback !== "undefined") {
-          requestIdleCallback(run, { timeout: 6000 });
+          landingIdleCallbackId = requestIdleCallback(run, { timeout: 6000 });
         } else {
           setTimeout(run, 0);
         }
       };
-      /** Satu listener load; isi path diambil dari pathRef saat idle (FCP/LCP tidak menggantung ingest). */
+      /** Satu listener load; path di-capture di closure (bukan pathRef saat idle). */
       if (document.readyState === "complete") {
         runIdle();
       } else if (!loadIdleHooked) {
@@ -325,8 +384,16 @@ export function AnalyticsProvider() {
       }
 
       const prev = pathRef.current;
+      if (prev === path) {
+        return;
+      }
+
+      const isRouteChange = Boolean(prev && prev !== path);
       if (prev && prev !== path) {
         endPage(prev);
+        if (isRouteChange) {
+          cancelLandingIdle();
+        }
       }
       if (detachDomListeners) {
         detachDomListeners();
@@ -344,7 +411,7 @@ export function AnalyticsProvider() {
           window.fbq("track", "PageView");
         }
       }
-      scheduleDeferredStartPage();
+      scheduleDeferredStartPage(path, isRouteChange);
       visibleSinceRef.current = Date.now();
       detachDomListeners = attachListenersForPath();
     };
@@ -386,16 +453,17 @@ export function AnalyticsProvider() {
 
   useEffect(() => {
     const onClick = (ev: MouseEvent) => {
-      const path = pathRef.current;
-      if (!path || isAdminPath(path)) {
+      const path = readPathnameFromBrowser();
+      if (isAdminPath(path)) {
         return;
       }
+      const pageViewId = getCurrentPageViewId();
       const target = ev.target as Element | null;
       if (!target) {
         return;
       }
       const el = target.closest(
-        'a[href],button,input[type="submit"],input[type="button"],input[type="reset"],[role="button"],[data-track],[data-track-click],[data-gtm],[data-gtm-click]',
+        'a[href],button,input[type="submit"],input[type="button"],input[type="reset"],[role="button"],[data-track],[data-syn-track],[data-track-click],[data-gtm],[data-gtm-click]',
       );
       if (!el) {
         return;
@@ -405,6 +473,7 @@ export function AnalyticsProvider() {
       }
 
       const explicitTrackKey =
+        el.getAttribute("data-syn-track") ||
         el.getAttribute("data-track") ||
         el.getAttribute("data-track-click") ||
         el.getAttribute("data-gtm-click");
@@ -430,7 +499,7 @@ export function AnalyticsProvider() {
         const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
         // Always track if we have an explicit track key, even for hash anchors.
         // Hash navigation is common for "scroll to section" CTAs on Home.
-        if (!href || (href.startsWith("#") && !el.getAttribute("data-track"))) {
+        if (!href || (href.startsWith("#") && !el.getAttribute("data-track") && !el.getAttribute("data-syn-track"))) {
           return;
         }
         if (href.startsWith("#")) {
@@ -449,6 +518,7 @@ export function AnalyticsProvider() {
       const evt: IngestEvent = {
         type: "click",
         path,
+        page_view_id: pageViewId,
         track_key: trackKey,
         element_type: tag,
         element_label: labelFromElement(el),
@@ -484,32 +554,24 @@ export function AnalyticsProvider() {
         is_internal_link: isInternal,
       });
 
-      // Special-case: Floating WhatsApp click must be persisted server-side
-      // in `public.analytics_wa_clicks` (Edge Function `wa-click-track`),
-      // because later inbound WhatsApp webhook flow joins via session_id.
-      if (trackKey === "whatsapp_floating_click") {
-        void (async () => {
-          try {
-            const webId = getRequiredWebId();
-            const attribution = readLandingAttributionForLead();
-            await supabase.functions.invoke("wa-click-track", {
-              body: {
-                session_id: getOrCreateSessionId(),
-                web_id: webId,
-                path,
-                target_url: targetUrl ?? null,
-                attribution,
-                gclid: readLandingAttributionOnce().gclid ?? null,
-              },
-            });
-          } catch (e) {
-            // Must not block navigation.
-            console.warn("[analytics] wa-click-track invoke failed", e);
-          }
-        })();
+      // Floating WhatsApp → Synckerja wa-link-clicks (v1.4.8: traffic-logs + SESSION_NOT_READY retry).
+      if (trackKey === TRACK_KEYS.whatsappFloatingClick || el.getAttribute("data-syn-wa-track")) {
+        const waHref = tag === "a" ? (el as HTMLAnchorElement).href : targetUrl;
+        if (waHref) {
+          void trackWaLinkClick({
+            path,
+            page_view_id: pageViewId,
+            target_url: waHref,
+            target_phone: (waHref.match(/\d{8,15}/) || [])[0] || null,
+          });
+        }
       }
 
-      void sendAnalyticsBatch([evt], { deferNetwork: true });
+      if (tag === "a" && isInternal) {
+        void sendAnalyticsBatch([evt], { keepalive: true });
+      } else {
+        void sendAnalyticsBatch([evt], { deferNetwork: true });
+      }
     };
 
     document.addEventListener("click", onClick, true);

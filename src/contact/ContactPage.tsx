@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getOrCreateSessionId, getRequiredWebId, readLandingAttributionForLead } from "@/analytics/sendAnalyticsBatch";
 import { TRACK_KEYS } from "@/analytics/trackRegistry";
+import { trackSynAttrs } from "@/analytics/trackSynAttributes";
 import { metaPixelTrack } from "@/analytics/metaPixel";
 import { readLeadIdentity } from "@/contact/leadIdentityStorage";
 import { isValidEmail, isValidPhone, normalizePhone } from "@/contact/leadValidators";
@@ -102,16 +103,19 @@ export function ContactPage() {
     setSubmitting(true);
     setErrorMessage("");
     try {
-      const webId = getRequiredWebId();
-      await submitWeddingPackageLead({
+      const result = await submitWeddingPackageLead({
         step: 2,
-        id: leadRowId!,
+        name: name.trim(),
+        phone_number: phone.trim(),
+        email: email.trim(),
+        package_label: CONTACT_LEAD_PACKAGE_LABEL,
         event_date: eventDate.trim(),
         event_time: eventTime.trim(),
         event_address: eventAddress.trim(),
+        consent: true,
         attribution: readLandingAttributionForLead(),
         analytics_session_id: getOrCreateSessionId(),
-        web_id: webId,
+        web_id: getRequiredWebId(),
       });
       try {
         clearWeddingPackageLeadBrowserSession(getRequiredWebId());
@@ -119,7 +123,7 @@ export function ContactPage() {
         /* VITE_WEB_ID */
       }
       metaPixelTrack("Lead", { source: "contact_page_form" });
-      navigate("/thank-you-page");
+      navigate("/thank-you-page", { state: { whatsappStatus: result.whatsapp_status } });
     } catch (e: unknown) {
       setErrorMessage(e instanceof Error ? e.message : "Terjadi kesalahan. Coba lagi.");
     } finally {
@@ -228,7 +232,9 @@ export function ContactPage() {
                   </Button>
                 )}
                 <Button
-                  data-track={TRACK_KEYS.contactCta}
+                  {...trackSynAttrs(TRACK_KEYS.contactCta, {
+                    "data-syn-label": step === 1 ? "Lanjut" : "Kirim",
+                  })}
                   {...(step === 1 ? {} : { "data-track-target": "/thank-you-page" })}
                   disabled={!canNext}
                   onClick={onPrimary}
