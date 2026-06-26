@@ -1,4 +1,4 @@
-/** UUID seed — harus sama dengan `supabase/migrations/20260422100100_wedding_packages_seed.sql`. */
+/** UUID seed — harus sama dengan `supabase/migrations-cms/seed_property_packages_vialdi_wedding.sql`. */
 export const LEGACY_PACKAGE_SLUG_TO_UUID: Record<string, string> = {
   royal_wedding_gold: "11111111-1111-4111-8111-000000000001",
   wedding_gold_premium: "11111111-1111-4111-8111-000000000002",

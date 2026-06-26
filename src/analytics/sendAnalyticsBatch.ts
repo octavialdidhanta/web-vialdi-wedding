@@ -99,7 +99,7 @@ export type LandingAttributionSnapshot = {
   has_wbraid?: boolean;
 };
 
-/** Panggil di mount layout publik — eager traffic-logs (parity SDK v1.4.8). */
+/** Panggil di mount layout publik — eager traffic-logs (parity SDK v1.4.15). */
 export function ensureLandingAttributionCaptured(): void {
   readLandingAttributionOnce();
   bootstrapSynckerjaSessionOnMount();

@@ -13,7 +13,6 @@ import {
   getCurrentPageViewId,
   trackWaLinkClick,
 } from "@/analytics/synckerjaApi";
-import { TRACK_KEYS } from "@/analytics/trackRegistry";
 import {
   pushGtmFormSubmit,
   pushGtmUserInteraction,
@@ -142,6 +141,7 @@ export function AnalyticsProvider() {
   const visibleSinceRef = useRef<number | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastClickSigRef = useRef<{ sig: string; at: number } | null>(null);
+  const lastWaClickSigRef = useRef<{ sig: string; at: number } | null>(null);
   const scrollMaxPctRef = useRef<number>(0);
 
   const endPageRef = useRef<(path: string, opts?: { useBeacon?: boolean }) => void>(() => {});
@@ -554,19 +554,6 @@ export function AnalyticsProvider() {
         is_internal_link: isInternal,
       });
 
-      // Floating WhatsApp → Synckerja wa-link-clicks (v1.4.8: traffic-logs + SESSION_NOT_READY retry).
-      if (trackKey === TRACK_KEYS.whatsappFloatingClick || el.getAttribute("data-syn-wa-track")) {
-        const waHref = tag === "a" ? (el as HTMLAnchorElement).href : targetUrl;
-        if (waHref) {
-          void trackWaLinkClick({
-            path,
-            page_view_id: pageViewId,
-            target_url: waHref,
-            target_phone: (waHref.match(/\d{8,15}/) || [])[0] || null,
-          });
-        }
-      }
-
       if (tag === "a" && isInternal) {
         void sendAnalyticsBatch([evt], { keepalive: true });
       } else {
@@ -576,6 +563,58 @@ export function AnalyticsProvider() {
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
+  }, []);
+
+  /** Parity SDK v1.4.15 — wa-link-clicks untuk wa.me / api.whatsapp.com / data-syn-wa-track. */
+  useEffect(() => {
+    const onWaClick = (ev: MouseEvent) => {
+      const path = readPathnameFromBrowser();
+      if (isAdminPath(path)) {
+        return;
+      }
+      const target = ev.target as Element | null;
+      if (!target) {
+        return;
+      }
+      const el = target.closest(
+        '[data-syn-wa-track], a[href*="wa.me"], a[href*="api.whatsapp.com"]',
+      );
+      if (!el || el.closest("[data-analytics-ignore]")) {
+        return;
+      }
+
+      const anchor =
+        el instanceof HTMLAnchorElement ? el : (el.closest("a[href]") as HTMLAnchorElement | null);
+      const waHref = anchor?.href?.trim() ?? "";
+      if (!waHref) {
+        return;
+      }
+      const isWaUrl =
+        waHref.includes("wa.me") ||
+        waHref.includes("api.whatsapp.com") ||
+        Boolean(el.getAttribute("data-syn-wa-track"));
+      if (!isWaUrl) {
+        return;
+      }
+
+      const sig = `${path}|${waHref}`;
+      const now = Date.now();
+      const prev = lastWaClickSigRef.current;
+      if (prev && prev.sig === sig && now - prev.at < 800) {
+        return;
+      }
+      lastWaClickSigRef.current = { sig, at: now };
+
+      void trackWaLinkClick({
+        path,
+        page_view_id: getCurrentPageViewId(),
+        target_url: waHref,
+        target_phone: (waHref.match(/\d{8,15}/) || [])[0] || null,
+      });
+    };
+
+    document.addEventListener("click", onWaClick, true);
+    return () => document.removeEventListener("click", onWaClick, true);
   }, []);
 
   useEffect(() => {

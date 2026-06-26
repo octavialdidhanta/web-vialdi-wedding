@@ -2,9 +2,9 @@
 /// <reference path="./types/vite-imagetools-and-iframe.d.ts" />
 
 interface ImportMetaEnv {
-  /** Synckerja Omnichannel API base URL (SDK token scope) */
+  /** Synckerja Omnichannel API v1.4.15 — base URL (SDK token scope) */
   readonly VITE_SYNCKERJA_API_BASE?: string;
-  /** Synckerja SDK token (`sk_omni_...`) — safe for browser bundle */
+  /** Synckerja SDK token (`sk_omni_...`) — tipe SDK; ter-bundle di browser (allowed origins di dashboard Synckerja) */
   readonly VITE_SYNCKERJA_SDK_TOKEN?: string;
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;

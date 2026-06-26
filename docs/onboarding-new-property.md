@@ -60,7 +60,7 @@ VALUES ('acme-id', 'acme-dental-jakarta');
 
 6. **Optional** — `organization_whatsapp_templates` / floating WA rows for `web_id`.
 
-7. **Analytics access** (other orgs) — row in `analytics_web_access`; approve at `/admin/requests`.
+7. **Analytics access (cross-org only)** — untuk organisasi **selain** pemilik property: row di `analytics_web_access` + approve manual. Org pemilik property + token SDK aktif → Traffic auto-approved (v1.4.13, lihat `API_ACCESSIBILITY_DOCS.md`).
 
 ## Verify
 

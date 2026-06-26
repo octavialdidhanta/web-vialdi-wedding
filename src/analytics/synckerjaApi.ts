@@ -6,7 +6,7 @@ const SESSION_KEY = "synckerja_session_id";
 const SESSION_BACKUP_KEY = "synckerja_session_backup_v1";
 /** Sliding window inaktivitas (GA4-style) sebelum session baru. */
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
-/** Selaras SDK resmi Synckerja v1.4.8 — first-touch UTM per tab. */
+/** Selaras SDK resmi Synckerja v1.4.15 — first-touch UTM per tab. */
 const ATTRIBUTION_KEY = "synckerja_first_touch_attribution";
 
 type SessionBackup = { id: string; lastActivityMs: number };
@@ -26,18 +26,32 @@ const ATTRIBUTION_KEYS = [
   "wbraid",
 ] as const;
 
-export type SynckerjaWhatsappStatus = "sent" | "failed" | "skipped";
+export type SynckerjaWhatsappStatus = "sent" | "delivered" | "failed" | "skipped";
 
 export type SynckerjaWhatsappSkipReason =
   | "no_consent"
   | "no_phone"
   | "no_template"
-  | "wa_not_configured";
+  | "wa_not_configured"
+  | "wa_account_not_mapped";
+
+/** v1.4.15 — diagnosa mapping template / akun WA saat failed atau skipped. */
+export type SynckerjaWhatsappDebug = {
+  template_name?: string;
+  template_language?: string;
+  mapping_source?: string;
+  param_count?: number;
+  expected_slot_count?: number;
+  web_id?: string;
+  whatsapp_account_id?: string;
+  phone_number_id?: string;
+  account_resolution?: "mapped" | "not_mapped" | string;
+};
 
 export type SynckerjaLeadResponse = {
   success?: boolean;
   lead_id?: string;
-  /** Bisa LEAD-* atau WA-* setelah konfirmasi WA terkirim (v1.4.8) */
+  /** Bisa LEAD-* atau WA-* setelah konfirmasi WA terkirim (v1.4.15) */
   ticket_id?: string;
   session_id?: string;
   attribution?: Record<string, unknown>;
@@ -45,12 +59,35 @@ export type SynckerjaLeadResponse = {
   whatsapp_message_id?: string | null;
   whatsapp_ticket_id?: string | null;
   whatsapp_conversation_id?: string | null;
-  /** `meta:...` = Graph API error; `persist_failed:...` = WA terkirim, livechat gagal disimpan */
+  /** `meta:...` = Graph API error; `meta_precheck:...` / `meta_delivery:...` = v1.4.15 */
   whatsapp_skip_reason?: SynckerjaWhatsappSkipReason | string | null;
+  whatsapp_debug?: SynckerjaWhatsappDebug | null;
   error?: string;
 };
 
-/** Respons POST /api/v1/traffic-logs (v1.4.8 — session terverifikasi sebelum 201). */
+/**
+ * v1.4.15 — POST /api/v1/leads body (flat JSON).
+ * Reserved top-level keys (bukan `form_data`): name, phone_number, email, notes,
+ * session_id, status, title, category, source_label, form_id, consent.
+ * Field lain → `lead_submissions.form_data`.
+ */
+export type SynckerjaLeadRequest = {
+  session_id?: string;
+  name?: string;
+  phone_number?: string;
+  email?: string;
+  notes?: string;
+  status?: string;
+  consent?: boolean;
+  form_id?: string;
+  /** Override CRM — default server derive dari form_data / notes / landing */
+  title?: string;
+  category?: string;
+  source_label?: string;
+  [key: string]: unknown;
+};
+
+/** Respons POST /api/v1/traffic-logs (v1.4.15 — session terverifikasi sebelum 201). */
 export type SynckerjaTrafficLogResponse = {
   success?: boolean;
   session_id?: string;
@@ -61,7 +98,7 @@ export type SynckerjaTrafficLogResponse = {
   code?: string;
 };
 
-/** Respons POST /api/v1/wa-link-clicks (v1.4.8 — stub lead + analytics). */
+/** Respons POST /api/v1/wa-link-clicks (v1.4.15 — stub lead + analytics). */
 export type SynckerjaWaLinkClickResponse = {
   success?: boolean;
   wa_click_id?: string;
@@ -79,7 +116,7 @@ export type SynckerjaClickEventResponse = {
   code?: string;
 };
 
-/** v1.4.8 — session belum siap; client boleh retry traffic-logs lalu POST ulang. */
+/** v1.4.15 — session belum siap; client boleh retry traffic-logs lalu POST ulang. */
 export const SYNCKERJA_SESSION_NOT_READY = "SESSION_NOT_READY" as const;
 
 declare global {
@@ -283,7 +320,7 @@ export function persistSynckerjaAttribution(params: Record<string, string>): voi
 
 /**
  * UTM + click IDs first-touch per tab (sessionStorage).
- * Server Synckerja v1.4.8 juga merge by session_id — kirim ini best practice SPA.
+ * Server Synckerja v1.4.15 juga merge by session_id — kirim ini best practice SPA.
  */
 export function getSynckerjaAttributionPayload(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -338,7 +375,7 @@ export async function recordSynckerjaPageView(pageUrl: string): Promise<string |
 }
 
 /**
- * Pastikan POST /traffic-logs sukses (page_view_id) sebelum click-events / wa-link-clicks (v1.4.8).
+ * Pastikan POST /traffic-logs sukses (page_view_id) sebelum click-events / wa-link-clicks (v1.4.15).
  * Hanya bootstrap sesi pertama — route change memakai recordSynckerjaPageView.
  * Returns true jika session siap.
  */
@@ -622,12 +659,20 @@ export async function trackLead(body: Record<string, unknown>): Promise<Synckerj
   return parsed;
 }
 
-/** Flat lead payload — reserved keys stay top-level, rest sent as extra fields (→ form_data). */
+/** Normalisasi field lead — Meta menolak newline di variabel template WA. */
+function normalizeLeadFieldValue(key: string, value: unknown): unknown {
+  if (key === "event_address" && typeof value === "string") {
+    return value.replace(/\r?\n+/g, " · ").replace(/\s+/g, " ").trim();
+  }
+  return value;
+}
+
+/** Flat lead payload — reserved keys stay top-level (v1.4.15), rest → form_data. */
 export function buildLeadPayload(fields: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fields)) {
     if (v === undefined || v === null || v === "") continue;
-    out[k] = v;
+    out[k] = normalizeLeadFieldValue(k, v);
   }
   return out;
 }

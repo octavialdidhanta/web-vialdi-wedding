@@ -59,7 +59,7 @@ export type WeddingLeadResponse = {
   lead_id: string;
   ticket_id?: string;
   retry_after_seconds?: number;
-  /** Synckerja v1.4.8 — konfirmasi WA + thread livechat setelah POST /leads */
+  /** Synckerja v1.4.15 — konfirmasi WA + thread livechat setelah POST /leads */
   whatsapp_status?: SynckerjaWhatsappStatus;
   whatsapp_message_id?: string | null;
   whatsapp_ticket_id?: string | null;
@@ -118,22 +118,25 @@ function weddingPayloadToSynckerjaBody(payload: WeddingLeadStep2): Record<string
     event_address: payload.event_address,
     consent: payload.consent ?? true,
     form_id: "contact-main",
+    source_label: "Website form — contact-main",
   });
 }
 
 function logWhatsappOutcome(res: SynckerjaLeadResponse): void {
   if (!import.meta.env.DEV) return;
   const reason = res.whatsapp_skip_reason?.trim();
+  const debug = res.whatsapp_debug;
   if (reason?.startsWith("persist_failed:")) {
-    console.warn("[synckerja] WhatsApp sent but livechat persist failed:", reason);
+    console.warn("[synckerja] WhatsApp sent but livechat persist failed:", reason, debug ?? "");
     return;
   }
   if (res.whatsapp_status === "skipped" && reason) {
-    console.warn("[synckerja] WhatsApp skipped:", reason);
+    console.warn("[synckerja] WhatsApp skipped:", reason, debug ?? "");
   } else if (res.whatsapp_status === "failed") {
     console.warn(
       "[synckerja] WhatsApp failed:",
-      reason || "(no whatsapp_skip_reason — cek log Synckerja / mapping template legacy)",
+      reason || "(no whatsapp_skip_reason)",
+      debug ?? "(no whatsapp_debug — cek mapping template di Synckerja Office)",
     );
   }
 }
@@ -154,7 +157,7 @@ function normalizeSynckerjaLeadResponse(data: SynckerjaLeadResponse): WeddingLea
 }
 
 /** Submit final wedding lead (step 2) via Synckerja Omnichannel API.
- *  v1.4.8: session_id yang sama dengan klik floating WA meng-upgrade stub lead, bukan duplikat.
+ *  v1.4.15: session_id yang sama dengan klik WA meng-upgrade stub lead, bukan duplikat.
  */
 export async function submitWeddingPackageLead(payload: WeddingLeadStep2): Promise<WeddingLeadResponse> {
   const webId = payload.web_id ?? getRequiredWebId();

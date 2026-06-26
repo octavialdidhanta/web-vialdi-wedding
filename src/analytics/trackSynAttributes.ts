@@ -12,7 +12,7 @@ export function trackSynAttrs(
   };
 }
 
-/** WA links: Synckerja auto-detects wa.me; explicit track key for reporting. */
+/** WA links: v1.4.15 SDK juga auto-detect wa.me; explicit track key untuk reporting. */
 export function trackSynWaAttrs(
   key: TrackKey,
   extra?: Record<string, string>,
